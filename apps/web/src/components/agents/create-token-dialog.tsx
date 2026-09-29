@@ -167,8 +167,11 @@ function TokenResult({ state }: { state: CreateTokenState }) {
         </div>
       ) : (
         <p className="text-subtle text-xs">
-          Binaries: build from <code className="font-mono">agent/</code> (see agent/README.md), or
-          set <code className="font-mono">AGENT_DOWNLOAD_BASE_URL</code> to your signed releases.
+          Binaries: see the{" "}
+          <a href="https://github.com/InfraMole/agent/releases" className="underline">
+            agent releases
+          </a>
+          .
         </p>
       )}
       <p className="text-subtle text-xs">

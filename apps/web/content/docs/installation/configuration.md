@@ -71,10 +71,10 @@ set your tenant id to restrict sign-in to your organisation.
 
 ## Agent downloads
 
-With `AGENT_DOWNLOAD_BASE_URL` set to the agent releases
-(`https://github.com/InfraMole/agent/releases/latest/download`), the
-enrollment dialog shows commands that download the agent, **verify its
-checksum** and install it in one go.
+The enrollment dialog shows commands that download the agent from the
+[official releases](https://github.com/InfraMole/agent/releases), **verify its
+checksum** and install it in one go. To use your own mirror, set
+`AGENT_DOWNLOAD_BASE_URL` to its `…/latest/download` address.
 
 ## Ports
 

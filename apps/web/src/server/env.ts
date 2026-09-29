@@ -43,8 +43,14 @@ const envSchema = z.object({
   /** In-app feedback goes here by email (M12). Unset = the feedback button is hidden. */
   FEEDBACK_EMAIL: optional(z.email()),
 
-  /** Where signed agent releases are published (download links in Settings › Agents). */
-  AGENT_DOWNLOAD_BASE_URL: optional(z.url()),
+  /**
+   * Where signed agent releases are published (download + verify commands in
+   * Settings › Agents). Defaults to the official public releases (ADR-024).
+   */
+  AGENT_DOWNLOAD_BASE_URL: z.preprocess(
+    (v) => (v === "" ? undefined : v),
+    z.url().default("https://github.com/InfraMole/agent/releases/latest/download"),
+  ),
 
   /**
    * Edition (ADR-024): community (self-hosted, AGPL, unlimited servers/VMs, one workspace per
