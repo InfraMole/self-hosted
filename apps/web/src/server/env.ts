@@ -37,6 +37,22 @@ const envSchema = z.object({
     .default("false")
     .transform((v) => v === "true"),
 
+  /**
+   * Who may create an account (M13). "closed" = only the first user of the
+   * installation and people with a pending invitation (invite-only).
+   */
+  SIGNUP: z.enum(["open", "closed"]).default("open"),
+  /** Show the public InfraMole website at "/" to signed-out visitors on any edition (M13). */
+  PUBLIC_SITE: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((v) => v === "true"),
+  /** Public read-only demo at /demo with a shared Viewer account, reset every 24 h (M13). */
+  DEMO_MODE: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((v) => v === "true"),
+
   // Outgoing email (verification, password reset, invitations). Unset = log to console.
   SMTP_URL: optional(z.url().refine((v) => /^smtps?:\/\//.test(v), "must be smtp:// or smtps://")),
   MAIL_FROM: optional(z.string().min(3)),

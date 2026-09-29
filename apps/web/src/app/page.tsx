@@ -12,13 +12,20 @@ export const metadata: Metadata = {
 
 /**
  * Entry point. Signed in: first workspace (or onboarding). Signed out: the
- * public landing page on Cloud; self-hosted installs go straight to sign-in.
+ * public website on Cloud or with PUBLIC_SITE=true (M13); other installs go
+ * straight to sign-in.
  */
 export default async function Home() {
   const session = await getSession();
   if (!session) {
-    if (getEnv().EDITION !== "cloud") redirect("/sign-in");
-    return <Landing />;
+    const env = getEnv();
+    if (env.EDITION !== "cloud" && !env.PUBLIC_SITE) redirect("/sign-in");
+    return (
+      <Landing
+        cloudSignup={env.EDITION === "cloud" && env.SIGNUP === "open"}
+        demo={env.DEMO_MODE}
+      />
+    );
   }
   const [first] = await listWorkspacesForUser(session.user.id);
   if (!first) redirect("/onboarding");

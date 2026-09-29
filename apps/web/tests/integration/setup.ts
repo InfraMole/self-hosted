@@ -17,3 +17,7 @@ process.env.BETTER_AUTH_URL ??= "http://localhost:3000";
 // Integrations (ADR-018 D) — fixed test-only key and cron secret.
 process.env.CREDENTIALS_ENCRYPTION_KEY ??= Buffer.alloc(32, 7).toString("base64");
 process.env.CRON_SECRET ??= "test-cron-secret-test-cron-secret-123456";
+// Never send real email from tests, whatever the developer's .env says: a
+// configured mailer also turns on email verification. Tests that need mail
+// use setMailTransportForTests (server/mail.ts).
+for (const key of ["SMTP_URL", "MAIL_FROM", "FEEDBACK_EMAIL"]) delete process.env[key];

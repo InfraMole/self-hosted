@@ -42,15 +42,17 @@ export default async function SignInPage({ searchParams }: PageProps<"/sign-in">
       {getEnv().EDITION === "cloud" && providers.length > 0 && (
         <TermsNotice action="continuing with a new Google or Microsoft account" />
       )}
-      <p className="text-muted mt-6 text-center text-xs">
-        No account?{" "}
-        <Link
-          href={`/sign-up${suffix}`}
-          className="text-foreground underline-offset-4 hover:underline"
-        >
-          Create one
-        </Link>
-      </p>
+      {getEnv().SIGNUP === "open" && (
+        <p className="text-muted mt-6 text-center text-xs">
+          No account?{" "}
+          <Link
+            href={`/sign-up${suffix}`}
+            className="text-foreground underline-offset-4 hover:underline"
+          >
+            Create one
+          </Link>
+        </p>
+      )}
     </>
   );
 }

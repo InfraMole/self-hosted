@@ -95,6 +95,19 @@ Caddy then issues certificates from its own authority. Browsers warn until
 you trust it; agents on other machines will not trust it. Do not use this
 for production.
 
+## Invite-only sign-up
+
+By default anyone who can reach your server can create an account. To make
+the installation invite-only, create your own account first, then set:
+
+```sh
+SIGNUP=closed
+```
+
+and run `docker compose up -d`. From then on only people you invite from
+**Settings › Members** can create an account (with the invited address). The
+very first account of an installation can always be created.
+
 ## Business licence
 
 Several workspaces, priority support or a commercial licence instead of the

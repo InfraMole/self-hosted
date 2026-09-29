@@ -26,6 +26,10 @@ x-app-env: &app-env
   MAIL_FROM: ${MAIL_FROM:-}
   FEEDBACK_EMAIL: ${FEEDBACK_EMAIL:-}
   AGENT_DOWNLOAD_BASE_URL: ${AGENT_DOWNLOAD_BASE_URL:-}
+  # M13: invite-only sign-up, public website, public demo (InfraMole's own site).
+  SIGNUP: ${SIGNUP:-open}
+  PUBLIC_SITE: ${PUBLIC_SITE:-false}
+  DEMO_MODE: ${DEMO_MODE:-false}
   # Edition (ADR-023): community (default) · cloud · business (+ licence key).
   EDITION: ${EDITION:-community}
   DEPMAP_LICENSE_KEY: ${DEPMAP_LICENSE_KEY:-}
@@ -137,7 +141,7 @@ services:
         [ -n "$$CRON_SECRET" ] || { echo "CRON_SECRET unset: integrations sync disabled"; exec sleep infinity; }
         while true; do
           sleep "$$CRON_EVERY_SECONDS"
-          for job in integrations maintenance; do
+          for job in integrations maintenance demo; do
             wget -q -O - --header "Authorization: Bearer $$CRON_SECRET" --post-data "" \
               "http://web:3000/api/cron/$$job" || echo "cron $$job failed"
             echo

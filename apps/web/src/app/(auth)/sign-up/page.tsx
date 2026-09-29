@@ -6,6 +6,7 @@ import { TermsNotice } from "@/components/legal/terms-notice";
 import { safeNext } from "@/lib/safe-next";
 import { enabledSsoProviders } from "@/server/auth";
 import { getEnv } from "@/server/env";
+import { signUpFormAvailable } from "@/server/modules/access/signup";
 import { SignUpForm } from "./sign-up-form";
 
 /** Better Auth OAuth error codes → honest, non-technical copy. */
@@ -23,6 +24,25 @@ export default async function SignUpPage({ searchParams }: PageProps<"/sign-up">
   const next = safeNext(sp.next);
   const ssoError = typeof sp.error === "string" ? ssoErrorMessage(sp.error) : null;
   const suffix = next ? `?next=${encodeURIComponent(next)}` : "";
+  if (!(await signUpFormAvailable(next)))
+    return (
+      <div className="text-center">
+        <p className="text-sm font-medium">Registration is closed on this server.</p>
+        <p className="text-muted mt-2 text-sm">
+          Ask an administrator of this InfraMole installation for an invitation — the link in it
+          lets you create your account.
+        </p>
+        <p className="text-muted mt-6 text-xs">
+          Already have an account?{" "}
+          <Link
+            href={`/sign-in${suffix}`}
+            className="text-foreground underline-offset-4 hover:underline"
+          >
+            Sign in
+          </Link>
+        </p>
+      </div>
+    );
   return (
     <>
       {ssoError && (

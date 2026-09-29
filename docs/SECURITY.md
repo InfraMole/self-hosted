@@ -134,6 +134,21 @@ ports, running software and who talks to whom. For an attacker that is a
   `/reset-password`. Reset and invite pages set `Referrer-Policy:
 no-referrer` (token in the URL).
 
+## 5q. Invite-only sign-up and the public demo (M13, ADR-025)
+
+- `SIGNUP=closed`: account creation is decided server-side in the Better Auth
+  `user.create` hook (form and SSO): first account of the installation or a
+  pending, unexpired invitation for that exact address. Tested.
+- Demo (`DEMO_MODE`): the shared account's password is public by design; the
+  account is a VIEWER (no writes), and account endpoints that could lock other
+  visitors out are refused (`DEMO_LOCKED_PATHS` in `server/auth.ts`, password
+  reset for the demo address too); it cannot leave the workspace or create
+  workspaces. Data is fictional and rebuilt every 24 h. Sign-in uses the
+  normal rate-limited endpoint. Feedback from the demo is allowed.
+- The demo's lookup of its workspace uses `systemDb("demo: find the demo
+workspace")`; the rebuild deletes it with the audited-delete bypass, like
+  workspace deletion.
+
 ## 5p. In-app feedback (M12)
 
 - Emailed as plain text to `FEEDBACK_EMAIL` (no HTML, headers single-line),

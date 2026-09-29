@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import "server-only";
 import { assertCanAddMember } from "@/server/modules/billing/limits";
+import { isDemoUser } from "@/server/modules/demo/demo";
 import { recordAudit, userActor } from "@/server/modules/audit/audit";
 import { z } from "zod";
 import {
@@ -147,6 +148,9 @@ export async function removeMember(ctx: WorkspaceContext, userId: string): Promi
       include: { user: { select: { email: true } } },
     });
     if (!target) throw new MemberError("Member not found.");
+    // The shared demo account (M13) stays in the demo workspace.
+    if (isDemoUser(target.user))
+      throw new MemberError("The demo account cannot leave or be removed from the demo.");
     if (target.role === "OWNER") {
       if (!self && ctx.role !== "OWNER")
         throw new ForbiddenError("Only an owner can remove an owner.");

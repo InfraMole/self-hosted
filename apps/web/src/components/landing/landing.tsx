@@ -23,24 +23,32 @@ import { ImpactPreview } from "./impact-preview";
 
 /**
  * Public landing page (M11, ADR-022). Shown at "/" to signed-out visitors on
- * the Cloud edition only; self-hosted installs go straight to sign-in.
+ * Cloud or when PUBLIC_SITE=true (M13); otherwise installs go straight to sign-in.
  * Light theme island inside the dark app. Copy follows docs/UI.md: "could be
  * affected", never "will break"; no claims the product does not back.
  */
-export function Landing() {
+/** What the visitor can actually do on this installation (M13). */
+export interface LandingOptions {
+  /** Cloud sign-up is open (EDITION=cloud and SIGNUP=open). Otherwise: "Install free". */
+  cloudSignup: boolean;
+  /** A public demo exists at /demo (DEMO_MODE). */
+  demo: boolean;
+}
+
+export function Landing(options: LandingOptions) {
   return (
     <div className="light flex min-h-full flex-1 flex-col">
       <SiteHeader />
       <main className="flex-1">
-        <Hero />
+        <Hero {...options} />
         <section className="mx-auto max-w-6xl px-4 pb-20 sm:px-6">
           <ImpactPreview />
         </section>
         <HowItWorks />
         <Honesty />
         <Security />
-        <Pricing />
-        <FinalCta />
+        <Pricing {...options} />
+        <FinalCta {...options} />
       </main>
       <SiteFooter />
     </div>
@@ -73,7 +81,7 @@ export function SiteHeader() {
             <Link href="/sign-in">Sign in</Link>
           </Button>
           <Button asChild size="md">
-            <Link href="/sign-up">Start free</Link>
+            <Link href="/#pricing">Get started</Link>
           </Button>
         </div>
       </div>
@@ -83,7 +91,9 @@ export function SiteHeader() {
 
 const technicalValues = ["prod-web-01", "10.20.4.15", "Azure / rg-production", "SQL-PROD-02"];
 
-function Hero() {
+const INSTALL_HREF = "/docs/installation/requirements";
+
+function Hero({ cloudSignup, demo }: LandingOptions) {
   return (
     <section className="mx-auto grid max-w-6xl items-center gap-10 px-4 pt-16 pb-14 sm:px-6 lg:grid-cols-[1.15fr_0.85fr] lg:pt-24">
       <div>
@@ -102,15 +112,20 @@ function Hero() {
         </p>
         <div className="mt-8 flex flex-wrap items-center gap-3">
           <Button asChild size="lg" className="h-10 px-5">
-            <Link href="/sign-up">Start free trial</Link>
+            {cloudSignup ? (
+              <Link href="/sign-up">Start free trial</Link>
+            ) : (
+              <Link href={INSTALL_HREF}>Install free</Link>
+            )}
           </Button>
           <Button asChild variant="outline" size="lg" className="h-10 px-5">
-            <a href="#how">How it works</a>
+            {demo ? <Link href="/demo">Try the demo</Link> : <a href="#how">How it works</a>}
           </Button>
         </div>
         <p className="text-subtle mt-4 text-xs">
-          {CLOUD_TRIAL_DAYS}-day free trial. No card needed. Or self-host Community — free and open
-          source.
+          {cloudSignup
+            ? `${CLOUD_TRIAL_DAYS}-day free trial. No card needed. Or self-host Community — free and open source.`
+            : "Free and open source (AGPLv3). Up and running on your own server in about ten minutes."}
         </p>
         <ul className="mt-10 flex flex-wrap gap-2" aria-label="The kind of things it maps">
           {technicalValues.map((v) => (
@@ -308,7 +323,7 @@ const cloudCommon = [
   "Applications, databases, containers, domains and discovered services unlimited",
 ];
 
-function Pricing() {
+function Pricing({ cloudSignup }: LandingOptions) {
   return (
     <section id="pricing" className="mx-auto max-w-6xl scroll-mt-14 px-4 py-20 sm:px-6">
       <SectionTitle eyebrow="Pricing" title="Your infrastructure. Your choice." />
@@ -409,15 +424,23 @@ function Pricing() {
                   <PlanLine key={line}>{line}</PlanLine>
                 ))}
               </ul>
-              <Button asChild variant={featured ? "default" : "outline"} className="mt-6 h-9">
-                <Link href="/sign-up">Start free trial</Link>
-              </Button>
+              {cloudSignup ? (
+                <Button asChild variant={featured ? "default" : "outline"} className="mt-6 h-9">
+                  <Link href="/sign-up">Start free trial</Link>
+                </Button>
+              ) : (
+                <Button variant="outline" className="mt-6 h-9" disabled>
+                  Coming soon
+                </Button>
+              )}
             </div>
           );
         })}
       </div>
       <p className="text-muted mt-4 text-sm">
-        Every Cloud workspace starts with {CLOUD_TRIAL_DAYS} days of Team, free — no card needed.
+        {cloudSignup
+          ? `Every Cloud workspace starts with ${CLOUD_TRIAL_DAYS} days of Team, free — no card needed.`
+          : `InfraMole Cloud opens soon: every Cloud workspace will start with ${CLOUD_TRIAL_DAYS} days of Team, free — no card needed.`}
         More than {CLOUD_TIER.scale.nodes} servers?{" "}
         <a href="mailto:sales@inframole.com" className="text-accent hover:underline">
           Talk to us
@@ -451,7 +474,7 @@ function PlanLine({ children }: { children: React.ReactNode }) {
   );
 }
 
-function FinalCta() {
+function FinalCta({ cloudSignup, demo }: LandingOptions) {
   return (
     <section className="bg-brand-ink text-white">
       <div className="mx-auto flex max-w-6xl flex-col items-center gap-8 px-4 py-16 sm:px-6 md:flex-row md:justify-between">
@@ -462,17 +485,35 @@ function FinalCta() {
               Know what is under the ground.
             </h2>
             <p className="mt-2 text-white/65">
-              Map your first servers in minutes. 14 days free, no card, no sales call.
+              {cloudSignup
+                ? "Map your first servers in minutes. 14 days free, no card, no sales call."
+                : "Free and open source. Map your first servers in minutes — no sales call."}
             </p>
           </div>
         </div>
-        <Button
-          asChild
-          size="lg"
-          className="bg-brand-violet hover:bg-brand-violet/90 h-10 px-6 text-white"
-        >
-          <Link href="/sign-up">Start free trial</Link>
-        </Button>
+        <div className="flex flex-wrap items-center gap-3">
+          {demo && (
+            <Button
+              asChild
+              size="lg"
+              variant="outline"
+              className="h-10 border-white/30 px-6 text-white hover:bg-white/10"
+            >
+              <Link href="/demo">Try the demo</Link>
+            </Button>
+          )}
+          <Button
+            asChild
+            size="lg"
+            className="bg-brand-violet hover:bg-brand-violet/90 h-10 px-6 text-white"
+          >
+            {cloudSignup ? (
+              <Link href="/sign-up">Start free trial</Link>
+            ) : (
+              <Link href={INSTALL_HREF}>Install free</Link>
+            )}
+          </Button>
+        </div>
       </div>
     </section>
   );

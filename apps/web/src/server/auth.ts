@@ -3,14 +3,16 @@ import "server-only";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
-import { APIError } from "better-auth/api";
+import { APIError, createAuthMiddleware, getSessionFromCtx } from "better-auth/api";
 import { twoFactor } from "better-auth/plugins";
 import { passkey } from "@better-auth/passkey";
 import { getDb, userDb } from "./db";
 import { TERMS_VERSION } from "@/lib/legal";
 import { getEnv } from "./env";
 import { AccountError, prepareAccountDeletion } from "./modules/account/account";
+import { SIGNUP_CLOSED_MESSAGE, signUpAllowed } from "./modules/access/signup";
 import { recordAudit, type AuditInput } from "./modules/audit/audit";
+import { DEMO_EMAIL } from "./modules/demo/demo";
 import { mailerConfigured, resetPasswordMail, sendMail, verificationMail } from "./mail";
 
 export const PASSWORD_MIN_LENGTH = 10;
@@ -25,6 +27,30 @@ export function enabledSsoProviders(env = getEnv()): SsoProvider[] {
   return out;
 }
 export const PASSWORD_MAX_LENGTH = 128;
+
+/**
+ * Account endpoints the shared demo account may not call (M13): the demo is
+ * read-only, and changing its password, 2FA, passkeys, sessions or deleting it
+ * would lock every other visitor out.
+ */
+const DEMO_LOCKED_PATHS = [
+  "/update-user",
+  "/change-password",
+  "/change-email",
+  "/set-password",
+  "/delete-user",
+  "/two-factor/",
+  "/passkey/add",
+  "/passkey/delete",
+  "/passkey/update",
+  "/passkey/generate-register",
+  "/link-social",
+  "/unlink-account",
+  "/revoke-session",
+  "/revoke-sessions",
+  "/revoke-other-sessions",
+];
+const PASSWORD_RESET_PATHS = ["/request-password-reset", "/forget-password"];
 
 function createAuth() {
   const env = getEnv();
@@ -128,17 +154,38 @@ function createAuth() {
       // Same client-IP rule as server/http.ts clientIp (rate limits, sessions).
       ipAddress: { ipAddressHeaders: env.TRUST_PROXY ? ["x-real-ip"] : ["x-forwarded-for"] },
     },
+    hooks: {
+      // Public demo (M13): the shared account is read-only at the account level too.
+      before: createAuthMiddleware(async (ctx) => {
+        if (!env.DEMO_MODE) return;
+        const denied = () =>
+          new APIError("BAD_REQUEST", { message: "The demo account is read-only." });
+        if (PASSWORD_RESET_PATHS.some((p) => ctx.path.startsWith(p))) {
+          const email = String((ctx.body as { email?: unknown } | undefined)?.email ?? "");
+          if (email.trim().toLowerCase() === DEMO_EMAIL) throw denied();
+          return;
+        }
+        if (!DEMO_LOCKED_PATHS.some((p) => ctx.path.startsWith(p))) return;
+        const session = await getSessionFromCtx(ctx);
+        if (session?.user.email?.toLowerCase() === DEMO_EMAIL) throw denied();
+      }),
+    },
     databaseHooks: {
       user: {
         create: {
           // Cloud: creating an account (form or Google/Microsoft) accepts the
           // Terms shown on the sign-up page; record which version and when.
-          before: async (user) =>
-            env.EDITION === "cloud"
+          before: async (user) => {
+            // SIGNUP=closed (M13): invitation or first user only. 400, not 403:
+            // the client maps 403 to "verify your email".
+            if (!(await signUpAllowed(user.email)))
+              throw new APIError("BAD_REQUEST", { message: SIGNUP_CLOSED_MESSAGE });
+            return env.EDITION === "cloud"
               ? {
                   data: { ...user, termsVersion: TERMS_VERSION, termsAcceptedAt: new Date() },
                 }
-              : undefined,
+              : undefined;
+          },
         },
       },
       account: {

@@ -15,6 +15,7 @@ import { getAccountSecurity } from "@/server/modules/account/account";
 import { listAccountEvents } from "@/server/modules/audit/audit";
 import { requireUser } from "@/server/tenancy";
 import { passkeyAddedAction, removePasskeyAction, twoFactorChangedAction } from "./actions";
+import { isDemoUser } from "@/server/modules/demo/demo";
 
 export const metadata: Metadata = { title: "Account & security" };
 
@@ -67,6 +68,15 @@ export default async function AccountPage({ searchParams }: PageProps<"/account"
             {user.name} · <span className="font-mono text-xs">{user.email}</span>
           </p>
         </div>
+
+        {isDemoUser(user) && (
+          <p
+            role="status"
+            className="border-accent/30 bg-accent/10 rounded-md border px-3 py-2 text-sm"
+          >
+            This is the shared demo account: its settings cannot be changed.
+          </p>
+        )}
 
         {typeof required === "string" && !security.twoFactorEnabled && (
           <div

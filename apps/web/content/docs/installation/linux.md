@@ -125,8 +125,8 @@ Members**.
 :::note Open sign-up
 Anyone who can reach the address can create an account. Community allows one
 workspace per installation, so they cannot create their own or see yours —
-but for an internal tool, keeping the server behind your VPN or firewall is
-simpler.
+but you can make it invite-only with `SIGNUP=closed` (see
+[Configuration](/docs/installation/configuration#invite-only-sign-up)).
 :::
 
 ## Next steps

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { Sidebar } from "@/components/app-shell/sidebar";
 import { UsageBanner } from "@/components/billing/usage-banner";
+import { DemoBanner } from "@/components/demo/demo-banner";
+import { isDemoUser } from "@/server/modules/demo/demo";
 import { hasRole } from "@/server/authz";
 import { getUsage } from "@/server/modules/billing/limits";
 import { countSuggestions } from "@/server/modules/discovery/discovery";
@@ -29,6 +31,7 @@ export default async function WorkspaceLayout({ children, params }: LayoutProps<
         feedbackAction={feedbackEnabled() ? sendFeedbackAction.bind(null, ctx.workspaceSlug) : null}
       />
       <main className="flex min-w-0 flex-1 flex-col overflow-auto">
+        {isDemoUser(user) && <DemoBanner />}
         <UsageBanner
           usage={usage}
           billingHref={

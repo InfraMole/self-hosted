@@ -11,6 +11,7 @@ import {
   InstanceWorkspaceLimitError,
   assertCanCreateWorkspace,
 } from "@/server/modules/billing/limits";
+import { isDemoUser } from "@/server/modules/demo/demo";
 import { requireUser } from "@/server/tenancy";
 
 export interface CreateWorkspaceState {
@@ -27,6 +28,7 @@ export async function createWorkspaceAction(
 
   let slug: string;
   try {
+    if (isDemoUser(user)) return { error: "The demo account cannot create workspaces." };
     await assertCanCreateWorkspace();
     slug = (await createWorkspace(user.id, parsed.data)).slug;
   } catch (error) {
