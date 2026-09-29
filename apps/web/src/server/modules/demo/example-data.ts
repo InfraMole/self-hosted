@@ -60,12 +60,12 @@ export const RESOURCES: Seed[] = [
     tags: ["internal"],
   },
   {
-    name: "RotationSecret",
+    name: "Billing",
     type: "APPLICATION",
     environment: "PRODUCTION",
     criticality: "HIGH",
-    description: "Credential rotation service",
-    notes: "Owned by the infra team.\nRestarts are safe during business hours.",
+    description: "Invoicing and payments service",
+    notes: "Owned by the finance systems team.\nAvoid restarts during month-end closing.",
   },
   {
     name: "CustomerAPI",
@@ -183,15 +183,15 @@ export const RESOURCES: Seed[] = [
   },
 ];
 
-// "from TYPE to" — mirrors docs/PRODUCT.md (Impact example: SQL01 -> CustomersDB -> RotationSecret -> IT Portal; CustomerAPI -> Web/Mobile).
+// "from TYPE to" (Impact example: SQL01 -> CustomersDB -> Billing -> IT Portal; CustomerAPI -> Web/Mobile).
 export const RELATIONSHIPS: [string, RelationshipType, string, string?][] = [
   ["IIS", "RUNS_ON", "APP01"],
   ["IT Portal", "RUNS_ON", "IIS"],
-  ["IT Portal", "CALLS", "RotationSecret", "Fetches rotated service credentials"],
+  ["IT Portal", "CALLS", "Billing", "Shows invoice status to staff"],
   ["IT Portal", "AUTHENTICATES_WITH", "corp.local"],
   ["IT Portal", "EXPOSED_THROUGH", "Cloudflare"],
-  ["RotationSecret", "RUNS_ON", "APP01"],
-  ["RotationSecret", "USES_DATABASE", "CustomersDB"],
+  ["Billing", "RUNS_ON", "APP01"],
+  ["Billing", "USES_DATABASE", "CustomersDB"],
   ["CustomersDB", "RUNS_ON", "SQL01"],
   ["CustomerAPI", "USES_DATABASE", "CustomersDB"],
   ["CustomerAPI", "RUNS_ON", "APP02"],
