@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "ChangeKind" ADD VALUE 'NO_LONGER_OBSERVED';

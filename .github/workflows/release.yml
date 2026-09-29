@@ -1,0 +1,94 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+name: Release
+
+# Push a tag like v0.1.0 (docs: apps/web/content/docs/operations/upgrade.md):
+#  - images ghcr.io/inframole/{web,migrate,backup}:<version> and :latest
+#    (linux/amd64 + linux/arm64), built from this public source (AGPL §6);
+#  - the self-hosted bundle (compose + Caddyfile + .env.example + scripts +
+#    README) and its SHA-256 as assets of this repository's release.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  IMAGES: ghcr.io/inframole
+
+jobs:
+  images:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - name: web
+            context: .
+            file: apps/web/Dockerfile
+            target: runner
+          - name: migrate
+            context: .
+            file: apps/web/Dockerfile
+            target: migrate
+          - name: backup
+            context: deploy
+            file: deploy/backup.Dockerfile
+            target: ""
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - name: Version
+        id: v
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+      - uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
+          target: ${{ matrix.target }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ env.IMAGES }}/${{ matrix.name }}:${{ steps.v.outputs.version }}
+            ${{ env.IMAGES }}/${{ matrix.name }}:latest
+          labels: |
+            org.opencontainers.image.title=InfraMole ${{ matrix.name }}
+            org.opencontainers.image.version=${{ steps.v.outputs.version }}
+            org.opencontainers.image.url=https://inframole.com/self-hosted
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+
+  bundle:
+    needs: images
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Build bundle
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          node deploy/scripts/make-bundle.mjs "$version" dist
+          # The bundle must be a valid compose project on its own.
+          cp dist/inframole-self-hosted/.env.example dist/inframole-self-hosted/.env
+          sed -i 's/^DEPMAP_DOMAIN=.*/DEPMAP_DOMAIN=example.com/' dist/inframole-self-hosted/.env
+          sh dist/inframole-self-hosted/scripts/gen-secrets.sh dist/inframole-self-hosted/.env > /dev/null
+          (cd dist/inframole-self-hosted && docker compose config -q)
+          rm dist/inframole-self-hosted/.env
+          tar -C dist -czf dist/inframole-self-hosted.tar.gz inframole-self-hosted
+          (cd dist && sha256sum inframole-self-hosted.tar.gz > inframole-self-hosted.tar.gz.sha256)
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            dist/inframole-self-hosted.tar.gz dist/inframole-self-hosted.tar.gz.sha256 \
+            --title "InfraMole ${GITHUB_REF_NAME#v}" \
+            --notes "Install or update: https://inframole.com/docs/installation/requirements — images ghcr.io/inframole/{web,migrate,backup}:${GITHUB_REF_NAME#v}. Licence: AGPL-3.0-only."

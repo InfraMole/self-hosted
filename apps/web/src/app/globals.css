@@ -1,0 +1,388 @@
+/* SPDX-License-Identifier: AGPL-3.0-only */
+@import "tailwindcss";
+
+/* Design tokens — see docs/UI.md §2. Dark is the reference theme. */
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root,
+.light {
+  --background: #fbfafe;
+  --surface: #ffffff;
+  --surface-2: #f4f1fc;
+  --border: #e6e2f2;
+  --border-strong: #d4cee8;
+  --foreground: #151329;
+  --muted: #5d5878;
+  --subtle: #8d88a6;
+  --accent: #6d45f0;
+  --accent-foreground: #ffffff;
+  --danger: #d9423a;
+  --warning: #c98a0b;
+  --success: #1f9d55;
+  --info: #2f6fdb;
+  --violet: #b04fc9;
+  --ring: #6d45f0;
+  /* Brand (InfraMole, ADR-022): ink, mole violet, snout lavender. */
+  --brand-ink: #151329;
+  --brand-violet: #8b65fc;
+  --brand-lavender: #dcccfa;
+  --brand-body: #2b2465;
+}
+
+.dark {
+  --background: #0b0a13;
+  --surface: #110f1c;
+  --surface-2: #181526;
+  --border: #221e33;
+  --border-strong: #2f2a45;
+  --foreground: #e8e6f1;
+  --muted: #8f8aa8;
+  --subtle: #5f5a78;
+  --accent: #8b65fc;
+  --accent-foreground: #151329;
+  --danger: #f2706a;
+  --warning: #f0b43c;
+  --success: #52cf86;
+  --info: #6fa6f7;
+  --violet: #d47be6;
+  --ring: #8b65fc;
+}
+
+/* A light island inside the dark app (the public landing page). */
+.light {
+  color-scheme: light;
+  background: var(--background);
+  color: var(--foreground);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-subtle: var(--subtle);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-danger: var(--danger);
+  --color-warning: var(--warning);
+  --color-success: var(--success);
+  --color-info: var(--info);
+  --color-violet: var(--violet);
+  --color-ring: var(--ring);
+  --color-brand-ink: var(--brand-ink);
+  --color-brand-violet: var(--brand-violet);
+  --color-brand-lavender: var(--brand-lavender);
+  --color-brand-body: var(--brand-body);
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, "SFMono-Regular", monospace;
+
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+  html {
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection {
+    background: color-mix(in srgb, var(--accent) 30%, transparent);
+  }
+}
+
+/* React Flow (map) — align its dark theme with our tokens. */
+.react-flow.dark {
+  --xy-background-color: var(--background);
+  --xy-edge-label-background-color: var(--surface-2);
+  --xy-edge-label-color: var(--foreground);
+  --xy-minimap-background-color: var(--surface);
+  --xy-minimap-mask-stroke-color: var(--border-strong);
+  --xy-controls-button-background-color: var(--surface);
+  --xy-controls-button-background-color-hover: var(--surface-2);
+  --xy-controls-button-color: var(--muted);
+  --xy-controls-button-color-hover: var(--foreground);
+  --xy-controls-button-border-color: var(--border);
+  --xy-attribution-background-color: transparent;
+}
+.react-flow .react-flow__controls,
+.react-flow .react-flow__minimap {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: none;
+}
+.react-flow .react-flow__attribution a {
+  color: var(--subtle);
+}
+
+/* Long-form documents rendered from Markdown (legal pages, self-hosting guide). */
+.doc-prose {
+  max-width: 72ch;
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--foreground);
+}
+.doc-prose h1 {
+  font-size: 1.875rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  margin-bottom: 1.25rem;
+}
+.doc-prose h2 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin-top: 2.25rem;
+  margin-bottom: 0.5rem;
+}
+.doc-prose h3 {
+  font-weight: 600;
+  margin-top: 1.5rem;
+}
+.doc-prose p,
+.doc-prose ul,
+.doc-prose ol,
+.doc-prose table,
+.doc-prose blockquote {
+  margin-top: 0.75rem;
+}
+.doc-prose ul {
+  list-style: disc;
+  padding-left: 1.25rem;
+}
+.doc-prose ol {
+  list-style: decimal;
+  padding-left: 1.25rem;
+}
+.doc-prose li + li {
+  margin-top: 0.25rem;
+}
+.doc-prose a {
+  color: var(--accent);
+  text-underline-offset: 3px;
+}
+.doc-prose a:hover {
+  text-decoration: underline;
+}
+.doc-prose strong {
+  font-weight: 600;
+}
+.doc-prose code {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.85em;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  padding: 0.1em 0.35em;
+}
+.doc-prose blockquote {
+  border-left: 3px solid var(--warning);
+  background: color-mix(in srgb, var(--warning) 8%, transparent);
+  padding: 0.5rem 0.9rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.9em;
+}
+.doc-prose table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875em;
+  display: block;
+  overflow-x: auto;
+}
+.doc-prose th,
+.doc-prose td {
+  border: 1px solid var(--border);
+  padding: 0.45rem 0.6rem;
+  text-align: left;
+  vertical-align: top;
+}
+.doc-prose th {
+  background: var(--surface-2);
+  font-weight: 600;
+}
+.doc-prose pre {
+  margin-top: 0.75rem;
+  background: var(--brand-ink);
+  color: #e8e6f1;
+  border-radius: var(--radius-md);
+  padding: 0.75rem 1rem;
+  overflow-x: auto;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.doc-prose pre code {
+  background: none;
+  padding: 0;
+  font-size: inherit;
+  color: inherit;
+}
+
+/* ── Documentation portal (/docs) ─────────────────────────────────────────── */
+.doc-prose h1 {
+  font-size: 2.1rem;
+}
+.doc-prose h2,
+.doc-prose h3 {
+  position: relative;
+  scroll-margin-top: 5rem;
+}
+.doc-prose h3 {
+  font-size: 1.05rem;
+  margin-top: 1.75rem;
+}
+.doc-anchor {
+  position: absolute;
+  left: -1.1em;
+  color: var(--subtle) !important;
+  opacity: 0;
+  text-decoration: none !important;
+}
+.doc-prose h2:hover .doc-anchor,
+.doc-prose h3:hover .doc-anchor {
+  opacity: 1;
+}
+.doc-prose pre {
+  position: relative;
+}
+.doc-copy {
+  position: absolute;
+  top: 0.45rem;
+  right: 0.45rem;
+  font-family: var(--font-geist-sans), sans-serif;
+  font-size: 11px;
+  color: #cfcbe3;
+  background: rgb(255 255 255 / 0.08);
+  border: 1px solid rgb(255 255 255 / 0.14);
+  border-radius: var(--radius-sm);
+  padding: 0.1rem 0.5rem;
+  opacity: 0;
+  transition: opacity 120ms;
+}
+.doc-prose pre:hover .doc-copy,
+.doc-copy:focus-visible {
+  opacity: 1;
+}
+
+/* Numbered steps: every h3 inside is a step. */
+.doc-steps {
+  counter-reset: doc-step;
+  margin-top: 1.25rem;
+  border-left: 2px solid var(--border);
+  padding-left: 1.75rem;
+  margin-left: 0.85rem;
+}
+.doc-steps h3 {
+  counter-increment: doc-step;
+  margin-top: 2rem;
+}
+.doc-steps > h3:first-child {
+  margin-top: 0.5rem;
+}
+.doc-steps h3::before {
+  content: counter(doc-step);
+  position: absolute;
+  left: -2.75rem;
+  top: -0.05rem;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-foreground);
+  font-size: 0.85rem;
+  font-weight: 600;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 0 0 4px var(--background);
+}
+.doc-steps h3 .doc-anchor {
+  display: none;
+}
+
+/* OS tabs (CSS-only; synced by DocsEnhancer). Up to 4 tabs per group. */
+.doc-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+.doc-tabs > input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.doc-tabs > label {
+  cursor: pointer;
+  padding: 0.5rem 0.9rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--muted);
+  border-bottom: 2px solid transparent;
+}
+.doc-tabs > input:checked + label {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+.doc-tabs > input:focus-visible + label {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}
+.doc-tab-panel {
+  display: none;
+  order: 1;
+  flex-basis: 100%;
+  border-top: 1px solid var(--border);
+  padding: 0.25rem 1rem 1rem;
+}
+.doc-tabs > input:nth-of-type(1):checked ~ .doc-tab-panel:nth-of-type(1),
+.doc-tabs > input:nth-of-type(2):checked ~ .doc-tab-panel:nth-of-type(2),
+.doc-tabs > input:nth-of-type(3):checked ~ .doc-tab-panel:nth-of-type(3),
+.doc-tabs > input:nth-of-type(4):checked ~ .doc-tab-panel:nth-of-type(4) {
+  display: block;
+}
+
+/* Callouts */
+.doc-callout {
+  margin-top: 1rem;
+  border: 1px solid var(--border);
+  border-left-width: 3px;
+  border-radius: var(--radius-md);
+  padding: 0.6rem 1rem 0.75rem;
+  font-size: 0.93em;
+}
+.doc-callout > :first-child {
+  margin-top: 0;
+}
+.doc-callout-title {
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+.doc-callout-note {
+  border-left-color: var(--info);
+  background: color-mix(in srgb, var(--info) 6%, transparent);
+}
+.doc-callout-tip {
+  border-left-color: var(--success);
+  background: color-mix(in srgb, var(--success) 6%, transparent);
+}
+.doc-callout-warning {
+  border-left-color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 8%, transparent);
+}

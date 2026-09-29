@@ -1,0 +1,32 @@
+{
+  "name": "depmap",
+  "private": true,
+  "packageManager": "pnpm@12.3.4",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @depmap/web dev",
+    "build": "pnpm -r build",
+    "start": "pnpm --filter @depmap/web start",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "test:integration": "pnpm --filter @depmap/web test:integration",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "db:up": "docker compose up -d db",
+    "db:down": "docker compose down",
+    "db:migrate": "pnpm --filter @depmap/web db:migrate",
+    "db:deploy": "pnpm --filter @depmap/web db:deploy",
+    "db:generate": "pnpm --filter @depmap/web db:generate",
+    "db:studio": "pnpm --filter @depmap/web db:studio",
+    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "db:seed": "pnpm --filter @depmap/web db:seed",
+    "db:app-role": "pnpm --filter @depmap/web db:app-role"
+  },
+  "devDependencies": {
+    "prettier": "^3.6.2",
+    "prettier-plugin-tailwindcss": "^0.7.0"
+  }
+}

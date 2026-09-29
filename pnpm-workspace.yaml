@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+packages:
+  - "apps/*"
+  - "packages/*"
+
+allowBuilds:
+  sharp: false
+  unrs-resolver: false
+  prisma: true
+  "@prisma/engines": true
+  esbuild: true

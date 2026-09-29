@@ -1,0 +1,34 @@
+# TLS termination for InfraMole (docs/DEPLOYMENT.md).
+# Caddy obtains and renews a Let's Encrypt certificate for DEPMAP_DOMAIN,
+# redirects http → https and speaks HTTP/2 + HTTP/3. No trusted_proxies:
+# client-sent X-Forwarded-* headers are ignored and replaced by Caddy.
+
+{$DEPMAP_DOMAIN} {
+	{$CADDY_TLS}
+	encode zstd gzip
+
+	# Agent reports and imports are ≤ 1 MB; leave headroom, refuse the rest.
+	request_body {
+		max_size 4MB
+	}
+
+	reverse_proxy web:3000 {
+		# The TCP peer. The app trusts this header only with TRUST_PROXY=true
+		# (server/http.ts clientIp).
+		header_up X-Real-IP {remote_host}
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}
+
+# Optional extra hostnames that permanently redirect to DEPMAP_DOMAIN, e.g.
+# DEPMAP_REDIRECT_HOSTS=www.inframole.com (space-separated; each needs DNS and
+# gets its own certificate). Unset = this block only answers plain-HTTP
+# requests for "localhost", which is harmless.
+{$DEPMAP_REDIRECT_HOSTS:http://localhost} {
+	{$CADDY_TLS}
+	redir https://{$DEPMAP_DOMAIN}{uri} permanent
+}

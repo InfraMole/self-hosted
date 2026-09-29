@@ -1,0 +1,18 @@
+{
+  "name": "@depmap/graph",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Pure TypeScript graph semantics and algorithms (relationship types, dependency perspective, neighbourhoods, impact). No runtime dependencies.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "typescript": "~5.9.3",
+    "vitest": "^5"
+  }
+}

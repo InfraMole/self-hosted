@@ -1,0 +1,192 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+name: depmap-prod
+
+# Production stack — docs/DEPLOYMENT.md (from source) · content/self-hosted.md (images).
+#   cp deploy/.env.production.example deploy/.env   # then fill it (deploy/scripts/gen-secrets.sh)
+#   docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env up -d --build
+# The published images (ghcr.io/inframole/*) are used when you pull instead of
+# building; the self-hosted bundle ships this file without the build sections.
+#
+# Only Caddy is reachable from outside (80 → redirect, 443 → TLS). Postgres and
+# the web app live on an internal network with no published ports.
+
+x-app-env: &app-env
+  NODE_ENV: production
+  # Runtime role subject to Row Level Security (ADR-020); never the owner.
+  DATABASE_URL: postgresql://depmap_app:${APP_DB_PASSWORD:?set APP_DB_PASSWORD}@db:5432/depmap
+  BETTER_AUTH_URL: https://${DEPMAP_DOMAIN:?set DEPMAP_DOMAIN}
+  BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?set BETTER_AUTH_SECRET}
+  # Caddy overwrites X-Real-IP with the TCP peer; only trust it behind Caddy.
+  TRUST_PROXY: "true"
+  CREDENTIALS_ENCRYPTION_KEY: ${CREDENTIALS_ENCRYPTION_KEY:-}
+  CREDENTIALS_ENCRYPTION_KEY_PREVIOUS: ${CREDENTIALS_ENCRYPTION_KEY_PREVIOUS:-}
+  CREDENTIALS_KEY_VERSION: ${CREDENTIALS_KEY_VERSION:-1}
+  CRON_SECRET: ${CRON_SECRET:-}
+  SMTP_URL: ${SMTP_URL:-}
+  MAIL_FROM: ${MAIL_FROM:-}
+  FEEDBACK_EMAIL: ${FEEDBACK_EMAIL:-}
+  AGENT_DOWNLOAD_BASE_URL: ${AGENT_DOWNLOAD_BASE_URL:-}
+  # Edition (ADR-023): community (default) · cloud · business (+ licence key).
+  EDITION: ${EDITION:-community}
+  DEPMAP_LICENSE_KEY: ${DEPMAP_LICENSE_KEY:-}
+  # Cloud billing only (our hosted service): key, webhook secret and the three prices.
+  STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+  STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+  STRIPE_PRICE_STARTER: ${STRIPE_PRICE_STARTER:-}
+  STRIPE_PRICE_TEAM: ${STRIPE_PRICE_TEAM:-}
+  STRIPE_PRICE_SCALE: ${STRIPE_PRICE_SCALE:-}
+  GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+  GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+  MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID:-}
+  MICROSOFT_CLIENT_SECRET: ${MICROSOFT_CLIENT_SECRET:-}
+  MICROSOFT_TENANT_ID: ${MICROSOFT_TENANT_ID:-}
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: depmap
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: depmap
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks: [internal]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U depmap -d depmap"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  migrate:
+    image: ${INFRAMOLE_IMAGES:-ghcr.io/inframole}/migrate:${INFRAMOLE_VERSION:-latest}
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+      target: migrate
+    environment:
+      # Owner: applies migrations, then sets the depmap_app password.
+      DATABASE_URL: postgresql://depmap:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@db:5432/depmap
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?set APP_DB_PASSWORD}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [internal]
+
+  web:
+    image: ${INFRAMOLE_IMAGES:-ghcr.io/inframole}/web:${INFRAMOLE_VERSION:-latest}
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+      target: runner
+    restart: unless-stopped
+    environment: *app-env
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    networks: [internal]
+    read_only: true
+    tmpfs: ["/tmp"]
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on: [web]
+    environment:
+      DEPMAP_DOMAIN: ${DEPMAP_DOMAIN:?set DEPMAP_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL:-}
+      DEPMAP_REDIRECT_HOSTS: ${DEPMAP_REDIRECT_HOSTS:-http://localhost}
+      # "tls internal" for a local trial with a self-signed CA; empty = Let's Encrypt.
+      CADDY_TLS: ${CADDY_TLS:-}
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+      - "${HTTPS_PORT:-443}:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [internal, public]
+
+  # Scheduled integration sync (ADR-018 D) and retention (docs/DATA_MODEL.md §7).
+  # Calls the app over the internal network; the endpoints return 404 while
+  # CRON_SECRET is unset.
+  cron:
+    image: alpine:3
+    restart: unless-stopped
+    depends_on: [web]
+    environment:
+      CRON_SECRET: ${CRON_SECRET:-}
+      CRON_EVERY_SECONDS: ${CRON_EVERY_SECONDS:-900}
+    command:
+      - sh
+      - -c
+      - |
+        [ -n "$$CRON_SECRET" ] || { echo "CRON_SECRET unset: integrations sync disabled"; exec sleep infinity; }
+        while true; do
+          sleep "$$CRON_EVERY_SECONDS"
+          for job in integrations maintenance; do
+            wget -q -O - --header "Authorization: Bearer $$CRON_SECRET" --post-data "" \
+              "http://web:3000/api/cron/$$job" || echo "cron $$job failed"
+            echo
+          done
+        done
+    networks: [internal]
+
+  # Nightly logical backup, kept BACKUP_KEEP_DAYS days in ./backups. With
+  # BACKUP_AGE_RECIPIENT set, dumps are encrypted (age) before they touch the
+  # disk, so ./backups can be synced off-site safely (DEPLOYMENT.md §5).
+  backup:
+    image: ${INFRAMOLE_IMAGES:-ghcr.io/inframole}/backup:${INFRAMOLE_VERSION:-latest}
+    build:
+      context: .
+      dockerfile: backup.Dockerfile
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+      BACKUP_AGE_RECIPIENT: ${BACKUP_AGE_RECIPIENT:-}
+    volumes:
+      - ./backups:/backups
+    command:
+      - sh
+      - -c
+      - |
+        umask 077
+        while true; do
+          f=/backups/depmap-$$(date -u +%Y%m%dT%H%M%SZ).dump
+          if [ -n "$$BACKUP_AGE_RECIPIENT" ]; then
+            pg_dump -h db -U depmap -d depmap -Fc | age -r "$$BACKUP_AGE_RECIPIENT" -o "$$f.age.tmp"               && mv "$$f.age.tmp" "$$f.age" && echo "backup $$f.age (encrypted)"
+          else
+            echo "WARNING: BACKUP_AGE_RECIPIENT unset - backup is NOT encrypted"
+            pg_dump -h db -U depmap -d depmap -Fc -f "$$f.tmp" && mv "$$f.tmp" "$$f" && echo "backup $$f"
+          fi
+          find /backups -name 'depmap-*.dump*' -mtime +"$$BACKUP_KEEP_DAYS" -delete
+          sleep 86400
+        done
+    networks: [internal]
+
+networks:
+  internal:
+    internal: true
+  public: {}
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:

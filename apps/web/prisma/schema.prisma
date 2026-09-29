@@ -1,0 +1,639 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Physical schema. Intent, invariants and planned entities: docs/DATA_MODEL.md
+// Keep both in sync in the same change.
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "esm"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ───────────────────────────── Auth (Better Auth) ─────────────────────────────
+// Shape required by Better Auth's Prisma adapter. Do not rename fields.
+
+model User {
+  id               String       @id
+  name             String
+  email            String       @unique
+  emailVerified    Boolean      @default(false)
+  /// Better Auth two-factor plugin (M8c).
+  twoFactorEnabled Boolean      @default(false)
+  image            String?
+  /// Cloud (M12): Terms of Service version accepted at sign-up, and when.
+  termsVersion     String?
+  termsAcceptedAt  DateTime?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @default(now()) @updatedAt
+  sessions         Session[]
+  accounts         Account[]
+  memberships      Membership[]
+  invitationsSent  Invitation[] @relation("InvitedBy")
+  twoFactors       TwoFactor[]
+  passkeys         Passkey[]
+
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now()) @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+// ───────────────────────────── Tenancy ─────────────────────────────
+// Every tenant-owned table has a non-null workspaceId (ADR-005).
+
+model Workspace {
+  id               String                 @id @default(cuid())
+  name             String
+  slug             String                 @unique
+  /// Members must have two-factor authentication (OWNER setting, M8c).
+  requireTwoFactor Boolean                @default(false)
+  /// Cloud only (ADR-023): end of the free Team trial. Null elsewhere.
+  trialEndsAt      DateTime?
+  /// Cloud paid plans: when the server/VM count first went over the limit
+  /// (grace period start). Cleared by the maintenance job once back under.
+  overLimitSince   DateTime?
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+  memberships      Membership[]
+  resources        Resource[]
+  relationships    Relationship[]
+  enrollmentTokens EnrollmentToken[]
+  agents           Agent[]
+  observations     Observation[]
+  connectionFacts  ConnectionFact[]
+  evidence         RelationshipEvidence[]
+  integrations     Integration[]
+  invitations      Invitation[]
+  auditEvents      AuditEvent[]
+  subscription     WorkspaceSubscription?
+  changes          ChangeEvent[]
+
+  @@map("workspace")
+}
+
+enum MembershipRole {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+model Membership {
+  id          String         @id @default(cuid())
+  workspaceId String
+  workspace   Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role        MembershipRole @default(MEMBER)
+  createdAt   DateTime       @default(now())
+
+  @@unique([workspaceId, userId])
+  @@index([userId])
+  @@map("membership")
+}
+
+/// Better Auth two-factor plugin: TOTP secret and backup codes, both
+/// encrypted by Better Auth with BETTER_AUTH_SECRET (never returned).
+model TwoFactor {
+  id                      String    @id
+  secret                  String
+  backupCodes             String
+  userId                  String
+  user                    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  verified                Boolean   @default(true)
+  failedVerificationCount Int       @default(0)
+  lockedUntil             DateTime?
+
+  @@index([secret])
+  @@index([userId])
+  @@map("two_factor")
+}
+
+/// WebAuthn credentials (@better-auth/passkey). Public keys only.
+model Passkey {
+  id           String    @id
+  name         String?
+  publicKey    String
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  credentialID String
+  counter      Int
+  deviceType   String
+  backedUp     Boolean
+  transports   String?
+  createdAt    DateTime? @default(now())
+  aaguid       String?
+
+  @@index([userId])
+  @@index([credentialID])
+  @@map("passkey")
+}
+
+/// Pending invitation to a workspace. The token is shown once; only its
+/// sha256 is stored. Accepting requires signing in with the invited email.
+model Invitation {
+  id           String         @id @default(cuid())
+  workspaceId  String
+  workspace    Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  email        String
+  role         MembershipRole
+  tokenHash    String         @unique
+  expiresAt    DateTime
+  invitedById  String
+  invitedBy    User           @relation("InvitedBy", fields: [invitedById], references: [id], onDelete: Cascade)
+  createdAt    DateTime       @default(now())
+  acceptedAt   DateTime?
+  acceptedById String?
+  revokedAt    DateTime?
+
+  @@index([workspaceId, email])
+  @@map("invitation")
+}
+
+// ───────────────────────────── Library ─────────────────────────────
+
+enum ResourceType {
+  SERVER
+  VM
+  APPLICATION
+  WINDOWS_SERVICE
+  LINUX_SERVICE
+  DATABASE
+  DOMAIN
+  API
+  STORAGE
+  NETWORK
+  CONTAINER
+  EXTERNAL_SERVICE
+  OTHER
+}
+
+enum Environment {
+  PRODUCTION
+  STAGING
+  DEVELOPMENT
+  TEST
+  OTHER
+}
+
+enum Criticality {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ResourceStatus {
+  ACTIVE // created/maintained by a human
+  DISCOVERED // created by an agent/importer, not yet reviewed
+  STALE // no longer observed
+  ARCHIVED
+}
+
+enum ResourceSource {
+  MANUAL
+  AGENT
+  IMPORT
+}
+
+model Resource {
+  id          String           @id @default(cuid())
+  workspaceId String
+  workspace   Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  name        String
+  type        ResourceType
+  environment Environment?
+  criticality Criticality?
+  status      ResourceStatus   @default(ACTIVE)
+  description String?
+  notes       String?
+  tags        String[]         @default([])
+  /// [{ label, url }] — https only (validated in resources/schemas.ts)
+  links       Json             @default("[]")
+  /// Validated by resourceMetadataSchema. Never secrets.
+  metadata    Json             @default("{}")
+  source      ResourceSource   @default(MANUAL)
+  /// Idempotent upsert key per source (ADR-011). NULLs are distinct in Postgres.
+  externalId  String?
+  /// Which source created this resource (ADR-021): integration:<id>,
+  /// collector:<agentId>:<platform>, file:<format>, agent:<agentId>; null = a person.
+  sourceRef   String?
+  /// Human label of that source at creation time (survives its deletion).
+  sourceLabel String?
+  lastSeenAt  DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  outgoing    Relationship[]   @relation("RelationshipFrom")
+  incoming    Relationship[]   @relation("RelationshipTo")
+  agents      Agent[]
+  factsFrom   ConnectionFact[] @relation("FactSource")
+  factsTo     ConnectionFact[] @relation("FactRemote")
+
+  /// Target of composite FKs (workspaceId, id) from other tenant tables (ADR-005).
+  @@unique([workspaceId, id])
+  @@unique([workspaceId, source, externalId])
+  @@index([workspaceId, type])
+  @@index([workspaceId, name])
+  @@index([workspaceId, sourceRef])
+  @@map("resource")
+}
+
+// ───────────────────────────── Relationships ─────────────────────────────
+// Typed directed edge "from TYPE to" (ADR-007). Semantics (labels, failure
+// propagation) live in packages/graph/src/relationship-types.ts.
+
+enum RelationshipType {
+  RUNS_ON
+  HOSTS
+  DEPENDS_ON
+  CONNECTS_TO
+  USES_DATABASE
+  AUTHENTICATES_WITH
+  EXPOSED_THROUGH
+  STORES_DATA_IN
+  BACKS_UP_TO
+  MONITORED_BY
+  CALLS
+  LISTENS_ON
+  OTHER
+}
+
+enum RelationshipOrigin {
+  MANUAL
+  DETECTED
+  INFERRED
+}
+
+enum RelationshipStatus {
+  CONFIRMED
+  UNCONFIRMED
+  IGNORED
+}
+
+model Relationship {
+  id              String                 @id @default(cuid())
+  workspaceId     String
+  workspace       Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  fromResourceId  String
+  /// Composite FK: the DB rejects edges between resources of different workspaces.
+  from            Resource               @relation("RelationshipFrom", fields: [workspaceId, fromResourceId], references: [workspaceId, id], onDelete: Cascade)
+  toResourceId    String
+  to              Resource               @relation("RelationshipTo", fields: [workspaceId, toResourceId], references: [workspaceId, id], onDelete: Cascade)
+  type            RelationshipType
+  origin          RelationshipOrigin     @default(MANUAL)
+  status          RelationshipStatus     @default(CONFIRMED)
+  /// Human context ("Add context").
+  note            String?
+  confirmedById   String?
+  confirmedAt     DateTime?
+  evidence        RelationshipEvidence[]
+  firstObservedAt DateTime?
+  lastObservedAt  DateTime?
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+
+  // CHECK ("fromResourceId" <> "toResourceId") is added in the migration SQL.
+  @@unique([workspaceId, fromResourceId, toResourceId, type])
+  @@index([workspaceId, toResourceId])
+  @@map("relationship")
+}
+
+// ───────────────────────────── Changes ─────────────────────────────
+// Append-only. Written in the same transaction as the mutation (ADR-009).
+
+enum ChangeActorType {
+  USER
+  AGENT
+  IMPORTER
+  SYSTEM
+}
+
+enum ChangeSubjectType {
+  RESOURCE
+  RELATIONSHIP
+  AGENT
+}
+
+enum ChangeKind {
+  CREATED
+  UPDATED
+  DELETED
+  /// Created by discovery (host found, relationship detected).
+  DISCOVERED
+  /// A detected relationship was confirmed by a human.
+  CONFIRMED
+  /// A detected relationship was ignored by a human.
+  IGNORED
+  /// An agent-backed host stopped reporting (resource status -> STALE).
+  NO_LONGER_OBSERVED
+}
+
+enum AuditActorType {
+  USER
+  AGENT
+  SYSTEM
+  OPERATOR // platform staff via deploy/scripts (M8c)
+}
+
+/// Security audit trail (M8c, ADR-019). Append-only: a database trigger
+/// refuses UPDATE, and DELETE unless the row is past retention (365 days) or
+/// the transaction sets depmap.allow_audit_delete (workspace deletion).
+/// workspaceId null = account/platform-level event (sign-in, workspace deleted).
+model AuditEvent {
+  id          String         @id @default(cuid())
+  workspaceId String?
+  workspace   Workspace?     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdAt   DateTime       @default(now())
+  actorType   AuditActorType
+  /// user id / agent id. Not a FK: actors may be deleted.
+  actorId     String?
+  /// Email / hostname at the time (survives deletion).
+  actorLabel  String?
+  /// Dotted action, e.g. "member.role_changed" (catalogue in modules/audit).
+  action      String
+  targetType  String?
+  targetId    String?
+  targetLabel String?
+  /// Small, never secrets.
+  metadata    Json?
+  ip          String?
+  userAgent   String?
+
+  @@index([workspaceId, createdAt(sort: Desc)])
+  @@index([actorId, createdAt(sort: Desc)])
+  @@map("audit_event")
+}
+
+model ChangeEvent {
+  id           String            @id @default(cuid())
+  workspaceId  String
+  workspace    Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  occurredAt   DateTime          @default(now())
+  actorType    ChangeActorType
+  /// userId / agentId / importer id. Not a FK: actors may be deleted.
+  actorId      String?
+  subjectType  ChangeSubjectType
+  /// Not a FK: the subject may have been deleted.
+  subjectId    String
+  /// Subject name at the time of the change (survives deletion).
+  subjectLabel String
+  kind         ChangeKind
+  summary      String
+  /// { field: [before, after] } — bounded, never secrets.
+  diff         Json?
+  /// Resources this event concerns besides the subject (e.g. both ends of a
+  /// relationship), so it shows in their Activity. Not FKs.
+  resourceIds  String[]          @default([])
+
+  @@index([workspaceId, occurredAt(sort: Desc)])
+  @@index([workspaceId, subjectType, subjectId])
+  @@index([resourceIds], type: Gin)
+  @@map("change_event")
+}
+
+// ───────────────────────────── Agents (M5) ─────────────────────────────
+// Discovery agents authenticate with per-agent secrets (ADR-010). Secrets and
+// tokens are stored only as sha256 hashes; the prefix is for display.
+
+model EnrollmentToken {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  name        String
+  tokenHash   String    @unique
+  /// First characters of the token, safe to display.
+  prefix      String
+  expiresAt   DateTime
+  /// null = unlimited uses until expiry.
+  maxUses     Int?
+  useCount    Int       @default(0)
+  revokedAt   DateTime?
+  createdById String
+  createdAt   DateTime  @default(now())
+
+  @@index([workspaceId, createdAt])
+  @@map("enrollment_token")
+}
+
+enum AgentStatus {
+  ACTIVE
+  REVOKED
+}
+
+model Agent {
+  id                String           @id @default(cuid())
+  workspaceId       String
+  workspace         Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  /// Host resource this agent reports for (created on first report).
+  resourceId        String?
+  resource          Resource?        @relation(fields: [resourceId], references: [id], onDelete: SetNull)
+  /// Stable machine id reported by the agent (MachineGuid / machine-id).
+  machineId         String
+  hostname          String
+  os                String
+  osVersion         String
+  arch              String
+  agentVersion      String
+  secretHash        String           @unique
+  secretPrefix      String
+  status            AgentStatus      @default(ACTIVE)
+  reportIntervalSec Int              @default(300)
+  lastSeenAt        DateTime?
+  lastIp            String?
+  enrolledAt        DateTime         @default(now())
+  revokedAt         DateTime?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  observations      Observation[]
+  connectionFacts   ConnectionFact[]
+
+  /// Re-enrolling the same machine reuses the agent (and its host resource).
+  @@unique([workspaceId, machineId])
+  @@map("agent")
+}
+
+/// Raw agent reports, short retention (docs/DATA_MODEL.md §5).
+model Observation {
+  id            String    @id @default(cuid())
+  workspaceId   String
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  agentId       String
+  agent         Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  receivedAt    DateTime  @default(now())
+  schemaVersion Int
+  payload       Json
+  payloadBytes  Int
+  processedAt   DateTime?
+  error         String?
+
+  @@index([agentId, receivedAt])
+  @@index([workspaceId, receivedAt])
+  @@map("observation")
+}
+
+// ───────────────────────────── Discovery facts (M6) ─────────────────────────────
+// Aggregated TCP connections observed by agents, and the evidence that links
+// them to DETECTED relationships (docs/DISCOVERY.md).
+
+enum ConnectionDirection {
+  INBOUND
+  OUTBOUND
+}
+
+model ConnectionFact {
+  id               String                 @id @default(cuid())
+  workspaceId      String
+  workspace        Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  agentId          String
+  agent            Agent                  @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  /// Host resource of the reporting agent.
+  sourceResourceId String
+  source           Resource               @relation("FactSource", fields: [sourceResourceId], references: [id], onDelete: Cascade)
+  direction        ConnectionDirection
+  remoteIp         String
+  /// Local listening port (INBOUND) or remote port (OUTBOUND).
+  port             Int
+  /// "" when the process could not be resolved.
+  processName      String                 @default("")
+  /// Resource owning remoteIp in the same workspace (null = unknown endpoint).
+  remoteResourceId String?
+  remote           Resource?              @relation("FactRemote", fields: [remoteResourceId], references: [id], onDelete: SetNull)
+  sampleCount      Int
+  reportCount      Int                    @default(1)
+  firstSeenAt      DateTime
+  lastSeenAt       DateTime
+  evidence         RelationshipEvidence[]
+
+  @@unique([agentId, direction, remoteIp, port, processName])
+  @@index([workspaceId, remoteResourceId])
+  @@index([sourceResourceId])
+  @@map("connection_fact")
+}
+
+enum EvidenceKind {
+  TCP_CONNECTION
+}
+
+model RelationshipEvidence {
+  id               String          @id @default(cuid())
+  workspaceId      String
+  workspace        Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  relationshipId   String
+  relationship     Relationship    @relation(fields: [relationshipId], references: [id], onDelete: Cascade)
+  kind             EvidenceKind    @default(TCP_CONNECTION)
+  connectionFactId String?
+  connectionFact   ConnectionFact? @relation(fields: [connectionFactId], references: [id], onDelete: SetNull)
+  /// Server-side port of the connection (e.g. 1433).
+  port             Int
+  /// Label only, e.g. "MSSQL" — never treated as truth.
+  protocolGuess    String?
+  processName      String?
+  sampleCount      Int
+  firstSeenAt      DateTime
+  lastSeenAt       DateTime
+
+  @@unique([relationshipId, connectionFactId])
+  @@index([workspaceId])
+  @@map("relationship_evidence")
+}
+
+// ───────────────────────────── Integrations (M8b, ADR-018 D) ─────────────────────────────
+// Read-only API credentials, sealed with AES-256-GCM (server/crypto.ts). The
+// secret is bound to "<workspaceId>:<id>" (AAD) and never leaves the server.
+
+enum IntegrationKind {
+  AZURE
+  AWS
+  CLOUDFLARE
+}
+
+model Integration {
+  id                String          @id @default(cuid())
+  workspaceId       String
+  workspace         Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  kind              IntegrationKind
+  name              String
+  /// Non-secret settings (tenant/subscription ids, region…), validated per kind.
+  config            Json            @default("{}")
+  secretCiphertext  String
+  secretIv          String
+  secretKeyVersion  Int
+  /// Last characters of the main secret, for display only.
+  secretHint        String?
+  syncIntervalHours Int             @default(6)
+  lastSyncAt        DateTime?
+  lastSyncOk        Boolean?
+  lastSyncMessage   String?
+  createdById       String
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@unique([workspaceId, name])
+  @@map("integration")
+}
+
+/// Cloud billing (M9, ADR-019): the workspace's Stripe subscription (per-node
+/// Pro plan). Only identifiers and status — no card or payment data.
+model WorkspaceSubscription {
+  workspaceId          String    @id
+  workspace            Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  stripeCustomerId     String    @unique
+  stripeSubscriptionId String?   @unique
+  /// Stripe status: active, trialing, past_due, canceled, unpaid, incomplete…
+  status               String    @default("none")
+  /// Cloud tier bought (ADR-023): starter | team | scale — from the Stripe price.
+  tier                 String?
+  quantity             Int       @default(0)
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean   @default(false)
+  updatedAt            DateTime  @updatedAt
+
+  @@map("workspace_subscription")
+}

@@ -1,0 +1,57 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+name: depmap
+
+# Local development stack.
+#   pnpm db:up                         -> Postgres only (run the app with `pnpm dev`)
+#   docker compose --profile app up --build  -> Postgres + migrations + production web app
+#   Host ports: DEPMAP_DB_PORT (default 5452), DEPMAP_WEB_PORT (default 3000)
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: depmap
+      POSTGRES_PASSWORD: depmap
+      POSTGRES_DB: depmap
+    ports:
+      - "${DEPMAP_DB_PORT:-5452}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U depmap -d depmap"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  migrate:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      target: migrate
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://depmap:depmap@db:5432/depmap
+
+  web:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      target: runner
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgresql://depmap:depmap@db:5432/depmap
+      # Dev defaults only. Production: real secret + https:// URL.
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-dev-only-secret-change-me-0123456789abcdef}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:${DEPMAP_WEB_PORT:-3000}}
+    ports:
+      - "${DEPMAP_WEB_PORT:-3000}:3000"
+
+volumes:
+  pgdata:

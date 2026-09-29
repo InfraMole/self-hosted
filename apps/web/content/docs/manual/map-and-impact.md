@@ -1,0 +1,45 @@
+# Map and impact
+
+## The map
+
+**Map** draws every resource and relationship of the workspace, laid out
+automatically: resources that depend on others are placed **above** what
+they need, and arrows point at what is needed.
+
+- **Filters**: resource type, environment, and toggles for **Unconfirmed**
+  (detected and inferred suggestions) and **Informational** relationships
+  (those that do not carry failures, like _backs up to_ or _monitored by_).
+- **Focus**: select a resource to show only its neighbourhood, choosing the
+  direction (what it needs, what needs it, or both) and the depth.
+- **Inspector**: the side panel shows the selected resource or relationship,
+  with links to its page.
+
+Line styles follow the [certainty encoding](/docs/manual/relationships#how-certain-is-it):
+solid for confirmed, dashed for detected, dotted for inferred.
+
+## Impact
+
+Impact answers **"what could be affected if this disappears?"**. Open it
+from a resource page (**Impact**) or from the map inspector.
+
+InfraMole follows relationships in the direction failures travel: if
+`Portal` depends on `AuthAPI`, a failure of `AuthAPI` could affect `Portal`.
+For every affected resource it shows:
+
+- **how certain** the path is — a path is only as certain as its weakest
+  link, and the strongest possible path is chosen;
+- **how many hops** away it is, and the path itself.
+
+The headline reads _"If SQL01 fails, N resources could be affected"_, with
+counts by type and by certainty. Use **Max depth** to limit how far it
+looks. The impact page has its own address, so you can share it before a
+maintenance window.
+
+:::warning Could, not will
+Impact describes what **could** be affected according to the relationships
+you have. Missing or unconfirmed relationships mean the real impact can be
+larger or smaller. Confirm the suggestions that matter to make it reliable.
+:::
+
+Archived resources and ignored relationships are left out of both the map
+and impact.

@@ -1,0 +1,40 @@
+node_modules/
+.pnpm-store/
+.next/
+out/
+build/
+dist/
+coverage/
+*.tsbuildinfo
+next-env.d.ts
+
+# env
+.env
+.env.*
+!deploy/.env.production.example
+!.env.example
+
+# prisma generated client
+apps/web/src/generated/
+
+# os / editor
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+*.pem
+.vercel
+
+# agent build output
+agent/dist/
+
+# Production deploy (docs/DEPLOYMENT.md)
+deploy/.env
+deploy/backups/
+deploy/access.log
