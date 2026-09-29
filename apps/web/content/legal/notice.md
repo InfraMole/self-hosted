@@ -1,31 +1,34 @@
 # Legal notice
 
-> **DRAFT — needs legal review before publication.** Information required by
-> Spanish Law 34/2002 (LSSI-CE), art. 10.
+_Last updated: 29 September 2026_
 
-|                      |                                    |
-| -------------------- | ---------------------------------- |
-| Owner of the website | `[COMPANY LEGAL NAME]`             |
-| Tax ID (NIF)         | `[NIF]`                            |
-| Registered address   | `[ADDRESS]`                        |
-| Commercial registry  | `[REGISTRY, volume, sheet, entry]` |
-| Contact              | `[CONTACT EMAIL]`                  |
-| Website              | inframole.com                      |
+|                      |                                                   |
+| -------------------- | ------------------------------------------------- |
+| Owner of the website | Alejandro Galisteo (private individual)           |
+| Contact              | [legal@inframole.com](mailto:legal@inframole.com) |
+| Website              | inframole.com                                     |
 
-## Use of the website
+## About this website
 
-inframole.com provides information about InfraMole and access to InfraMole
-Cloud. Use of InfraMole Cloud is governed by the [Terms of Service](/legal/terms)
-and the [Privacy Policy](/legal/privacy).
+inframole.com is the website of **InfraMole**, a non-commercial open source
+project. It publishes information about the software, its documentation and
+a read-only live demo. **No products or services are sold through this
+website at present.** If that changes, this notice will be updated with the
+information required for commercial activity.
 
-## Cookies
+## Software licence and trademarks
 
-inframole.com only uses cookies that are strictly necessary: the session
-cookie that keeps you signed in and the security cookies of the sign-in
-process. There are no analytics, advertising or third-party tracking
-cookies, so no consent banner is shown.
+The InfraMole software is distributed under the GNU Affero General Public
+License v3.0 only (AGPL-3.0-only); its source code is at
+[github.com/InfraMole](https://github.com/InfraMole). The software is
+provided "as is", without warranty, as set out in that licence.
 
-## Intellectual property
+The InfraMole name, logo and mascot are not licensed under the AGPL: see the
+trademark policy in the source repositories.
 
-The InfraMole name, logo and mascot, and the content of this website, belong
-to `[COMPANY LEGAL NAME]` unless stated otherwise.
+## Privacy and cookies
+
+How personal data is handled is explained in the
+[Privacy Policy](/legal/privacy). This website only uses cookies that are
+strictly necessary (the session cookie of the live demo). There are no
+analytics, advertising or tracking cookies, so no consent banner is shown.

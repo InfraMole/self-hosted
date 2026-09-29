@@ -45,8 +45,16 @@ x-app-env: &app-env
   MICROSOFT_CLIENT_SECRET: ${MICROSOFT_CLIENT_SECRET:-}
   MICROSOFT_TENANT_ID: ${MICROSOFT_TENANT_ID:-}
 
+# Bounded container logs (privacy policy: technical logs are rotated by size).
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   db:
+    logging: *logging
     image: postgres:17-alpine
     restart: unless-stopped
     environment:
@@ -63,6 +71,7 @@ services:
       retries: 30
 
   migrate:
+    logging: *logging
     image: ${INFRAMOLE_IMAGES:-ghcr.io/inframole}/migrate:${INFRAMOLE_VERSION:-latest}
     build:
       context: ..
@@ -78,6 +87,7 @@ services:
     networks: [internal]
 
   web:
+    logging: *logging
     image: ${INFRAMOLE_IMAGES:-ghcr.io/inframole}/web:${INFRAMOLE_VERSION:-latest}
     build:
       context: ..
@@ -105,6 +115,7 @@ services:
       retries: 10
 
   caddy:
+    logging: *logging
     image: caddy:2-alpine
     restart: unless-stopped
     depends_on: [web]
@@ -128,6 +139,7 @@ services:
   # Calls the app over the internal network; the endpoints return 404 while
   # CRON_SECRET is unset.
   cron:
+    logging: *logging
     image: alpine:3
     restart: unless-stopped
     depends_on: [web]
@@ -153,6 +165,7 @@ services:
   # BACKUP_AGE_RECIPIENT set, dumps are encrypted (age) before they touch the
   # disk, so ./backups can be synced off-site safely (DEPLOYMENT.md §5).
   backup:
+    logging: *logging
     image: ${INFRAMOLE_IMAGES:-ghcr.io/inframole}/backup:${INFRAMOLE_VERSION:-latest}
     build:
       context: .

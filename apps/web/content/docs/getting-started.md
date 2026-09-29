@@ -45,18 +45,12 @@ confirms them, and impact results always say how certain each path is.
 | **Integrations**              | Read-only API tokens for Azure, AWS and Cloudflare, encrypted at rest and synced on a schedule.                                 |
 | **Importers**                 | CSV, JSON, docker-compose and exports from Proxmox, Azure, AWS and Cloudflare.                                                  |
 
-## Cloud or self-hosted
+## Self-hosted today, Cloud later
 
-|               | InfraMole Cloud                         | Self-hosted Community                  |
-| ------------- | --------------------------------------- | -------------------------------------- |
-| Where it runs | Hosted by us                            | On your own server                     |
-| Price         | 14-day free trial, then from 19 €/month | Free and open source (AGPL-3.0)        |
-| Size          | 15 – 250 servers and VMs per workspace  | Unlimited servers and VMs, 1 workspace |
-| You manage    | Nothing but the agents                  | Installation, backups, updates         |
-
-Only servers and VMs count towards any plan. Applications, databases,
-domains, containers and services are unlimited. See
-[Editions and limits](/docs/reference/editions).
+InfraMole **Community** is free and open source (AGPL-3.0): you install it on
+your own server, with unlimited servers and VMs and one workspace. A hosted
+**InfraMole Cloud** (we run it for you) and a **Business** edition for larger
+teams are planned. See [Editions and limits](/docs/reference/editions).
 
 ## Next steps
 

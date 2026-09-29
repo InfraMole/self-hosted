@@ -144,7 +144,10 @@ no-referrer` (token in the URL).
   visitors out are refused (`DEMO_LOCKED_PATHS` in `server/auth.ts`, password
   reset for the demo address too); it cannot leave the workspace or create
   workspaces. Data is fictional and rebuilt every 24 h. Sign-in uses the
-  normal rate-limited endpoint. Feedback from the demo is allowed.
+  normal rate-limited endpoint. Feedback from the demo is allowed. Demo
+  sign-ins are **not** written to the account-level audit log (anonymous
+  visitors' IPs would otherwise be kept 365 days); their sessions expire after
+  14 days of inactivity and are deleted by the retention job.
 - The demo's lookup of its workspace uses `systemDb("demo: find the demo
 workspace")`; the rebuild deletes it with the audited-delete bypass, like
   workspace deletion.

@@ -205,6 +205,15 @@ function createAuth() {
         create: {
           // Account-level audit (M8c): every new session is a sign-in.
           after: async (session) => {
+            // Anonymous demo visitors (M13): no account-level trail with their
+            // IP kept for a year — data minimisation. Sessions still expire.
+            if (env.DEMO_MODE) {
+              const user = await getDb().user.findUnique({
+                where: { id: session.userId },
+                select: { email: true },
+              });
+              if (user?.email === DEMO_EMAIL) return;
+            }
             await audit({
               workspaceId: null,
               action: "auth.sign_in",

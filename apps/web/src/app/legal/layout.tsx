@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import Link from "next/link";
 import { SiteFooter, SiteHeader } from "@/components/landing/landing";
-import { LEGAL_DOCS } from "@/lib/legal";
+import { LISTED_LEGAL_DOCS } from "@/lib/legal";
 
 export default function LegalLayout({ children }: LayoutProps<"/legal">) {
   return (
@@ -12,7 +12,7 @@ export default function LegalLayout({ children }: LayoutProps<"/legal">) {
           aria-label="Legal documents"
           className="flex flex-wrap gap-x-4 gap-y-2 text-sm md:flex-col"
         >
-          {LEGAL_DOCS.map((d) => (
+          {LISTED_LEGAL_DOCS.map((d) => (
             <Link
               key={d.slug}
               href={`/legal/${d.slug}`}

@@ -18,7 +18,7 @@ import {
   CLOUD_TRIAL_DAYS,
   COMMUNITY_WORKSPACE_LIMIT,
 } from "@/lib/billing-plans";
-import { LEGAL_DOCS } from "@/lib/legal";
+import { LISTED_LEGAL_DOCS } from "@/lib/legal";
 import { ImpactPreview } from "./impact-preview";
 
 /**
@@ -35,6 +35,12 @@ export interface LandingOptions {
   demo: boolean;
   /** The visitor is signed in with the shared demo account: offer to go back to it. */
   inDemo?: boolean;
+  /**
+   * Show Cloud / Business prices. Only when InfraMole is actually sold here
+   * (EDITION=cloud); the public site of a non-commercial open source project
+   * shows Community and "planned" editions without prices.
+   */
+  showPrices?: boolean;
 }
 
 const DEMO_APP_HREF = "/w/demo/map";
@@ -333,7 +339,8 @@ const cloudCommon = [
   "Applications, databases, containers, domains and discovered services unlimited",
 ];
 
-function Pricing({ cloudSignup }: LandingOptions) {
+function Pricing({ cloudSignup, showPrices }: LandingOptions) {
+  if (!showPrices) return <PricingOpenSource />;
   return (
     <section id="pricing" className="mx-auto max-w-6xl scroll-mt-14 px-4 py-20 sm:px-6">
       <SectionTitle eyebrow="Pricing" title="Your infrastructure. Your choice." />
@@ -344,39 +351,7 @@ function Pricing({ cloudSignup }: LandingOptions) {
 
       <PathHeading label="Self-hosted" note="You run InfraMole on your own servers." />
       <div className="grid gap-4 md:grid-cols-2">
-        <div className="border-accent/60 ring-accent/15 bg-surface flex flex-col rounded-xl border p-6 ring-4">
-          <div className="flex items-baseline justify-between gap-3">
-            <h3 className="text-lg font-semibold">Community</h3>
-            <span className="text-accent text-xs font-medium">Free &amp; Open Source — AGPLv3</span>
-          </div>
-          <div className="mt-5 flex items-baseline gap-2">
-            <span className="text-3xl font-medium tracking-tight">Free</span>
-            <span className="text-muted text-sm">forever</span>
-          </div>
-          <ul className="text-muted mt-5 flex-1 space-y-2 text-sm">
-            <PlanLine>
-              <span className="text-foreground font-medium">Unlimited</span> servers and VMs
-            </PlanLine>
-            <PlanLine>{COMMUNITY_WORKSPACE_LIMIT} workspace</PlanLine>
-            <PlanLine>
-              Discovery with agents, dependency map, dependencies and impact analysis
-            </PlanLine>
-            <PlanLine>Azure, AWS and Cloudflare discovery</PlanLine>
-            <PlanLine>Two-factor authentication, passkeys and audit log</PlanLine>
-            <PlanLine>Docker Compose deployment</PlanLine>
-          </ul>
-          <div className="mt-6 flex flex-wrap gap-x-5 gap-y-2 text-sm font-medium">
-            <Link href="/docs/installation/requirements" className="text-accent hover:underline">
-              Install guide →
-            </Link>
-            <a
-              href="https://github.com/InfraMole/self-hosted"
-              className="text-accent hover:underline"
-            >
-              Source code →
-            </a>
-          </div>
-        </div>
+        <CommunityCard />
         <div className="border-border bg-surface flex flex-col rounded-xl border p-6">
           <div className="flex items-baseline justify-between gap-3">
             <h3 className="text-lg font-semibold">Business</h3>
@@ -464,6 +439,74 @@ function Pricing({ cloudSignup }: LandingOptions) {
   );
 }
 
+function CommunityCard() {
+  return (
+    <div className="border-accent/60 ring-accent/15 bg-surface flex flex-col rounded-xl border p-6 ring-4">
+      <div className="flex items-baseline justify-between gap-3">
+        <h3 className="text-lg font-semibold">Community</h3>
+        <span className="text-accent text-xs font-medium">Free &amp; Open Source — AGPLv3</span>
+      </div>
+      <div className="mt-5 flex items-baseline gap-2">
+        <span className="text-3xl font-medium tracking-tight">Free</span>
+        <span className="text-muted text-sm">forever</span>
+      </div>
+      <ul className="text-muted mt-5 flex-1 space-y-2 text-sm">
+        <PlanLine>
+          <span className="text-foreground font-medium">Unlimited</span> servers and VMs
+        </PlanLine>
+        <PlanLine>{COMMUNITY_WORKSPACE_LIMIT} workspace</PlanLine>
+        <PlanLine>Discovery with agents, dependency map, dependencies and impact analysis</PlanLine>
+        <PlanLine>Azure, AWS and Cloudflare discovery</PlanLine>
+        <PlanLine>Two-factor authentication, passkeys and audit log</PlanLine>
+        <PlanLine>Docker Compose deployment</PlanLine>
+      </ul>
+      <div className="mt-6 flex flex-wrap gap-x-5 gap-y-2 text-sm font-medium">
+        <Link href="/docs/installation/requirements" className="text-accent hover:underline">
+          Install guide →
+        </Link>
+        <a href="https://github.com/InfraMole/self-hosted" className="text-accent hover:underline">
+          Source code →
+        </a>
+      </div>
+    </div>
+  );
+}
+
+/** Pricing section while nothing is sold: Community + planned editions, no prices. */
+function PricingOpenSource() {
+  return (
+    <section id="pricing" className="mx-auto max-w-6xl scroll-mt-14 px-4 py-20 sm:px-6">
+      <SectionTitle eyebrow="Get InfraMole" title="Your infrastructure. Your choice." />
+      <p className="text-muted mt-4 max-w-2xl leading-relaxed">
+        InfraMole is free and open source: run it on your own server, with every server and VM you
+        have. A hosted Cloud and a Business edition for larger teams are planned.
+      </p>
+      <div className="mt-10 grid gap-4 md:grid-cols-2">
+        <CommunityCard />
+        <div className="border-border bg-surface flex flex-col rounded-xl border p-6">
+          <div className="flex items-baseline justify-between gap-3">
+            <h3 className="text-lg font-semibold">Cloud &amp; Business</h3>
+            <span className="text-muted text-xs">Planned</span>
+          </div>
+          <p className="text-muted mt-5 flex-1 text-sm leading-relaxed">
+            <span className="text-foreground font-medium">InfraMole Cloud</span> — we run and
+            maintain InfraMole for you.{" "}
+            <span className="text-foreground font-medium">InfraMole Business</span> — self-hosted,
+            with several workspaces, priority support and a commercial licence as an alternative to
+            the AGPL.
+          </p>
+          <a
+            href="mailto:sales@inframole.com"
+            className="text-accent mt-6 text-sm font-medium hover:underline"
+          >
+            Interested? Write to sales@inframole.com →
+          </a>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function PathHeading({ label, note }: { label: string; note: string }) {
   return (
     <div className="mt-12 mb-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">
@@ -546,7 +589,7 @@ export function SiteFooter() {
           <Link href="/docs" className="hover:text-foreground">
             Docs
           </Link>
-          {LEGAL_DOCS.map((d) => (
+          {LISTED_LEGAL_DOCS.map((d) => (
             <Link key={d.slug} href={`/legal/${d.slug}`} className="hover:text-foreground">
               {d.title}
             </Link>

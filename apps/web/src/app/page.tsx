@@ -28,6 +28,7 @@ export default async function Home() {
         cloudSignup={env.EDITION === "cloud" && env.SIGNUP === "open"}
         demo={env.DEMO_MODE}
         inDemo={inDemo}
+        showPrices={env.EDITION === "cloud"}
       />
     );
   }

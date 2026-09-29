@@ -6,13 +6,11 @@ From zero to a first dependency map in about fifteen minutes.
 
 ### Get an InfraMole server
 
-Choose one:
-
-- **InfraMole Cloud**: [create an account](/sign-up). Every workspace starts
-  with a 14-day free trial of the Team plan, no card needed.
-- **Self-hosted**: follow [Install on Linux](/docs/installation/linux) or
-  [Install on Windows](/docs/installation/windows), then open
-  `https://<your domain>/sign-up`.
+Install InfraMole on your own server: follow
+[Install on Linux](/docs/installation/linux) or
+[Install on Windows](/docs/installation/windows), then open
+`https://<your domain>/sign-up`. Just want to look around first? Try the
+[live demo](https://inframole.com/demo).
 
 ### Create your workspace
 

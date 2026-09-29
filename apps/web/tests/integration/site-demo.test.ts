@@ -99,6 +99,8 @@ describe("DEMO_MODE", () => {
     ).rejects.toThrow(/read-only/);
     // Still signs in with the public password.
     await getAuth().api.signInEmail({ body: { email: DEMO_EMAIL, password: DEMO_PASSWORD } });
+    // Anonymous visitors: no account-level sign-in trail with their IP.
+    expect(await adminDb().auditEvent.count({ where: { action: "auth.sign_in" } })).toBe(0);
 
     const demoUser = await adminDb().user.findUniqueOrThrow({ where: { email: DEMO_EMAIL } });
     const ctx = (await findWorkspaceContextForUser(demoUser.id, DEMO_SLUG))!;
