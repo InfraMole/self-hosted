@@ -5,8 +5,7 @@ _Last updated: 29 September 2026_
 This policy covers **inframole.com** — the website, the documentation and
 the live demo of InfraMole, a non-commercial open source project.
 
-**Who is responsible:** Alejandro Galisteo (private individual). Contact for
-anything related to your data:
+**Data controller:** Alejandro Galisteo (private individual). Contact:
 [privacy@inframole.com](mailto:privacy@inframole.com).
 
 If you run InfraMole on your own server, **none of your data reaches us**:

@@ -14,10 +14,12 @@ export function DemoSignIn({
   email,
   password,
   slug,
+  labels,
 }: {
   email: string;
   password: string;
   slug: string;
+  labels: { open: string; opening: string; busy: string; unavailable: string };
 }) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
@@ -34,18 +36,14 @@ export function DemoSignIn({
           const { error } = await authClient.signIn.email({ email, password });
           if (error) {
             setPending(false);
-            setError(
-              error.status === 429
-                ? "Many people are opening the demo right now. Try again in a minute."
-                : "The demo is not available right now. Try again later.",
-            );
+            setError(error.status === 429 ? labels.busy : labels.unavailable);
             return;
           }
           router.push(`/w/${slug}/map`);
           router.refresh();
         }}
       >
-        {pending ? "Opening the demo…" : "Open the demo"}
+        {pending ? labels.opening : labels.open}
       </Button>
       {error && (
         <p role="alert" className="text-danger text-sm">

@@ -26,6 +26,6 @@ Each resource page also has its own **Activity** tab.
 ## How long it is kept
 
 Change history is kept for 365 days on self-hosted installations. On
-InfraMole Cloud it depends on the plan (30, 90 or 365 days). The separate
+InfraMole Cloud (planned) it will depend on the plan. The separate
 **audit log** (security events) is described in
 [Members and security](/docs/manual/members-and-security#audit-log).

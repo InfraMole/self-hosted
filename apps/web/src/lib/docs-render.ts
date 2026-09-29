@@ -88,7 +88,11 @@ export function parseBlocks(source: string): Block[] {
 
 const CALLOUT_TITLE: Record<string, string> = { note: "Note", tip: "Tip", warning: "Warning" };
 
-export function renderDoc(source: string): RenderedDoc {
+/** `calloutTitles`: default titles of untitled callouts, per language (M14). */
+export function renderDoc(
+  source: string,
+  calloutTitles: Record<string, string> = CALLOUT_TITLE,
+): RenderedDoc {
   const headings: DocHeading[] = [];
   const used = new Map<string, number>();
   let title = "";
@@ -150,7 +154,7 @@ export function renderDoc(source: string): RenderedDoc {
             .join("\n");
           return `<div class="doc-tabs">${inputs}\n${panels}</div>\n`;
         }
-        const heading = escapeHtml(b.arg || CALLOUT_TITLE[b.name]!);
+        const heading = escapeHtml(b.arg || calloutTitles[b.name] || CALLOUT_TITLE[b.name]!);
         return `<div class="doc-callout doc-callout-${b.name}"><p class="doc-callout-title">${heading}</p>\n${render(b.children)}</div>\n`;
       })
       .join("");

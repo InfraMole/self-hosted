@@ -2,6 +2,8 @@
 "use client";
 
 import { useEffect } from "react";
+import { DOCS_UI } from "@/lib/docs-nav";
+import type { Locale } from "@/lib/i18n";
 
 const OS_KEY = "inframole.docs.tab";
 
@@ -11,8 +13,9 @@ const OS_KEY = "inframole.docs.tab";
  * - OS tabs stay in sync across the page (pick Windows once) and the choice
  *   is remembered in this browser.
  */
-export function DocsEnhancer({ pageKey }: { pageKey: string }) {
+export function DocsEnhancer({ pageKey, locale = "en" }: { pageKey: string; locale?: Locale }) {
   useEffect(() => {
+    const ui = DOCS_UI[locale];
     const root = document.querySelector<HTMLElement>(".doc-prose");
     if (!root) return;
 
@@ -22,18 +25,18 @@ export function DocsEnhancer({ pageKey }: { pageKey: string }) {
       const button = document.createElement("button");
       button.type = "button";
       button.className = "doc-copy";
-      button.textContent = "Copy";
-      button.setAttribute("aria-label", "Copy to clipboard");
+      button.textContent = ui.copy;
+      button.setAttribute("aria-label", ui.copyLabel);
       button.addEventListener("click", async () => {
         try {
           await navigator.clipboard.writeText(
             pre.querySelector("code")?.innerText ?? pre.innerText,
           );
-          button.textContent = "Copied";
+          button.textContent = ui.copied;
         } catch {
-          button.textContent = "Select & copy";
+          button.textContent = ui.copyFailed;
         }
-        setTimeout(() => (button.textContent = "Copy"), 1500);
+        setTimeout(() => (button.textContent = ui.copy), 1500);
       });
       pre.appendChild(button);
       buttons.push(button);
@@ -64,6 +67,6 @@ export function DocsEnhancer({ pageKey }: { pageKey: string }) {
       for (const i of inputs) i.removeEventListener("change", onChange);
       for (const b of buttons) b.remove();
     };
-  }, [pageKey]);
+  }, [pageKey, locale]);
   return null;
 }

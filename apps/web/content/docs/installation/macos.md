@@ -54,5 +54,5 @@ warns once about the certificate; accept it for this trial.
 :::tip Agents on your laptop
 With `tls internal` the agent does not trust Caddy's local certificate
 authority, so agent tests are easier against a server with a real
-certificate (a small Linux VM or InfraMole Cloud).
+certificate (for example a small Linux VM).
 :::

@@ -5,7 +5,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useMemo, useState } from "react";
 import { ChevronRight, Search } from "lucide-react";
-import type { DocSection } from "@/lib/docs-nav";
+import { DOCS_UI, docsBase, type DocSection } from "@/lib/docs-nav";
+import type { Locale } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 export interface SearchEntry {
@@ -18,9 +19,21 @@ export interface SearchEntry {
 }
 
 /** Docs navigation (sections open where the current page lives) + client-side search. */
-export function DocsSidebar({ nav, index }: { nav: DocSection[]; index: SearchEntry[] }) {
+export function DocsSidebar({
+  nav,
+  index,
+  locale,
+}: {
+  nav: DocSection[];
+  index: SearchEntry[];
+  locale: Locale;
+}) {
   const pathname = usePathname();
-  const current = pathname.replace(/^\/docs\/?/, "") || "getting-started";
+  const base = docsBase(locale);
+  const ui = DOCS_UI[locale];
+  const current = pathname.startsWith(base)
+    ? pathname.slice(base.length).replace(/^\//, "") || "getting-started"
+    : "";
   const [query, setQuery] = useState("");
 
   const results = useMemo(() => {
@@ -44,15 +57,15 @@ export function DocsSidebar({ nav, index }: { nav: DocSection[]; index: SearchEn
   }, [query, index]);
 
   return (
-    <nav aria-label="Documentation" className="flex flex-col gap-4 text-sm">
+    <nav aria-label={ui.navLabel} className="flex flex-col gap-4 text-sm">
       <div className="relative">
         <Search className="text-subtle pointer-events-none absolute top-2.5 left-2.5 size-4" />
         <input
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search the docs"
-          aria-label="Search the documentation"
+          placeholder={ui.search}
+          aria-label={ui.searchLabel}
           className="border-border bg-surface focus-visible:ring-ring/50 h-9 w-full rounded-md border pr-3 pl-8 text-sm outline-none focus-visible:ring-2"
         />
       </div>
@@ -60,15 +73,13 @@ export function DocsSidebar({ nav, index }: { nav: DocSection[]; index: SearchEn
       {query.trim().length > 1 ? (
         <div>
           <p className="text-subtle mb-2 text-xs">
-            {results.length
-              ? `${results.length} result${results.length === 1 ? "" : "s"}`
-              : "No results"}
+            {results.length ? ui.results(results.length) : ui.noResults}
           </p>
           <ul className="space-y-1">
             {results.map((r) => (
               <li key={`${r.slug}#${r.anchor ?? ""}`}>
                 <Link
-                  href={`/docs/${r.slug}${r.anchor ? `#${r.anchor}` : ""}`}
+                  href={`${base}/${r.slug}${r.anchor ? `#${r.anchor}` : ""}`}
                   onClick={() => setQuery("")}
                   className="hover:bg-surface-2 block rounded-md px-2 py-1.5"
                 >
@@ -83,11 +94,11 @@ export function DocsSidebar({ nav, index }: { nav: DocSection[]; index: SearchEn
         </div>
       ) : (
         <ul className="space-y-1">
-          {nav.map((section) => {
+          {nav.map((section, i) => {
             const open = section.pages.some((p) => p.slug === current);
             return (
               <li key={section.title}>
-                <details open={open || section.title === "Getting started"} className="group">
+                <details open={open || i === 0} className="group">
                   <summary className="text-foreground hover:bg-surface-2 flex cursor-pointer list-none items-center justify-between rounded-md px-2 py-1.5 font-medium [&::-webkit-details-marker]:hidden">
                     {section.title}
                     <ChevronRight className="text-subtle size-4 transition-transform group-open:rotate-90" />
@@ -96,7 +107,7 @@ export function DocsSidebar({ nav, index }: { nav: DocSection[]; index: SearchEn
                     {section.pages.map((p) => (
                       <li key={p.slug}>
                         <Link
-                          href={`/docs/${p.slug}`}
+                          href={`${base}/${p.slug}`}
                           aria-current={p.slug === current ? "page" : undefined}
                           className={cn(
                             "block rounded-md px-2 py-1",
