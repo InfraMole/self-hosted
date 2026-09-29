@@ -33,7 +33,11 @@ export interface LandingOptions {
   cloudSignup: boolean;
   /** A public demo exists at /demo (DEMO_MODE). */
   demo: boolean;
+  /** The visitor is signed in with the shared demo account: offer to go back to it. */
+  inDemo?: boolean;
 }
+
+const DEMO_APP_HREF = "/w/demo/map";
 
 export function Landing(options: LandingOptions) {
   return (
@@ -93,7 +97,7 @@ const technicalValues = ["prod-web-01", "10.20.4.15", "Azure / rg-production", "
 
 const INSTALL_HREF = "/docs/installation/requirements";
 
-function Hero({ cloudSignup, demo }: LandingOptions) {
+function Hero({ cloudSignup, demo, inDemo }: LandingOptions) {
   return (
     <section className="mx-auto grid max-w-6xl items-center gap-10 px-4 pt-16 pb-14 sm:px-6 lg:grid-cols-[1.15fr_0.85fr] lg:pt-24">
       <div>
@@ -119,7 +123,13 @@ function Hero({ cloudSignup, demo }: LandingOptions) {
             )}
           </Button>
           <Button asChild variant="outline" size="lg" className="h-10 px-5">
-            {demo ? <Link href="/demo">Try the demo</Link> : <a href="#how">How it works</a>}
+            {inDemo ? (
+              <Link href={DEMO_APP_HREF}>Back to the demo</Link>
+            ) : demo ? (
+              <Link href="/demo">Try the demo</Link>
+            ) : (
+              <a href="#how">How it works</a>
+            )}
           </Button>
         </div>
         <p className="text-subtle mt-4 text-xs">
@@ -474,7 +484,7 @@ function PlanLine({ children }: { children: React.ReactNode }) {
   );
 }
 
-function FinalCta({ cloudSignup, demo }: LandingOptions) {
+function FinalCta({ cloudSignup, demo, inDemo }: LandingOptions) {
   return (
     <section className="bg-brand-ink text-white">
       <div className="mx-auto flex max-w-6xl flex-col items-center gap-8 px-4 py-16 sm:px-6 md:flex-row md:justify-between">
@@ -499,7 +509,9 @@ function FinalCta({ cloudSignup, demo }: LandingOptions) {
               variant="outline"
               className="h-10 border-white/30 px-6 text-white hover:bg-white/10"
             >
-              <Link href="/demo">Try the demo</Link>
+              <Link href={inDemo ? DEMO_APP_HREF : "/demo"}>
+                {inDemo ? "Back to the demo" : "Try the demo"}
+              </Link>
             </Button>
           )}
           <Button

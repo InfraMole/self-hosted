@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Landing } from "@/components/landing/landing";
 import { getEnv } from "@/server/env";
+import { isDemoUser } from "@/server/modules/demo/demo";
 import { listWorkspacesForUser } from "@/server/modules/workspaces/workspaces";
 import { getSession } from "@/server/tenancy";
 
@@ -17,13 +18,16 @@ export const metadata: Metadata = {
  */
 export default async function Home() {
   const session = await getSession();
-  if (!session) {
-    const env = getEnv();
+  const env = getEnv();
+  // The shared demo account (M13) still sees the public website at "/".
+  const inDemo = isDemoUser(session?.user);
+  if (!session || inDemo) {
     if (env.EDITION !== "cloud" && !env.PUBLIC_SITE) redirect("/sign-in");
     return (
       <Landing
         cloudSignup={env.EDITION === "cloud" && env.SIGNUP === "open"}
         demo={env.DEMO_MODE}
+        inDemo={inDemo}
       />
     );
   }
