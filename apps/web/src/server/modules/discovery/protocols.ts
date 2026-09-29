@@ -39,3 +39,13 @@ const TABLE: Record<number, ProtocolGuess> = {
 export function guessProtocol(port: number): ProtocolGuess | null {
   return TABLE[port] ?? null;
 }
+
+/** Suggested relationship type for a set of server-side ports: the lowest recognised one. */
+export function suggestedTypeForPorts(ports: readonly number[]): RelationshipType | null {
+  const sorted = [...new Set(ports)].sort((a, b) => a - b);
+  for (const p of sorted) {
+    const guess = guessProtocol(p);
+    if (guess) return guess.suggestedType;
+  }
+  return null;
+}

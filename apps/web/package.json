@@ -10,6 +10,7 @@
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
+    "test:load": "vitest run --project load",
     "test:watch": "vitest --project unit",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",

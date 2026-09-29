@@ -194,6 +194,17 @@ hand-written in migration `…_relationships`. Duplicate → `P2002` →
 so it appears in both resources' Activity.
 The UI shows the inverse label when viewing the `to` side.
 
+### DiscoveryRule ✅ M15 (ADR-027)
+
+`id, workspaceId, port?, processName? (compared case-insensitively),
+resourceId? (either end; cascade), note?, createdById?, createdAt` — CHECK: at
+least one of port / processName / resourceId. RLS like every tenant table.
+Connection facts matching every set criterion never become suggestions, and
+unreviewed suggestions whose every piece of evidence matches a rule are
+deleted (change event DELETED, "Suggestion removed by an exclusion rule").
+MEMBER+ create / delete (audited `discovery.rule_created` /
+`discovery.rule_deleted`); at most 100 per workspace.
+
 ### RelationshipEvidence ✅ M6 (see §5)
 
 Why a detected relationship exists: `relationshipId, kind (TCP_CONNECTION,
@@ -355,6 +366,7 @@ opportunistic per-agent pruning on each report.
 | ------------------------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
 | Raw agent observations                | 7 days                                           | deleted                                                                                                                  |
 | Connection facts                      | 30 days after last seen                          | deleted                                                                                                                  |
+| Unreviewed agent suggestions (M15)    | 30 days after last observed (`lastObservedAt`)   | deleted, SYSTEM change event ("Suggestion expired…"); import-made suggestions (no `lastObservedAt`) never expire         |
 | Change events (product history)       | 365 days (Cloud: the plan's 30 / 90 / 365 days)  | deleted                                                                                                                  |
 | Audit events                          | 365 days                                         | deleted (the trigger allows nothing earlier)                                                                             |
 | Invitations (hold an email)           | until 30 days after accepted / revoked / expired | deleted                                                                                                                  |

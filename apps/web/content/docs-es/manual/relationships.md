@@ -44,6 +44,45 @@ Para cada una:
 
 Los miembros, admins y owners pueden revisar; los viewers pueden leer.
 
+### Revisar muchas a la vez
+
+Con agentes en muchos servidores, la lista crece rápido. Fíltrala por
+**destino** (destination), **puerto** (port) o **proceso** (process), marca
+**Select all** y después:
+
+- **Confirm** — confirmarlas tal cual;
+- **Confirm with suggested types** — cada una toma el tipo que sugiere su
+  puerto (1433 → _uses database_, 389 → _authenticates with_…);
+- **Ignore** — ignorarlas todas.
+
+Se muestran hasta 1.000 sugerencias a la vez.
+
+### Deshacer un «Ignorar»
+
+Las sugerencias ignoradas se guardan en la pestaña **Ignored**. Selecciónalas
+y elige **Restore** para devolverlas a la bandeja.
+
+### Ignorar siempre cierto tráfico
+
+Algunas conexiones nunca son dependencias: agentes de copias de seguridad,
+actualizaciones del antivirus, monitorización. Filtra la bandeja por ese
+puerto, proceso o destino y elige **Always ignore this traffic…**, o añade
+una regla en la pestaña **Rules**. Una regla puede combinar un puerto, un
+nombre de proceso y un recurso (cualquiera de los dos extremos de la
+conexión); todos los campos que rellenes deben coincidir.
+
+Al añadir una regla se eliminan las sugerencias que coinciden y que aún
+esperan revisión, y los informes futuros de los agentes nunca convertirán
+ese tráfico en sugerencias. Las relaciones confirmadas nunca se modifican.
+Si borras la regla, ese tráfico puede volver a sugerirse al momento. Añadir
+y quitar reglas queda anotado en el registro de auditoría.
+
+### Sugerencias que desaparecen
+
+Una sugerencia que ningún agente ha observado en **30 días** se elimina
+automáticamente, y el historial de cambios (Changes) lo indica. Las
+sugerencias creadas por una importación no caducan.
+
 ## Añadir una relación a mano
 
 En la página de un recurso, abre **Dependencies › Add relationship**, elige

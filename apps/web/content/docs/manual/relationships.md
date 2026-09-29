@@ -38,9 +38,46 @@ For each one:
   more precise type.
 - **Add context** — choose the type, add a note, then confirm.
 - **Ignore** — it is not a dependency (for example backup or monitoring
-  traffic). Ignored pairs are never suggested again.
+  traffic). Ignored pairs are not suggested again.
 
 Members, admins and owners can review; viewers can read.
+
+### Review many at once
+
+With agents on many servers, the list grows quickly. Filter it by
+**destination**, **port** or **process**, tick **Select all**, then:
+
+- **Confirm** — confirm them as they are;
+- **Confirm with suggested types** — each one takes the type its port
+  suggests (1433 → _uses database_, 389 → _authenticates with_…);
+- **Ignore** — ignore them all.
+
+Up to 1,000 suggestions are listed at a time.
+
+### Undo an ignore
+
+Ignored suggestions are kept in the **Ignored** tab. Select them and choose
+**Restore** to put them back in the inbox.
+
+### Always ignore some traffic
+
+Some connections are never dependencies: backup agents, antivirus updates,
+monitoring. Filter the inbox by that port, process or destination and choose
+**Always ignore this traffic…**, or add a rule in the **Rules** tab. A rule
+can combine a port, a process name and a resource (either end of the
+connection); every field you fill in must match.
+
+Adding a rule removes the matching suggestions still waiting for review, and
+agents' future reports never turn that traffic into suggestions. Confirmed
+relationships are never changed. Delete the rule and the traffic can be
+suggested again straight away. Adding and removing rules is recorded in the
+audit log.
+
+### Suggestions that go away
+
+A suggestion that no agent has observed for **30 days** is removed
+automatically, and the Changes history says so. Suggestions created by an
+import do not expire.
 
 ## Add a relationship by hand
 

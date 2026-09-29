@@ -60,7 +60,7 @@ pueden editar ni borrar y se guardan 365 días.
 
 - **Export workspace data (JSON)** en **Settings** (admins y owners)
   descarga los recursos, las relaciones confirmadas, las sugerencias, los
-  miembros, los agentes, las integraciones (sin credenciales), los cambios y
+  miembros, los agentes, las integraciones (sin credenciales), las reglas de exclusión, los cambios y
   el registro de auditoría. Los recursos y las relaciones se pueden importar
   en otro espacio de trabajo. Nunca se incluyen secretos.
 - **Delete workspace** (solo el owner) elimina todos sus datos al instante.

@@ -226,21 +226,32 @@ maxDepth)`, over `getWorkspaceGraph` (archived resources and ignored
 
 ✅ M3. `server/modules/map/map.ts#getWorkspaceGraph(ctx)` returns all
 non-archived resources and non-ignored relationships of the workspace
-(cap 1000 nodes). The client (`components/map/map-view.tsx`) filters (type,
+(no cap since M15: a truncated graph silently hid dependencies from the map
+and from impact). The client (`components/map/map-view.tsx`) filters (type,
 environment, "Unconfirmed" toggle — off by default —, "Informational" toggle),
 computes the focus subgraph with `neighbourhood()` (depth 1/2/3/all,
 direction both / depends on / used by), lays it out with dagre
 (`components/map/layout.ts`, dependents above dependencies) and renders it
-with React Flow. Selecting a node dims everything but its neighbours and
+with React Flow. Above `DETAILED_LAYOUT_LIMIT` (300) visible nodes dagre is
+too slow for a browser (load test: 22 s at 1,000 nodes), so `layeredLayout`
+(linear: longest-path layers, cycle breaking, two barycenter sweeps) is used,
+React Flow renders only what is in the viewport, and the map says "Large map:
+simplified layout". Wide layers (a hub's dependents) wrap into rows of
+`MAX_ROW` in both layouts. Selecting a node dims everything but its neighbours and
 labels its edges from the dependent's view; the inspector lists Depends on /
 Used by / Related. Dragged positions are cosmetic and reset on re-layout.
 `?focus=` is kept in the URL (shareable). Presentation rules: ADR-015.
 
 ## 7. Discovery pipeline _(✅ M5–M7)_
 
-See `DISCOVERY.md §3` for the exact rules. After each report (and after each
-resource save) `refreshDetectedRelationships(workspaceId)` re-plans the whole
-workspace — fine at our scale (hundreds of resources, thousands of facts).
+See `DISCOVERY.md §3` for the exact rules. After a report that changed no IP
+address, `refreshDetectedRelationships` re-plans only that agent's facts
+(M15); a new host, an IP change, a resource save, an import or a rule change
+re-plans the whole workspace. Execution is batched and writes only what
+changed (new suggestions with `createMany`; evidence only when its counters
+moved). Load test (`pnpm test:load`, `tests/load/`): 2,000 servers / 5,247
+connections — first discovery 3.1 s, full re-plan 0.1 s, one agent report
+~0.1 s, map data 15 ms, impact 15 ms.
 
 ```
 Agent ─POST /api/agent/v1/report─▶ validate (zod, size limits) ─▶ Observation (raw, short TTL)

@@ -82,6 +82,18 @@ UNCONFIRMED)` + evidence (port, protocol guess, process, samples) and a
    origin stays DETECTED), _Confirm as "<suggested type>"_, _Add context_
    (choose type + note, then confirm) or _Ignore_ (kept as IGNORED so it is
    never suggested again). Events CONFIRMED / IGNORED.
+   **At scale ✅ M15 (ADR-027)**: the inbox lists up to 1,000, filters by
+   destination / port / process, and confirms (optionally with each one's
+   suggested type — skipped when it would duplicate an existing relationship
+   of the pair), ignores or restores many at once (one change event each).
+   _Restore_ puts IGNORED back to UNCONFIRMED ("undo ignore").
+   **Exclusion rules** (`discovery_rule`: port, process, resource on either
+   end; ANDed, null = any): matching facts are skipped by the planner, and
+   unreviewed suggestions whose every evidence row matches are deleted;
+   deleting a rule re-plans so they return. **Expiry**: the maintenance job
+   deletes unreviewed suggestions not observed for 30 days (agent evidence
+   only). **Incremental**: a report that changed no host IP re-plans only
+   that agent's facts; a new host or an IP change re-plans the workspace.
 7. **Unknown endpoints** (unresolved facts) are listed on the host's Overview
    ("Observed on this host"); adding a resource with that IP turns them into
    suggestions immediately.

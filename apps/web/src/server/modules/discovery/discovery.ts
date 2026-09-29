@@ -6,11 +6,10 @@ import type { Prisma } from "@/generated/prisma/client";
 import type { WorkspaceContext } from "@/server/authz";
 import { tenantDb } from "@/server/db";
 import type { ReportV1 } from "@/server/modules/agents/protocol";
-import { recordAgentChange } from "@/server/modules/changes/changes";
 import type { ResourceRef } from "@/server/modules/relationships/relationships";
 import { resourceMetadataSchema } from "@/server/modules/resources/schemas";
-import { planDiscovery, type FactInput } from "./plan";
-import { guessProtocol } from "./protocols";
+import { excludedSuggestions, planDiscovery, type FactInput } from "./plan";
+import { guessProtocol, suggestedTypeForPorts } from "./protocols";
 
 /** Facts not seen for this long are deleted (per agent, on ingest). */
 export const FACT_RETENTION_DAYS = 30;
@@ -96,22 +95,30 @@ export async function upsertConnectionFacts(
 }
 
 /**
- * Re-resolves every fact of the workspace and turns resolved connections into
- * DETECTED suggestions or evidence (see plan.ts). Idempotent; safe to call
- * after each report and after a resource's IPs change.
+ * Turns resolved connection facts into DETECTED suggestions or evidence (see
+ * plan.ts), honouring the workspace's exclusion rules. Idempotent.
+ *
+ * - `onlyAgentFacts` (after a report that changed no IP address): only that
+ *   agent's facts are re-planned — nothing else can have changed (M15).
+ * - Otherwise (IPs changed, an import, a rule added or removed) the whole
+ *   workspace is re-planned, and unreviewed suggestions explained only by
+ *   excluded traffic are removed.
  */
 export async function refreshDetectedRelationships(
   workspaceId: string,
-  actor: { agentId?: string } = {},
-): Promise<{ created: number }> {
+  actor: { agentId?: string; userId?: string } = {},
+  options: { onlyAgentFacts?: boolean } = {},
+): Promise<{ created: number; removed: number }> {
   const db = tenantDb({ workspaceId });
-  const [resources, facts, relationships] = await Promise.all([
+  const incremental = !!(options.onlyAgentFacts && actor.agentId);
+  const factScope = incremental ? { workspaceId, agentId: actor.agentId } : { workspaceId };
+  const [resources, facts, relationships, rules] = await Promise.all([
     db.resource.findMany({
       where: { workspaceId, status: { not: "ARCHIVED" } },
       select: { id: true, name: true, metadata: true },
     }),
     db.connectionFact.findMany({
-      where: { workspaceId },
+      where: factScope,
       select: {
         id: true,
         sourceResourceId: true,
@@ -127,12 +134,46 @@ export async function refreshDetectedRelationships(
     }),
     db.relationship.findMany({
       where: { workspaceId },
-      select: { id: true, fromResourceId: true, toResourceId: true, status: true },
+      select: {
+        id: true,
+        fromResourceId: true,
+        toResourceId: true,
+        status: true,
+        lastObservedAt: true,
+      },
+    }),
+    db.discoveryRule.findMany({
+      where: { workspaceId },
+      select: { id: true, port: true, processName: true, resourceId: true },
     }),
   ]);
-  if (facts.length === 0) return { created: 0 };
+  // Unreviewed suggestions that the exclusion rules now fully explain.
+  const removals =
+    rules.length > 0 && !incremental
+      ? excludedSuggestions(
+          (
+            await db.relationship.findMany({
+              where: { workspaceId, status: "UNCONFIRMED", evidence: { some: {} } },
+              select: {
+                id: true,
+                fromResourceId: true,
+                toResourceId: true,
+                evidence: { select: { port: true, processName: true } },
+              },
+            })
+          ).map((r) => ({
+            relationshipId: r.id,
+            from: r.fromResourceId,
+            to: r.toResourceId,
+            evidence: r.evidence,
+          })),
+          rules,
+        )
+      : [];
+  if (facts.length === 0 && removals.length === 0) return { created: 0, removed: 0 };
 
   const names = new Map(resources.map((r) => [r.id, r.name]));
+  const lastObserved = new Map(relationships.map((r) => [r.id, r.lastObservedAt]));
   const plan = planDiscovery(
     facts,
     resources.map((r) => {
@@ -145,89 +186,159 @@ export async function refreshDetectedRelationships(
       to: r.toResourceId,
       status: r.status,
     })),
+    { rules },
   );
 
-  await db.$transaction(async (tx) => {
-    for (const r of plan.resolutions) {
-      await tx.connectionFact.updateMany({
-        where: { id: r.factId, workspaceId },
-        data: { remoteResourceId: r.remoteResourceId },
-      });
-    }
+  await db.$transaction(
+    async (tx) => {
+      // Group resolution updates by target: one statement per remote resource.
+      const byTarget = new Map<string | null, string[]>();
+      for (const r of plan.resolutions) {
+        byTarget.set(r.remoteResourceId, [...(byTarget.get(r.remoteResourceId) ?? []), r.factId]);
+      }
+      for (const [remoteResourceId, ids] of byTarget) {
+        await tx.connectionFact.updateMany({
+          where: { workspaceId, id: { in: ids } },
+          data: { remoteResourceId },
+        });
+      }
 
-    for (const pair of plan.creates) {
-      const first = minDate(pair.facts.map((f) => f.firstSeenAt));
-      const last = maxDate(pair.facts.map((f) => f.lastSeenAt));
-      const rel = await tx.relationship.upsert({
-        where: {
-          workspaceId_fromResourceId_toResourceId_type: {
-            workspaceId,
-            fromResourceId: pair.from,
-            toResourceId: pair.to,
-            type: "CONNECTS_TO",
-          },
-        },
-        create: {
+      // New suggestions, in batches (first-day discovery can create thousands).
+      if (plan.creates.length > 0) {
+        const rows = plan.creates.map((pair) => ({
+          id: randomUUID(),
           workspaceId,
           fromResourceId: pair.from,
           toResourceId: pair.to,
-          type: "CONNECTS_TO",
-          origin: "DETECTED",
-          status: "UNCONFIRMED",
-          firstObservedAt: first,
-          lastObservedAt: last,
-        },
-        update: {},
-      });
-      await upsertEvidence(tx, workspaceId, rel.id, pair.facts);
+          type: "CONNECTS_TO" as const,
+          origin: "DETECTED" as const,
+          status: "UNCONFIRMED" as const,
+          firstObservedAt: minDate(pair.facts.map((f) => f.firstSeenAt)),
+          lastObservedAt: maxDate(pair.facts.map((f) => f.lastSeenAt)),
+        }));
+        await tx.relationship.createMany({ data: rows, skipDuplicates: true });
+        const inserted = new Set(
+          (
+            await tx.relationship.findMany({
+              where: { workspaceId, id: { in: rows.map((r) => r.id) } },
+              select: { id: true },
+            })
+          ).map((r) => r.id),
+        );
+        const made = plan.creates
+          .map((pair, i) => ({ pair, id: rows[i]!.id }))
+          .filter(({ id }) => inserted.has(id));
+        await tx.relationshipEvidence.createMany({
+          data: made.flatMap(({ pair, id }) =>
+            pair.facts.map((f) => ({ ...evidenceData(f), workspaceId, relationshipId: id })),
+          ),
+        });
+        await tx.changeEvent.createMany({
+          data: made.map(({ pair, id }) => {
+            const ports = [...new Set(pair.facts.map((f) => f.port))].sort((a, b) => a - b);
+            const guess = guessProtocol(ports[0]!);
+            return {
+              workspaceId,
+              actorType: actor.agentId ? ("AGENT" as const) : ("SYSTEM" as const),
+              actorId: actor.agentId ?? null,
+              subjectType: "RELATIONSHIP" as const,
+              subjectId: id,
+              subjectLabel: `${names.get(pair.from)} → ${names.get(pair.to)}`,
+              kind: "DISCOVERED" as const,
+              summary: `Detected connection: ${names.get(pair.from)} → ${names.get(pair.to)}:${ports.join(",")}${guess ? ` (likely ${guess.name})` : ""}`,
+              resourceIds: [pair.from, pair.to],
+            };
+          }),
+        });
+      }
 
-      const ports = [...new Set(pair.facts.map((f) => f.port))].sort((a, b) => a - b);
-      const guess = guessProtocol(ports[0]!);
-      const summary = `Detected connection: ${names.get(pair.from)} → ${names.get(pair.to)}:${ports.join(",")}${guess ? ` (likely ${guess.name})` : ""}`;
-      const change = {
-        subjectType: "RELATIONSHIP" as const,
-        subjectId: rel.id,
-        subjectLabel: `${names.get(pair.from)} → ${names.get(pair.to)}`,
-        kind: "DISCOVERED" as const,
-        summary,
-        resourceIds: [pair.from, pair.to],
-      };
-      if (actor.agentId) await recordAgentChange(tx, workspaceId, actor.agentId, change);
-      else await tx.changeEvent.create({ data: { ...change, workspaceId, actorType: "SYSTEM" } });
-    }
+      // Evidence on existing relationships: write only what changed.
+      if (plan.evidence.length > 0) {
+        const current = new Map(
+          (
+            await tx.relationshipEvidence.findMany({
+              where: {
+                workspaceId,
+                relationshipId: { in: plan.evidence.map((e) => e.relationshipId) },
+              },
+              select: {
+                id: true,
+                relationshipId: true,
+                connectionFactId: true,
+                sampleCount: true,
+                lastSeenAt: true,
+              },
+            })
+          ).map((e) => [`${e.relationshipId}|${e.connectionFactId}`, e]),
+        );
+        const toCreate: Prisma.RelationshipEvidenceCreateManyInput[] = [];
+        for (const e of plan.evidence) {
+          for (const f of e.facts) {
+            const row = current.get(`${e.relationshipId}|${f.id}`);
+            if (!row)
+              toCreate.push({ ...evidenceData(f), workspaceId, relationshipId: e.relationshipId });
+            else if (
+              row.sampleCount !== f.sampleCount ||
+              row.lastSeenAt.getTime() !== f.lastSeenAt.getTime()
+            )
+              await tx.relationshipEvidence.update({
+                where: { id: row.id },
+                data: evidenceData(f),
+              });
+          }
+          const last = maxDate(e.facts.map((f) => f.lastSeenAt));
+          const observed = lastObserved.get(e.relationshipId);
+          if (!observed || observed < last)
+            await tx.relationship.update({
+              where: { id: e.relationshipId },
+              data: { lastObservedAt: last },
+            });
+        }
+        if (toCreate.length > 0)
+          await tx.relationshipEvidence.createMany({ data: toCreate, skipDuplicates: true });
+      }
 
-    for (const e of plan.evidence) {
-      await upsertEvidence(tx, workspaceId, e.relationshipId, e.facts);
-      await tx.relationship.update({
-        where: { id: e.relationshipId },
-        data: { lastObservedAt: maxDate(e.facts.map((f) => f.lastSeenAt)) },
-      });
-    }
-  });
-  return { created: plan.creates.length };
+      if (removals.length > 0) {
+        const removed = await tx.relationship.findMany({
+          where: { workspaceId, id: { in: removals }, status: "UNCONFIRMED" },
+          select: { id: true, fromResourceId: true, toResourceId: true },
+        });
+        await tx.relationship.deleteMany({
+          where: { workspaceId, id: { in: removed.map((r) => r.id) } },
+        });
+        await tx.changeEvent.createMany({
+          data: removed.map((r) => {
+            const label = `${names.get(r.fromResourceId) ?? "?"} → ${names.get(r.toResourceId) ?? "?"}`;
+            return {
+              workspaceId,
+              actorType: actor.userId ? ("USER" as const) : ("SYSTEM" as const),
+              actorId: actor.userId ?? null,
+              subjectType: "RELATIONSHIP" as const,
+              subjectId: r.id,
+              subjectLabel: label,
+              kind: "DELETED" as const,
+              summary: `Suggestion removed by an exclusion rule: ${label}`,
+              resourceIds: [r.fromResourceId, r.toResourceId],
+            };
+          }),
+        });
+      }
+    },
+    { timeout: 60_000 },
+  );
+  return { created: plan.creates.length, removed: removals.length };
 }
 
-async function upsertEvidence(
-  tx: Prisma.TransactionClient,
-  workspaceId: string,
-  relationshipId: string,
-  facts: FactInput[],
-) {
-  for (const f of facts) {
-    const data = {
-      port: f.port,
-      protocolGuess: guessProtocol(f.port)?.name ?? null,
-      processName: f.processName || null,
-      sampleCount: f.sampleCount,
-      firstSeenAt: f.firstSeenAt,
-      lastSeenAt: f.lastSeenAt,
-    };
-    await tx.relationshipEvidence.upsert({
-      where: { relationshipId_connectionFactId: { relationshipId, connectionFactId: f.id } },
-      create: { ...data, workspaceId, relationshipId, connectionFactId: f.id },
-      update: data,
-    });
-  }
+function evidenceData(f: FactInput) {
+  return {
+    connectionFactId: f.id,
+    port: f.port,
+    protocolGuess: guessProtocol(f.port)?.name ?? null,
+    processName: f.processName || null,
+    sampleCount: f.sampleCount,
+    firstSeenAt: f.firstSeenAt,
+    lastSeenAt: f.lastSeenAt,
+  };
 }
 
 const minDate = (d: Date[]) => new Date(Math.min(...d.map((x) => x.getTime())));
@@ -258,9 +369,16 @@ export interface SuggestionView {
 
 const refSelect = { id: true, name: true, type: true, environment: true, status: true } as const;
 
-export async function listSuggestions(ctx: WorkspaceContext): Promise<SuggestionView[]> {
+/** Inbox size: the page lists (and bulk actions accept) at most this many. */
+export const SUGGESTIONS_PAGE = 1000;
+
+/** Suggestions to review (default) or ignored ones ("undo ignore", M15), newest first. */
+export async function listSuggestions(
+  ctx: WorkspaceContext,
+  status: "UNCONFIRMED" | "IGNORED" = "UNCONFIRMED",
+): Promise<SuggestionView[]> {
   const rels = await tenantDb(ctx).relationship.findMany({
-    where: { workspaceId: ctx.workspaceId, status: "UNCONFIRMED" },
+    where: { workspaceId: ctx.workspaceId, status },
     select: {
       id: true,
       type: true,
@@ -279,8 +397,11 @@ export async function listSuggestions(ctx: WorkspaceContext): Promise<Suggestion
         },
       },
     },
-    orderBy: [{ lastObservedAt: "desc" }, { createdAt: "desc" }],
-    take: 200,
+    orderBy:
+      status === "IGNORED"
+        ? [{ updatedAt: "desc" }]
+        : [{ lastObservedAt: "desc" }, { createdAt: "desc" }],
+    take: SUGGESTIONS_PAGE,
   });
   return rels.map(({ evidence, ...r }) => ({
     ...r,
@@ -288,9 +409,12 @@ export async function listSuggestions(ctx: WorkspaceContext): Promise<Suggestion
   }));
 }
 
-export async function countSuggestions(ctx: WorkspaceContext): Promise<number> {
+export async function countSuggestions(
+  ctx: WorkspaceContext,
+  status: "UNCONFIRMED" | "IGNORED" = "UNCONFIRMED",
+): Promise<number> {
   return tenantDb(ctx).relationship.count({
-    where: { workspaceId: ctx.workspaceId, status: "UNCONFIRMED" },
+    where: { workspaceId: ctx.workspaceId, status },
   });
 }
 
@@ -305,7 +429,6 @@ function summarise(
   }[],
 ): EvidenceSummary {
   const ports = [...new Set(evidence.map((e) => e.port))].sort((a, b) => a - b);
-  const firstGuess = ports.map(guessProtocol).find(Boolean) ?? null;
   return {
     ports,
     protocols: [...new Set(evidence.map((e) => e.protocolGuess).filter((p): p is string => !!p))],
@@ -313,7 +436,7 @@ function summarise(
     samples: evidence.reduce((n, e) => n + e.sampleCount, 0),
     firstSeenAt: evidence.length ? minDate(evidence.map((e) => e.firstSeenAt)) : null,
     lastSeenAt: evidence.length ? maxDate(evidence.map((e) => e.lastSeenAt)) : null,
-    suggestedType: firstGuess?.suggestedType ?? null,
+    suggestedType: suggestedTypeForPorts(ports),
   };
 }
 

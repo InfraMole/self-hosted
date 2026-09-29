@@ -14,6 +14,11 @@ they need, and arrows point at what is needed.
 - **Inspector**: the side panel shows the selected resource or relationship,
   with links to its page.
 
+**Large maps**: above 300 visible resources the map uses a faster,
+simplified layout (dependents still above what they need, wide rows
+wrapped) and says so. Double-click a resource to focus on it, or filter by
+type or environment, for the detailed layout.
+
 Line styles follow the [certainty encoding](/docs/manual/relationships#how-certain-is-it):
 solid for confirmed, dashed for detected, dotted for inferred.
 

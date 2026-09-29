@@ -109,6 +109,7 @@ model Workspace {
   observations     Observation[]
   connectionFacts  ConnectionFact[]
   evidence         RelationshipEvidence[]
+  discoveryRules   DiscoveryRule[]
   integrations     Integration[]
   invitations      Invitation[]
   auditEvents      AuditEvent[]
@@ -275,6 +276,7 @@ model Resource {
   agents      Agent[]
   factsFrom   ConnectionFact[] @relation("FactSource")
   factsTo     ConnectionFact[] @relation("FactRemote")
+  discoveryRules DiscoveryRule[]
 
   /// Target of composite FKs (workspaceId, id) from other tenant tables (ADR-005).
   @@unique([workspaceId, id])
@@ -582,6 +584,28 @@ model RelationshipEvidence {
   @@unique([relationshipId, connectionFactId])
   @@index([workspaceId])
   @@map("relationship_evidence")
+}
+
+/// Exclusion rule (M15, ADR-027): connection facts that match every set
+/// criterion never become suggestions, and matching unreviewed suggestions are
+/// removed. Deleting the rule brings them back on the next discovery pass.
+model DiscoveryRule {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  /// Server-side port; null = any. At least one criterion is set (CHECK in SQL).
+  port        Int?
+  /// Process name, compared case-insensitively; null = any.
+  processName String?
+  /// Resource on either end of the connection; null = any.
+  resourceId  String?
+  resource    Resource? @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  note        String?
+  createdById String?
+  createdAt   DateTime  @default(now())
+
+  @@index([workspaceId])
+  @@map("discovery_rule")
 }
 
 // ───────────────────────────── Integrations (M8b, ADR-018 D) ─────────────────────────────

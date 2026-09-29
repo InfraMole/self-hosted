@@ -38,9 +38,6 @@ export interface WorkspaceGraph {
   edges: MapEdge[];
 }
 
-/** Hard cap; our design ceiling is ~250 nodes per workspace. */
-export const MAP_NODE_LIMIT = 1000;
-
 /**
  * The whole workspace graph for the map. Archived resources and IGNORED
  * relationships are excluded (never drawn, never used for impact).
@@ -59,8 +56,9 @@ export async function getWorkspaceGraph(ctx: WorkspaceContext): Promise<Workspac
         status: true,
         metadata: true,
       },
+      // No cap (M15): a truncated graph would silently hide dependencies from
+      // the map and from impact. Load-tested at 2,000 servers (tests/load).
       orderBy: { name: "asc" },
-      take: MAP_NODE_LIMIT,
     }),
     db.relationship.findMany({
       where: { workspaceId: ctx.workspaceId, status: { not: "IGNORED" } },

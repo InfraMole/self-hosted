@@ -12,6 +12,8 @@ export const AUDIT_ACTIONS = {
     group: "workspace",
     label: "changed workspace security settings",
   },
+  "discovery.rule_created": { group: "workspace", label: "added the discovery exclusion rule" },
+  "discovery.rule_deleted": { group: "workspace", label: "removed the discovery exclusion rule" },
   "member.invited": { group: "members", label: "invited" },
   "member.invitation_revoked": { group: "members", label: "revoked the invitation for" },
   "member.joined": { group: "members", label: "joined the workspace" },

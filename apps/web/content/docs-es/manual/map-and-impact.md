@@ -15,6 +15,12 @@ colocados automáticamente: los recursos que dependen de otros quedan
 - **Inspector**: el panel lateral muestra el recurso o la relación
   seleccionados, con enlaces a su página.
 
+**Mapas grandes**: con más de 300 recursos visibles, el mapa usa una
+disposición más rápida y simplificada (los dependientes siguen encima de lo
+que necesitan y las filas anchas se reparten en varias) y lo indica. Haz
+doble clic en un recurso para centrarte en él, o filtra por tipo o entorno,
+para ver la disposición detallada.
+
 El estilo de las líneas sigue la
 [representación de la certeza](/es/docs/manual/relationships#cuanta-certeza-hay):
 continua para confirmadas, discontinua para detectadas, punteada para

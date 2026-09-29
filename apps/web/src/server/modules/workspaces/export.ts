@@ -22,59 +22,79 @@ export async function exportWorkspace(ctx: WorkspaceContext) {
   assertRole(ctx, "ADMIN");
   const db = tenantDb(ctx);
   const where = { workspaceId: ctx.workspaceId };
-  const [workspace, members, resources, relationships, agents, integrations, changes, audit] =
-    await Promise.all([
-      db.workspace.findUniqueOrThrow({
-        where: { id: ctx.workspaceId },
-        select: { name: true, slug: true, createdAt: true, requireTwoFactor: true },
-      }),
-      db.membership.findMany({
-        where,
-        select: { role: true, createdAt: true, user: { select: { name: true, email: true } } },
-      }),
-      db.resource.findMany({ where, orderBy: { createdAt: "asc" } }),
-      db.relationship.findMany({ where, orderBy: { createdAt: "asc" } }),
-      db.agent.findMany({
-        where,
-        select: {
-          hostname: true,
-          os: true,
-          osVersion: true,
-          arch: true,
-          agentVersion: true,
-          status: true,
-          enrolledAt: true,
-          lastSeenAt: true,
-          resourceId: true,
-        },
-      }),
-      db.integration.findMany({
-        where,
-        select: {
-          kind: true,
-          name: true,
-          config: true,
-          syncIntervalHours: true,
-          lastSyncAt: true,
-          lastSyncOk: true,
-        },
-      }),
-      db.changeEvent.findMany({ where, orderBy: { occurredAt: "asc" }, take: 20_000 }),
-      db.auditEvent.findMany({
-        where,
-        orderBy: { createdAt: "asc" },
-        select: {
-          createdAt: true,
-          actorType: true,
-          actorLabel: true,
-          action: true,
-          targetType: true,
-          targetLabel: true,
-          metadata: true,
-          ip: true,
-        },
-      }),
-    ]);
+  const [
+    workspace,
+    members,
+    resources,
+    relationships,
+    agents,
+    integrations,
+    changes,
+    audit,
+    discoveryRules,
+  ] = await Promise.all([
+    db.workspace.findUniqueOrThrow({
+      where: { id: ctx.workspaceId },
+      select: { name: true, slug: true, createdAt: true, requireTwoFactor: true },
+    }),
+    db.membership.findMany({
+      where,
+      select: { role: true, createdAt: true, user: { select: { name: true, email: true } } },
+    }),
+    db.resource.findMany({ where, orderBy: { createdAt: "asc" } }),
+    db.relationship.findMany({ where, orderBy: { createdAt: "asc" } }),
+    db.agent.findMany({
+      where,
+      select: {
+        hostname: true,
+        os: true,
+        osVersion: true,
+        arch: true,
+        agentVersion: true,
+        status: true,
+        enrolledAt: true,
+        lastSeenAt: true,
+        resourceId: true,
+      },
+    }),
+    db.integration.findMany({
+      where,
+      select: {
+        kind: true,
+        name: true,
+        config: true,
+        syncIntervalHours: true,
+        lastSyncAt: true,
+        lastSyncOk: true,
+      },
+    }),
+    db.changeEvent.findMany({ where, orderBy: { occurredAt: "asc" }, take: 20_000 }),
+    db.auditEvent.findMany({
+      where,
+      orderBy: { createdAt: "asc" },
+      select: {
+        createdAt: true,
+        actorType: true,
+        actorLabel: true,
+        action: true,
+        targetType: true,
+        targetLabel: true,
+        metadata: true,
+        ip: true,
+      },
+    }),
+    db.discoveryRule.findMany({
+      where,
+      orderBy: { createdAt: "asc" },
+      select: {
+        port: true,
+        processName: true,
+        note: true,
+        createdAt: true,
+        resource: { select: { name: true } },
+      },
+    }),
+  ]);
 
   const toImportRow = (r: (typeof resources)[number]) => {
     const meta = (r.metadata ?? {}) as Meta;
@@ -128,6 +148,10 @@ export async function exportWorkspace(ctx: WorkspaceContext) {
     suggestions: relationships.filter((r) => r.status !== "CONFIRMED").map(toEdge),
     agents,
     integrations: integrations.map((i) => ({ ...i, credentials: "not exported" })),
+    discoveryRules: discoveryRules.map(({ resource, ...r }) => ({
+      ...r,
+      resource: resource?.name ?? null,
+    })),
     changes,
     audit,
   };

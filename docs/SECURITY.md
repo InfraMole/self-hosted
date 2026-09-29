@@ -225,7 +225,7 @@ last IP, expired sessions and tokens) is deleted, not kept "just in case".
   `depmap-workspace-export/1` — workspace, members, resources and CONFIRMED
   relationships in the JSON importer's shape (re-importable, tested),
   suggestions, agents (no secrets), integrations (config only — credentials
-  never exported), changes, audit log. Audited as `workspace.exported`.
+  never exported), discovery exclusion rules (M15), changes, audit log. Audited as `workspace.exported`.
 - **Workspace deletion** (OWNER, exact-name confirmation): cascades
   everything (sealed credentials included); only an account-level audit event
   with counts remains.
@@ -286,6 +286,11 @@ last IP, expired sessions and tokens) is deleted, not kept "just in case".
   remove, leave), integrations (create, delete, manual sync), agents (token
   create/revoke, enroll, revoke) and workspace creation; Better Auth hooks
   record sign-ins (session IP/UA) and password resets at account level.
+- Discovery exclusion rules (M15) change what the workspace is told about
+  its infrastructure, so creating and deleting them is audited
+  (`discovery.rule_created` / `discovery.rule_deleted`, MEMBER+, same as
+  reviewing). A rule's resource is checked to belong to the workspace; the
+  table has RLS and a CHECK that a rule narrows something.
 - Sensitive _reads_ (exports) are audited; ordinary page views are not
   (data minimisation).
 - Append-only enforced by a DB trigger; 365-day retention

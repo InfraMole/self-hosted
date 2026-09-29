@@ -30,7 +30,7 @@ import { Select } from "@/components/ui/select";
 import { ENVIRONMENTS, RESOURCE_TYPES, entries } from "@/lib/resource-presentation";
 import { cn } from "@/lib/utils";
 import type { MapEdge, MapNode } from "@/server/modules/map/map";
-import { drawDirection, layoutGraph } from "./layout";
+import { DETAILED_LAYOUT_LIMIT, drawDirection, layoutGraph } from "./layout";
 import { MapInspector } from "./map-inspector";
 import { ResourceNode, type ImpactLevel, type ResourceFlowNode } from "./resource-node";
 
@@ -284,8 +284,10 @@ function MapCanvas({ workspaceSlug, nodes, edges, initialFocus, initialImpact }:
           nodesConnectable={false}
           edgesFocusable={false}
           colorMode="dark"
-          minZoom={0.1}
+          minZoom={0.02}
           maxZoom={2}
+          // Large maps (M15): skip rendering nodes and edges outside the viewport.
+          onlyRenderVisibleElements={visibleIds.length > DETAILED_LAYOUT_LIMIT}
           fitView
         >
           <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#1d232a" />
@@ -406,6 +408,15 @@ function MapCanvas({ workspaceSlug, nodes, edges, initialFocus, initialImpact }:
           <span className="text-subtle pointer-events-auto ml-auto font-mono text-[11px]">
             {visibleIds.length} resources · {visibleEdges.length} relationships
           </span>
+          {visibleIds.length > DETAILED_LAYOUT_LIMIT && (
+            <p
+              role="note"
+              className="border-border bg-surface/95 text-muted pointer-events-auto basis-full rounded-lg border px-2.5 py-1.5 text-xs backdrop-blur sm:basis-auto"
+            >
+              Large map: simplified layout. Double-click a resource to focus on it, or filter by
+              type or environment, for a detailed view.
+            </p>
+          )}
         </div>
 
         <Legend />

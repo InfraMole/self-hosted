@@ -21,6 +21,7 @@ export const RETENTION = {
   endedInvitationDays: 30, // after accepted / revoked / expired (they hold emails)
   endedEnrollmentTokenDays: 90, // after revoked / expired
   revokedAgentDays: 90, // revoked agents keep their last IP until then
+  suggestionDays: 30, // unreviewed agent suggestions not observed since (M15)
 } as const;
 
 const DAY = 86_400_000;
@@ -66,6 +67,7 @@ export async function runRetention(now = new Date()) {
     getDb().verification.deleteMany({ where: { expiresAt: { lt: now } } }),
   ]);
   const audit = await pruneAuditEvents(now);
+  const suggestions = await expireSuggestions(before(RETENTION.suggestionDays));
   const planHistory = await prunePlanHistory(now);
   return {
     observations: observations.count,
@@ -77,7 +79,52 @@ export async function runRetention(now = new Date()) {
     sessions: sessions.count,
     verifications: verifications.count,
     auditEvents: audit,
+    expiredSuggestions: suggestions,
   };
+}
+
+/**
+ * M15 (ADR-027): an unreviewed suggestion that agents have not observed for
+ * 30 days is removed — its connection facts are gone too. Only agent-observed
+ * suggestions expire (`lastObservedAt` set); import-made ones stay until
+ * reviewed. Each removal is a SYSTEM change event.
+ */
+async function expireSuggestions(cutoff: Date): Promise<number> {
+  const db = systemDb("retention: expire unreviewed agent suggestions");
+  const stale = await db.relationship.findMany({
+    where: { status: "UNCONFIRMED", origin: "DETECTED", lastObservedAt: { lt: cutoff } },
+    select: {
+      id: true,
+      workspaceId: true,
+      fromResourceId: true,
+      toResourceId: true,
+      from: { select: { name: true } },
+      to: { select: { name: true } },
+    },
+    take: 5000,
+  });
+  if (stale.length === 0) return 0;
+  await db.$transaction(async (tx) => {
+    await tx.relationship.deleteMany({
+      where: { id: { in: stale.map((r) => r.id) }, status: "UNCONFIRMED" },
+    });
+    await tx.changeEvent.createMany({
+      data: stale.map((r) => {
+        const label = `${r.from.name} → ${r.to.name}`;
+        return {
+          workspaceId: r.workspaceId,
+          actorType: "SYSTEM" as const,
+          subjectType: "RELATIONSHIP" as const,
+          subjectId: r.id,
+          subjectLabel: label,
+          kind: "DELETED" as const,
+          summary: `Suggestion expired (not observed for ${RETENTION.suggestionDays} days): ${label}`,
+          resourceIds: [r.fromResourceId, r.toResourceId],
+        };
+      }),
+    });
+  });
+  return stale.length;
 }
 
 /**

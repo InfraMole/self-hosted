@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import "server-only";
 import { RELATIONSHIP_TYPE_INFO } from "@depmap/graph";
+import { z } from "zod";
 import { Prisma } from "@/generated/prisma/client";
 import type {
   Environment,
@@ -13,6 +14,7 @@ import type {
 import { assertRole, type WorkspaceContext } from "@/server/authz";
 import { tenantDb } from "@/server/db";
 import { recordUserChange } from "@/server/modules/changes/changes";
+import { suggestedTypeForPorts } from "@/server/modules/discovery/protocols";
 import { relationshipCreateSchema, relationshipUpdateSchema } from "./schemas";
 
 export class RelationshipNotFoundError extends Error {
@@ -278,4 +280,152 @@ export async function deleteRelationship(ctx: WorkspaceContext, id: string): Pro
       resourceIds: [rel.fromResourceId, rel.toResourceId],
     });
   });
+}
+
+// ───────────────────────── Bulk review (M15, MEMBER+) ─────────────────────────
+
+/** Most suggestions one review action can touch (the inbox lists up to this many). */
+export const REVIEW_BULK_LIMIT = 1000;
+const reviewIdsSchema = z.array(z.string().min(1).max(MAX_ID_LENGTH)).min(1).max(REVIEW_BULK_LIMIT);
+
+/**
+ * Confirms many suggestions at once. With `useSuggestedType`, each takes the
+ * type its evidence suggests (port 1433 → uses database) unless that would
+ * duplicate an existing relationship of the pair, in which case it keeps its
+ * type. Already reviewed or missing ids are skipped. Returns how many changed.
+ */
+export async function confirmRelationships(
+  ctx: WorkspaceContext,
+  rawIds: unknown,
+  options: { useSuggestedType?: boolean } = {},
+): Promise<number> {
+  assertRole(ctx, "MEMBER");
+  const ids = reviewIdsSchema.parse(rawIds);
+  return tenantDb(ctx).$transaction(
+    async (tx) => {
+      const rels = await tx.relationship.findMany({
+        where: { workspaceId: ctx.workspaceId, id: { in: ids }, status: "UNCONFIRMED" },
+        select: {
+          id: true,
+          type: true,
+          fromResourceId: true,
+          toResourceId: true,
+          from: { select: { name: true } },
+          to: { select: { name: true } },
+          evidence: { select: { port: true } },
+        },
+      });
+      if (rels.length === 0) return 0;
+      const taken = new Set(
+        (
+          await tx.relationship.findMany({
+            where: {
+              workspaceId: ctx.workspaceId,
+              fromResourceId: { in: rels.map((r) => r.fromResourceId) },
+            },
+            select: { fromResourceId: true, toResourceId: true, type: true },
+          })
+        ).map((r) => `${r.fromResourceId}|${r.toResourceId}|${r.type}`),
+      );
+      const now = new Date();
+      const byType = new Map<RelationshipType, string[]>();
+      for (const rel of rels) {
+        let type = rel.type;
+        const suggested = options.useSuggestedType
+          ? suggestedTypeForPorts(rel.evidence.map((e) => e.port))
+          : null;
+        const key = (t: RelationshipType) => `${rel.fromResourceId}|${rel.toResourceId}|${t}`;
+        if (suggested && suggested !== rel.type && !taken.has(key(suggested))) {
+          taken.delete(key(rel.type));
+          taken.add(key(suggested));
+          type = suggested;
+        }
+        byType.set(type, [...(byType.get(type) ?? []), rel.id]);
+      }
+      // One statement per resulting type (the unique key includes the type).
+      for (const [type, typeIds] of byType) {
+        await tx.relationship.updateMany({
+          where: { workspaceId: ctx.workspaceId, id: { in: typeIds }, status: "UNCONFIRMED" },
+          data: { status: "CONFIRMED", type, confirmedById: ctx.userId, confirmedAt: now },
+        });
+      }
+      await tx.changeEvent.createMany({
+        data: rels.map((rel) => ({
+          workspaceId: ctx.workspaceId,
+          actorType: "USER" as const,
+          actorId: ctx.userId,
+          subjectType: "RELATIONSHIP" as const,
+          subjectId: rel.id,
+          subjectLabel: `${rel.from.name} → ${rel.to.name}`,
+          kind: "CONFIRMED" as const,
+          summary: `Confirmed relationship: ${rel.from.name} → ${rel.to.name}`,
+          resourceIds: [rel.fromResourceId, rel.toResourceId],
+        })),
+      });
+      return rels.length;
+    },
+    { timeout: 60_000 },
+  );
+}
+
+/** Ignores many suggestions at once (kept as IGNORED: never suggested again). */
+export async function ignoreRelationships(ctx: WorkspaceContext, rawIds: unknown): Promise<number> {
+  return setReviewStatus(ctx, rawIds, "UNCONFIRMED", "IGNORED");
+}
+
+/** "Undo ignore": puts ignored suggestions back into the inbox. */
+export async function restoreRelationships(
+  ctx: WorkspaceContext,
+  rawIds: unknown,
+): Promise<number> {
+  return setReviewStatus(ctx, rawIds, "IGNORED", "UNCONFIRMED");
+}
+
+async function setReviewStatus(
+  ctx: WorkspaceContext,
+  rawIds: unknown,
+  from: "UNCONFIRMED" | "IGNORED",
+  to: "UNCONFIRMED" | "IGNORED",
+): Promise<number> {
+  assertRole(ctx, "MEMBER");
+  const ids = reviewIdsSchema.parse(rawIds);
+  return tenantDb(ctx).$transaction(
+    async (tx) => {
+      const rels = await tx.relationship.findMany({
+        where: { workspaceId: ctx.workspaceId, id: { in: ids }, status: from },
+        select: {
+          id: true,
+          fromResourceId: true,
+          toResourceId: true,
+          from: { select: { name: true } },
+          to: { select: { name: true } },
+        },
+      });
+      if (rels.length === 0) return 0;
+      await tx.relationship.updateMany({
+        where: { workspaceId: ctx.workspaceId, id: { in: rels.map((r) => r.id) }, status: from },
+        data: { status: to },
+      });
+      await tx.changeEvent.createMany({
+        data: rels.map((rel) => {
+          const label = `${rel.from.name} → ${rel.to.name}`;
+          return {
+            workspaceId: ctx.workspaceId,
+            actorType: "USER" as const,
+            actorId: ctx.userId,
+            subjectType: "RELATIONSHIP" as const,
+            subjectId: rel.id,
+            subjectLabel: label,
+            kind: to === "IGNORED" ? ("IGNORED" as const) : ("UPDATED" as const),
+            summary:
+              to === "IGNORED" ? `Ignored suggestion: ${label}` : `Restored suggestion: ${label}`,
+            ...(to === "UNCONFIRMED" ? { diff: { status: ["IGNORED", "UNCONFIRMED"] } } : {}),
+            resourceIds: [rel.fromResourceId, rel.toResourceId],
+          };
+        }),
+      });
+      return rels.length;
+    },
+    { timeout: 60_000 },
+  );
 }

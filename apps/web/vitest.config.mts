@@ -38,6 +38,20 @@ export default defineConfig({
           testTimeout: 20_000,
         },
       },
+      {
+        // Load test (M15): 250 / 1,000 / 2,000 servers. Only on demand:
+        // `pnpm test:load` (needs `pnpm db:up`); never part of CI.
+        extends: true,
+        test: {
+          name: "load",
+          include: ["tests/load/**/*.load.ts"],
+          environment: "node",
+          globalSetup: ["tests/integration/global-setup.ts"],
+          setupFiles: ["tests/integration/setup.ts"],
+          fileParallelism: false,
+          testTimeout: 900_000,
+        },
+      },
     ],
   },
 });

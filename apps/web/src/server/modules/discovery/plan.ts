@@ -35,6 +35,27 @@ export interface RelationshipInput {
   status: RelationshipStatusLike;
 }
 
+/** Exclusion rule (M15, ADR-027): every non-null criterion must match. */
+export interface RuleInput {
+  id: string;
+  port: number | null;
+  processName: string | null;
+  resourceId: string | null;
+}
+
+/** An unreviewed suggestion with its evidence (port, process) and endpoints. */
+export interface SuggestionEvidenceInput {
+  relationshipId: string;
+  from: string;
+  to: string;
+  evidence: readonly { port: number; processName: string | null }[];
+}
+
+export interface PlanOptions {
+  minSamples?: number;
+  rules?: readonly RuleInput[];
+}
+
 export interface DiscoveryPlan {
   /** Facts whose resolved remote resource changed (including to null). */
   resolutions: { factId: string; remoteResourceId: string | null }[];
@@ -82,12 +103,58 @@ export function factEndpoints(fact: FactInput, remoteId: string): { from: string
     : { from: remoteId, to: fact.sourceResourceId };
 }
 
+/** Criteria are ANDed; null = any; the resource may be either end. */
+function ruleMatches(
+  r: RuleInput,
+  port: number,
+  processName: string,
+  ends: readonly (string | null)[],
+): boolean {
+  return (
+    (r.port === null || r.port === port) &&
+    (r.processName === null || r.processName.toLowerCase() === processName.toLowerCase()) &&
+    (r.resourceId === null || ends.includes(r.resourceId))
+  );
+}
+
+/** True when a rule excludes this connection. */
+export function isExcluded(
+  fact: Pick<FactInput, "port" | "processName" | "sourceResourceId">,
+  remoteResourceId: string | null,
+  rules: readonly RuleInput[],
+): boolean {
+  return rules.some((r) =>
+    ruleMatches(r, fact.port, fact.processName, [fact.sourceResourceId, remoteResourceId]),
+  );
+}
+
+/**
+ * Unreviewed suggestions that the rules fully explain: every piece of their
+ * evidence matches a rule. Suggestions without evidence (imports) never do.
+ */
+export function excludedSuggestions(
+  suggestions: readonly SuggestionEvidenceInput[],
+  rules: readonly RuleInput[],
+): string[] {
+  if (rules.length === 0) return [];
+  return suggestions
+    .filter(
+      (s) =>
+        s.evidence.length > 0 &&
+        s.evidence.every((e) =>
+          rules.some((r) => ruleMatches(r, e.port, e.processName ?? "", [s.from, s.to])),
+        ),
+    )
+    .map((s) => s.relationshipId);
+}
+
 export function planDiscovery(
   facts: readonly FactInput[],
   resources: readonly ResourceIps[],
   relationships: readonly RelationshipInput[],
-  minSamples = MIN_SAMPLES,
+  options: PlanOptions = {},
 ): DiscoveryPlan {
+  const { minSamples = MIN_SAMPLES, rules = [] } = options;
   const index = buildIpIndex(resources);
   const known = new Set(resources.map((r) => r.id));
   const plan: DiscoveryPlan = { resolutions: [], creates: [], evidence: [] };
@@ -99,6 +166,7 @@ export function planDiscovery(
     if (remote !== fact.remoteResourceId) {
       plan.resolutions.push({ factId: fact.id, remoteResourceId: remote });
     }
+    if (rules.length > 0 && isExcluded(fact, remote, rules)) continue;
     if (!remote || fact.sampleCount < minSamples) continue;
     const { from, to } = factEndpoints(fact, remote);
     const key = `${from}|${to}`;
@@ -127,5 +195,6 @@ export function planDiscovery(
     if (reverse.length > 0) continue; // a human described it the other way round
     plan.creates.push(pair);
   }
+
   return plan;
 }

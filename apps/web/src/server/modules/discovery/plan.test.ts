@@ -2,11 +2,14 @@
 import { describe, expect, it } from "vitest";
 import {
   buildIpIndex,
+  excludedSuggestions,
+  isExcluded,
   planDiscovery,
   resolveRemote,
   type FactInput,
   type RelationshipInput,
   type ResourceIps,
+  type RuleInput,
 } from "./plan";
 import { guessProtocol } from "./protocols";
 
@@ -133,5 +136,66 @@ describe("guessProtocol", () => {
     expect(guessProtocol(1433)).toEqual({ name: "MSSQL", suggestedType: "USES_DATABASE" });
     expect(guessProtocol(389)?.suggestedType).toBe("AUTHENTICATES_WITH");
     expect(guessProtocol(49152)).toBeNull();
+  });
+});
+
+describe("exclusion rules (M15)", () => {
+  const rule = (over: Partial<RuleInput>): RuleInput => ({
+    id: "r",
+    port: null,
+    processName: null,
+    resourceId: null,
+    ...over,
+  });
+
+  it("matches when every set criterion matches (process case-insensitive, resource on either end)", () => {
+    const f = fact({});
+    expect(isExcluded(f, "sql01", [rule({ port: 1433 })])).toBe(true);
+    expect(isExcluded(f, "sql01", [rule({ port: 1433, processName: "W3WP.EXE" })])).toBe(true);
+    expect(isExcluded(f, "sql01", [rule({ port: 1433, processName: "sqlservr.exe" })])).toBe(false);
+    expect(isExcluded(f, "sql01", [rule({ resourceId: "sql01" })])).toBe(true);
+    expect(isExcluded(f, "sql01", [rule({ resourceId: "app01" })])).toBe(true);
+    expect(isExcluded(f, "sql01", [rule({ resourceId: "dc01" })])).toBe(false);
+    expect(isExcluded(f, "sql01", [rule({ port: 445 }), rule({ port: 1433 })])).toBe(true);
+  });
+
+  it("excluded facts create no suggestion and add no evidence, but still resolve", () => {
+    const f = fact({ remoteResourceId: null });
+    const rels: RelationshipInput[] = [
+      { id: "rel1", from: "app01", to: "sql01", status: "CONFIRMED" },
+    ];
+    const plan = planDiscovery([f], resources, rels, { rules: [rule({ port: 1433 })] });
+    expect(plan.creates).toEqual([]);
+    expect(plan.evidence).toEqual([]);
+    expect(plan.resolutions).toEqual([{ factId: f.id, remoteResourceId: "sql01" }]);
+    expect(planDiscovery([f], resources, [], { rules: [rule({ port: 1433 })] }).creates).toEqual(
+      [],
+    );
+  });
+
+  it("flags unreviewed suggestions only when every piece of evidence matches a rule", () => {
+    const s = (
+      relationshipId: string,
+      evidence: { port: number; processName: string | null }[],
+    ) => ({
+      relationshipId,
+      from: "app01",
+      to: "sql01",
+      evidence,
+    });
+    const suggestions = [
+      s("only-sql", [{ port: 1433, processName: "w3wp.exe" }]),
+      s("mixed", [
+        { port: 1433, processName: "w3wp.exe" },
+        { port: 445, processName: "System" },
+      ]),
+      s("no-evidence", []),
+    ];
+    expect(excludedSuggestions(suggestions, [rule({ port: 1433 })])).toEqual(["only-sql"]);
+    expect(excludedSuggestions(suggestions, [rule({ resourceId: "sql01" })])).toEqual([
+      "only-sql",
+      "mixed",
+    ]);
+    expect(excludedSuggestions(suggestions, [])).toEqual([]);
   });
 });

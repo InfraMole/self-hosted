@@ -54,7 +54,7 @@ cannot be edited or deleted and are kept for 365 days.
 
 - **Export workspace data (JSON)** in **Settings** (admins and owners)
   downloads resources, confirmed relationships, suggestions, members, agents,
-  integrations (without credentials), changes and the audit log. The resources
+  integrations (without credentials), discovery exclusion rules, changes and the audit log. The resources
   and relationships can be imported into another workspace. Secrets are never
   included.
 - **Delete workspace** (owner only) removes all its data immediately. Export

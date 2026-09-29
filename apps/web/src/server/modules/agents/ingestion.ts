@@ -128,6 +128,7 @@ export async function ingestReport(
   const now = new Date();
   const fromAgent = agentHostMetadata(report);
 
+  let ipsChanged = true;
   await tenantDb({ workspaceId: agent.workspaceId }).$transaction(async (tx) => {
     // Baseline for "what changed" (M7): the previous observation of this agent.
     const previous = await tx.observation.findFirst({
@@ -147,7 +148,9 @@ export async function ingestReport(
       },
     });
 
-    const resourceId = await upsertHostResource(tx, agent, report, fromAgent, now);
+    const host = await upsertHostResource(tx, agent, report, fromAgent, now);
+    const resourceId = host.id;
+    ipsChanged = host.ipsChanged;
 
     const changes = diffObserved(
       previous ? observedState(previous.payload as Parameters<typeof observedState>[0]) : null,
@@ -189,7 +192,13 @@ export async function ingestReport(
 
   if (report.inventory) await importInventory(agent, report.inventory);
   // Discover → Suggest (M6): resolve endpoints and create/refresh DETECTED relationships.
-  await refreshDetectedRelationships(agent.workspaceId, { agentId: agent.id });
+  // Only this agent's facts, unless the host is new or its addresses changed:
+  // then other hosts' connections to it may resolve differently (M15).
+  await refreshDetectedRelationships(
+    agent.workspaceId,
+    { agentId: agent.id },
+    { onlyAgentFacts: !ipsChanged },
+  );
   // Other hosts of the workspace may have gone quiet (throttled, ADR-016).
   await markStaleHosts(agent.workspaceId);
 
@@ -202,7 +211,7 @@ async function upsertHostResource(
   report: ReportV1,
   fromAgent: ReturnType<typeof agentHostMetadata>,
   now: Date,
-): Promise<string> {
+): Promise<{ id: string; ipsChanged: boolean }> {
   const key = {
     workspaceId_source_externalId: {
       workspaceId: agent.workspaceId,
@@ -234,7 +243,7 @@ async function upsertHostResource(
       kind: "DISCOVERED",
       summary: `Discovered ${created.name} (agent)`,
     });
-    return created.id;
+    return { id: created.id, ipsChanged: true };
   }
 
   const current = resourceMetadataSchema.safeParse(existing.metadata);
@@ -249,9 +258,11 @@ async function upsertHostResource(
     data: { metadata: merged, lastSeenAt: now },
   });
   if (existing.status === "STALE") await restoreFromStale(tx, existing, agent.id);
+  const before = current.success ? (current.data.ipAddresses ?? []) : [];
+  const after = merged.ipAddresses ?? [];
+  const ipsChanged = before.length !== after.length || before.some((ip) => !after.includes(ip));
   if (diff.metadata) {
-    const before = current.success ? (current.data.ipAddresses ?? []) : [];
-    const ipSummary = describeIpChange(existing.name, before, merged.ipAddresses ?? []);
+    const ipSummary = describeIpChange(existing.name, before, after);
     await recordAgentChange(tx, agent.workspaceId, agent.id, {
       subjectType: "RESOURCE",
       subjectId: existing.id,
@@ -261,7 +272,7 @@ async function upsertHostResource(
       diff: diff as Prisma.InputJsonValue,
     });
   }
-  return existing.id;
+  return { id: existing.id, ipsChanged };
 }
 
 const blank = {

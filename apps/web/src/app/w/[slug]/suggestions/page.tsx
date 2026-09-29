@@ -1,28 +1,57 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, Inbox } from "lucide-react";
-import { RELATIONSHIP_TYPE_INFO, edgeConfidence } from "@depmap/graph";
+import { Inbox } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
-import { ConfidenceBadge } from "@/components/relationships/confidence-badge";
-import { TypeIcon } from "@/components/resources/resource-badges";
-import { SuggestionActions } from "@/components/suggestions/suggestion-actions";
+import { RulesPanel } from "@/components/suggestions/rules-panel";
+import { SuggestionInbox } from "@/components/suggestions/suggestion-inbox";
 import { Button } from "@/components/ui/button";
-import { formatDateTime, formatRelative } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import { hasRole } from "@/server/authz";
-import { listSuggestions } from "@/server/modules/discovery/discovery";
+import {
+  SUGGESTIONS_PAGE,
+  countSuggestions,
+  listSuggestions,
+} from "@/server/modules/discovery/discovery";
+import { listDiscoveryRules, listRuleResourceOptions } from "@/server/modules/discovery/rules";
 import { requireWorkspace } from "@/server/tenancy";
-import { confirmSuggestionAction, ignoreSuggestionAction } from "./actions";
+import {
+  confirmSuggestionAction,
+  confirmSuggestionsAction,
+  createRuleAction,
+  deleteRuleAction,
+  ignoreSuggestionAction,
+  ignoreSuggestionsAction,
+  restoreSuggestionsAction,
+} from "./actions";
 
 export const metadata: Metadata = { title: "Suggestions" };
 
-export default async function SuggestionsPage({ params }: PageProps<"/w/[slug]/suggestions">) {
+type View = "review" | "ignored" | "rules";
+
+export default async function SuggestionsPage({
+  params,
+  searchParams,
+}: PageProps<"/w/[slug]/suggestions">) {
   const { slug } = await params;
+  const { view: rawView } = await searchParams;
+  const view: View = rawView === "ignored" || rawView === "rules" ? rawView : "review";
   const ctx = await requireWorkspace(slug);
-  const suggestions = await listSuggestions(ctx);
   const canReview = hasRole(ctx.role, "MEMBER");
   const base = `/w/${ctx.workspaceSlug}`;
+
+  const [toReview, ignored, rules] = await Promise.all([
+    countSuggestions(ctx),
+    countSuggestions(ctx, "IGNORED"),
+    listDiscoveryRules(ctx),
+  ]);
+
+  const tabs: { key: View; label: string; count: number }[] = [
+    { key: "review", label: "To review", count: toReview },
+    { key: "ignored", label: "Ignored", count: ignored },
+    { key: "rules", label: "Rules", count: rules.length },
+  ];
 
   return (
     <>
@@ -30,8 +59,52 @@ export default async function SuggestionsPage({ params }: PageProps<"/w/[slug]/s
         title="Suggestions"
         description="Relationships detected by agents. Nothing becomes a dependency until you confirm it."
       />
-      <div className="flex max-w-5xl flex-1 flex-col gap-3 p-6">
-        {suggestions.length === 0 ? (
+      <div className="flex max-w-5xl flex-1 flex-col gap-4 p-6">
+        <nav aria-label="Suggestions" className="border-border flex gap-5 border-b text-sm">
+          {tabs.map((t) => (
+            <Link
+              key={t.key}
+              href={
+                t.key === "review" ? `${base}/suggestions` : `${base}/suggestions?view=${t.key}`
+              }
+              aria-current={view === t.key ? "page" : undefined}
+              className={cn(
+                "-mb-px border-b-2 pb-2",
+                view === t.key
+                  ? "border-accent text-foreground font-medium"
+                  : "text-muted hover:text-foreground border-transparent",
+              )}
+            >
+              {t.label} <span className="text-subtle font-mono text-xs">{t.count}</span>
+            </Link>
+          ))}
+        </nav>
+
+        {view === "rules" ? (
+          <RulesPanel
+            rules={rules}
+            resources={canReview ? await listRuleResourceOptions(ctx) : []}
+            canEdit={canReview}
+            createRule={createRuleAction.bind(null, ctx.workspaceSlug)}
+            deleteRule={deleteRuleAction.bind(null, ctx.workspaceSlug)}
+          />
+        ) : view === "ignored" ? (
+          ignored === 0 ? (
+            <EmptyState
+              icon={Inbox}
+              title="Nothing ignored"
+              description="Suggestions you ignore are kept here, so you can restore them if you change your mind."
+            />
+          ) : (
+            <SuggestionInbox
+              slug={ctx.workspaceSlug}
+              mode="ignored"
+              suggestions={await listSuggestions(ctx, "IGNORED")}
+              canReview={canReview}
+              restoreMany={restoreSuggestionsAction.bind(null, ctx.workspaceSlug)}
+            />
+          )
+        ) : toReview === 0 ? (
           <EmptyState
             icon={Inbox}
             title="No suggestions to review"
@@ -44,71 +117,21 @@ export default async function SuggestionsPage({ params }: PageProps<"/w/[slug]/s
         ) : (
           <>
             <p className="text-muted text-xs">
-              {suggestions.length} to review · detected connections are leads, not proof of a
-              dependency.
+              {toReview} to review · detected connections are leads, not proof of a dependency.
+              {toReview > SUGGESTIONS_PAGE &&
+                ` Showing the ${SUGGESTIONS_PAGE} most recently seen; review or add rules to see the rest.`}
             </p>
-            <ul className="flex flex-col gap-3">
-              {suggestions.map((s) => {
-                const e = s.evidence;
-                return (
-                  <li
-                    key={s.id}
-                    id={s.id}
-                    className="border-border bg-surface rounded-lg border border-dashed px-4 py-3"
-                  >
-                    <div className="flex flex-wrap items-center gap-3">
-                      <Link
-                        href={`${base}/resources/${s.from.id}/dependencies`}
-                        className="hover:text-accent flex items-center gap-2 font-mono text-sm"
-                      >
-                        <TypeIcon type={s.from.type} />
-                        {s.from.name}
-                      </Link>
-                      <span className="text-muted flex items-center gap-1.5 text-xs">
-                        {RELATIONSHIP_TYPE_INFO[s.type].label}
-                        <ArrowRight className="size-3.5" />
-                      </span>
-                      <Link
-                        href={`${base}/resources/${s.to.id}/dependencies`}
-                        className="hover:text-accent flex items-center gap-2 font-mono text-sm"
-                      >
-                        <TypeIcon type={s.to.type} />
-                        {s.to.name}
-                      </Link>
-                      <span className="ml-auto">
-                        <ConfidenceBadge confidence={edgeConfidence("UNCONFIRMED", s.origin)!} />
-                      </span>
-                    </div>
-                    <p className="text-muted mt-2 flex flex-wrap gap-x-3 gap-y-1 font-mono text-xs">
-                      {e.ports.length > 0 && <span>port {e.ports.join(", ")}</span>}
-                      {e.protocols.length > 0 && (
-                        <span className="font-sans">likely {e.protocols.join(" / ")}</span>
-                      )}
-                      {e.processes.length > 0 && <span>{e.processes.slice(0, 3).join(", ")}</span>}
-                      <span>{e.samples} samples</span>
-                      {e.lastSeenAt && (
-                        <span className="font-sans" title={formatDateTime(e.lastSeenAt)}>
-                          last seen {formatRelative(e.lastSeenAt)}
-                        </span>
-                      )}
-                    </p>
-                    {s.note && <p className="text-subtle mt-1 text-xs">{s.note}</p>}
-                    {canReview && (
-                      <div className="mt-3">
-                        <SuggestionActions
-                          fromName={s.from.name}
-                          toName={s.to.name}
-                          currentType={s.type}
-                          suggestedType={e.suggestedType}
-                          confirm={confirmSuggestionAction.bind(null, ctx.workspaceSlug, s.id)}
-                          ignore={ignoreSuggestionAction.bind(null, ctx.workspaceSlug, s.id)}
-                        />
-                      </div>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
+            <SuggestionInbox
+              slug={ctx.workspaceSlug}
+              mode="review"
+              suggestions={await listSuggestions(ctx)}
+              canReview={canReview}
+              confirmOne={confirmSuggestionAction.bind(null, ctx.workspaceSlug)}
+              ignoreOne={ignoreSuggestionAction.bind(null, ctx.workspaceSlug)}
+              confirmMany={confirmSuggestionsAction.bind(null, ctx.workspaceSlug)}
+              ignoreMany={ignoreSuggestionsAction.bind(null, ctx.workspaceSlug)}
+              createRule={createRuleAction.bind(null, ctx.workspaceSlug)}
+            />
           </>
         )}
       </div>
