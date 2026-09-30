@@ -73,7 +73,9 @@ actualizar (consulta [Copias de seguridad](/es/docs/operations/backups)).
 
 ## Agentes
 
-Los agentes siguen funcionando tras actualizar el servidor. Para actualizar
-un agente, vuelve a ejecutar el comando de instalación desde **Settings ›
-Agents › New enrollment token** — la misma máquina se vuelve a registrar,
-sin crear duplicados.
+Los agentes siguen funcionando tras actualizar el servidor. Los agentes
+0.4.0 y posteriores pueden actualizarse solos si lo activas
+([Gestionar y desinstalar › Actualizaciones](/es/docs/agent/manage#actualizaciones));
+los anteriores se actualizan ejecutando de nuevo el comando de instalación
+desde **Settings › Agents › New enrollment token** — la misma máquina se
+vuelve a registrar, sin crear duplicados.

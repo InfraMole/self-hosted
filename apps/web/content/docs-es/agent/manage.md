@@ -54,6 +54,43 @@ sudo systemctl start inframole-agent
 ```
 :::
 
+## Actualizaciones
+
+El agente **0.4.0** y posteriores pueden actualizarse solos — solo si lo
+activas en su configuración (`/etc/inframole/agent.json` o
+`C:\ProgramData\InfraMole\agent.json`):
+
+```json
+{ "autoUpdate": true }
+```
+
+Más o menos una vez al día el agente consulta las
+[versiones oficiales](https://github.com/InfraMole/agent/releases). Solo
+instala una versión más nueva si está **firmada con la clave de InfraMole
+que lleva el propio agente** y el fichero descargado coincide con ella; nunca
+vuelve a una versión anterior. El servidor InfraMole no puede provocar una
+actualización ni elegir de dónde viene. La versión anterior se conserva hasta
+que la nueva envía su primer informe; si la nueva no consigue informar tras
+tres arranques, el agente vuelve a poner la anterior por sí solo.
+
+Para actualizar ahora (o solo comprobarlo), como administrador / root:
+
+:::tabs
+@tab Windows
+```powershell
+& "$env:ProgramFiles\InfraMole\inframole-agent.exe" update --check
+& "$env:ProgramFiles\InfraMole\inframole-agent.exe" update
+```
+@tab Linux
+```sh
+sudo inframole-agent update --check
+sudo inframole-agent update
+```
+:::
+
+Los agentes anteriores a la 0.4.0 se actualizan ejecutando de nuevo el
+comando de instalación (**Settings › Agents › New enrollment token**).
+
 ## Revocar un agente
 
 En **Settings › Agents**, revoca el agente. Sus informes se rechazan al

@@ -52,6 +52,43 @@ sudo systemctl start inframole-agent
 ```
 :::
 
+## Updates
+
+Agent **0.4.0** and later can update themselves — only if you turn it on in
+the agent's configuration (`/etc/inframole/agent.json` or
+`C:\ProgramData\InfraMole\agent.json`):
+
+```json
+{ "autoUpdate": true }
+```
+
+About once a day the agent checks the
+[official releases](https://github.com/InfraMole/agent/releases). It installs
+a newer version only if the release is **signed with the InfraMole key built
+into the agent** and the downloaded file matches it; it never goes back to
+an older version. The InfraMole server cannot trigger an update or choose
+where it comes from. The previous version is kept until the new one sends
+its first report; if the new one cannot report after three starts, the
+agent puts the previous version back on its own.
+
+To update now (or only check), as Administrator / root:
+
+:::tabs
+@tab Windows
+```powershell
+& "$env:ProgramFiles\InfraMole\inframole-agent.exe" update --check
+& "$env:ProgramFiles\InfraMole\inframole-agent.exe" update
+```
+@tab Linux
+```sh
+sudo inframole-agent update --check
+sudo inframole-agent update
+```
+:::
+
+Agents older than 0.4.0 update by running the install command again
+(**Settings › Agents › New enrollment token**).
+
 ## Revoke an agent
 
 In **Settings › Agents**, revoke the agent. Its reports are rejected

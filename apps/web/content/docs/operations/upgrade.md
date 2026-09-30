@@ -72,6 +72,9 @@ not supported: restore the backup taken before the upgrade instead (see
 
 ## Agents
 
-Agents keep working across server upgrades. To update an agent, run the
-install command again from **Settings › Agents › New enrollment token** —
-the same machine is re-enrolled, no duplicate is created.
+Agents keep working across server upgrades. Agents 0.4.0 and later can
+update themselves if you turn it on
+([Manage and remove › Updates](/docs/agent/manage#updates)); older ones
+update by running the install command again from **Settings › Agents › New
+enrollment token** — the same machine is re-enrolled, no duplicate is
+created.

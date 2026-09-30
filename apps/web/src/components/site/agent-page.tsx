@@ -95,6 +95,10 @@ const copy = {
         rest: "Releases are signed and published with SHA-256 checksums; the install commands verify them before running.",
       },
     ],
+    update: [
+      "Updates only if you allow it.",
+      "Self-update is off unless you turn it on in the agent's own configuration. It then installs only releases signed with the InfraMole key built into the agent, never an older version, and the InfraMole server can never trigger it.",
+    ],
     remove: [
       "Easy to remove.",
       "stops the service and deletes its configuration. Revoking the agent in InfraMole rejects its reports immediately.",
@@ -189,6 +193,10 @@ const copy = {
         rest: "Las versiones se firman y se publican con sumas SHA-256; los comandos de instalación las comprueban antes de ejecutar nada.",
       },
     ],
+    update: [
+      "Solo se actualiza si lo permites.",
+      "La actualización automática está desactivada salvo que la actives en la propia configuración del agente. Entonces solo instala versiones firmadas con la clave de InfraMole que lleva el agente, nunca una anterior, y el servidor InfraMole nunca puede provocarla.",
+    ],
     remove: [
       "Fácil de quitar.",
       "detiene el servicio y borra su configuración. Revocar el agente en InfraMole rechaza sus informes al instante.",
@@ -261,6 +269,9 @@ export function AgentPage({ locale }: { locale: Locale }) {
               <strong className="text-foreground">{g.strong}</strong> {g.rest}
             </li>
           ))}
+          <li>
+            <strong className="text-foreground">{t.update[0]}</strong> {t.update[1]}
+          </li>
           <li>
             <strong className="text-foreground">{t.remove[0]}</strong>{" "}
             <span className="font-mono text-[0.95em]">inframole-agent uninstall</span> {t.remove[1]}

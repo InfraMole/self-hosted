@@ -286,6 +286,18 @@ last IP, expired sessions and tokens) is deleted, not kept "just in case".
   remove, leave), integrations (create, delete, manual sync), agents (token
   create/revoke, enroll, revoke) and workspace creation; Better Auth hooks
   record sign-ins (session IP/UA) and password resets at account level.
+- Agent self-update (M22, ADR-033): opt-in in the agent's local config only;
+  the InfraMole server can neither trigger nor redirect it (still no command
+  channel). A release is installed only if its `manifest.json` verifies
+  against an Ed25519 public key compiled into the agent, the binary matches
+  the signed hash, the version is strictly newer (no rollback attacks) and
+  the binary runs; the previous binary is kept and restored automatically if
+  the new one never reports. The private key is the repository secret
+  `AGENT_UPDATE_SIGNING_KEY` of `InfraMole/agent` (used only by the release
+  workflow) plus the maintainer's offline backup; losing it means shipping a
+  new key in a release installed by hand. Compromise of GitHub's release
+  storage alone cannot make agents install a binary (the signature is
+  separate from the storage).
 - Weekly digest (M21, ADR-032): opt-in per member; counts and resource
   names only (no IPs, no change summaries), plain text. Unsubscribe links
   are an HMAC of the membership id with `BETTER_AUTH_SECRET` (no login, no
