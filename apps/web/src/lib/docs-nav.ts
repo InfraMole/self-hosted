@@ -48,6 +48,11 @@ const NAV: (Titled & { pages: (Titled & { slug: string })[] })[] = [
       { slug: "agent/overview", title: "How the agent works", es: "Cómo funciona el agente" },
       { slug: "agent/install", title: "Install the agent", es: "Instalar el agente" },
       { slug: "agent/windows-workloads", title: "IIS and SQL Server", es: "IIS y SQL Server" },
+      {
+        slug: "agent/linux-workloads",
+        title: "nginx, Apache and databases on Linux",
+        es: "nginx, Apache y bases de datos en Linux",
+      },
       { slug: "agent/proxmox", title: "Proxmox inventory", es: "Inventario de Proxmox" },
       { slug: "agent/manage", title: "Manage and remove", es: "Gestionar y desinstalar" },
     ],

@@ -47,22 +47,64 @@ export function parsePlatform(format: PlatformFormat, data: unknown): ImportBatc
   return batch;
 }
 
-// ───────────────────────── Windows workloads (M16) ─────────────────────────
+// ───────────────────────── Workloads (M16 Windows, M20 Linux) ─────────────────────────
+
+type SiteInput = { name: string; bindings: { protocol: string; port: number; host?: string }[] };
+type DatabaseInput = { instance: string; name: string };
 
 /** What ingestion passes for one agent host (built from a validated report). */
 export interface WorkloadsInput {
   host: { id: string; name: string };
-  iisSites?: { name: string; bindings: { protocol: string; port: number; host?: string }[] }[];
-  sqlDatabases?: { instance: string; name: string }[];
+  iisSites?: SiteInput[];
+  nginxSites?: SiteInput[];
+  apacheSites?: SiteInput[];
+  sqlDatabases?: DatabaseInput[];
+  postgresDatabases?: DatabaseInput[];
+  mysqlDatabases?: DatabaseInput[];
 }
 
-const SYSTEM_DBS = new Set(["master", "model", "msdb", "tempdb"]);
+const SITE_KINDS = [
+  { field: "iisSites", key: "iis", tag: "iis", label: "IIS site" },
+  { field: "nginxSites", key: "nginx", tag: "nginx", label: "nginx site" },
+  { field: "apacheSites", key: "apache", tag: "apache", label: "Apache site" },
+] as const;
+
+const DATABASE_KINDS = [
+  {
+    field: "sqlDatabases",
+    key: "mssql",
+    tag: "sql-server",
+    label: "SQL Server database",
+    system: ["master", "model", "msdb", "tempdb"],
+    /** Default instance names that are not shown in the resource name. */
+    defaultInstance: (i: string) => i.toUpperCase() === "MSSQLSERVER",
+    instanceLabel: (i: string) => `instance ${i}`,
+  },
+  {
+    field: "postgresDatabases",
+    key: "postgresql",
+    tag: "postgresql",
+    label: "PostgreSQL database",
+    system: ["postgres", "template0", "template1"],
+    defaultInstance: (i: string) => i === "5432",
+    instanceLabel: (i: string) => `port ${i}`,
+  },
+  {
+    field: "mysqlDatabases",
+    key: "mysql",
+    tag: "mysql",
+    label: "MySQL / MariaDB database",
+    system: ["information_schema", "mysql", "performance_schema", "sys"],
+    defaultInstance: (i: string) => i === "default",
+    instanceLabel: (i: string) => `instance ${i}`,
+  },
+] as const;
 
 /**
- * IIS sites → APPLICATION, SQL Server databases → DATABASE, each RUNS_ON the
- * agent's host (confirmed: the agent read it on that machine; origin
- * DETECTED). Names carry the host so "Default Web Site" on twenty servers
- * stays twenty distinguishable resources. Keys include the host id.
+ * Web sites → APPLICATION, databases → DATABASE, each RUNS_ON the agent's
+ * host (confirmed: the agent read it on that machine; origin DETECTED).
+ * Names carry the host so "Default Web Site" on twenty servers stays twenty
+ * distinguishable resources. Keys include the host id and the kind.
  */
 function workloads(batch: ImportBatch, data: unknown) {
   const input = data as WorkloadsInput;
@@ -73,62 +115,62 @@ function workloads(batch: ImportBatch, data: unknown) {
   }
   const hostRef = `id:${host.id}`;
   let row = 0;
-  for (const site of input.iisSites ?? []) {
-    row++;
-    const bindings = site.bindings ?? [];
-    const ports = [...new Set(bindings.map((b) => b.port))].sort((a, b) => a - b);
-    const hostNames = [
-      ...new Set(bindings.map((b) => b.host?.toLowerCase()).filter((h): h is string => !!h)),
-    ];
-    const key = `${host.id}/iis/${site.name.toLowerCase()}`;
-    const r = add(batch, row, {
-      id: key,
-      name: `${site.name} (${host.name})`,
-      type: "APPLICATION",
-      description: [
-        `IIS site on ${host.name}`,
-        bindings.length
-          ? bindings.map((b) => `${b.protocol}:${b.port}${b.host ? ` ${b.host}` : ""}`).join(", ")
-          : null,
-      ]
-        .filter(Boolean)
-        .join(" · "),
-      fqdn: hostNames[0],
-      ports,
-      tags: ["iis"],
+  const runsOn = (key: string, note: string) =>
+    batch.relationships.push({
+      row,
+      from: key,
+      to: hostRef,
+      type: "RUNS_ON",
+      note,
+      suggested: false,
     });
-    if (r)
-      batch.relationships.push({
-        row,
-        from: key,
-        to: hostRef,
-        type: "RUNS_ON",
-        note: "IIS site (reported by the agent)",
-        suggested: false,
+
+  for (const kind of SITE_KINDS) {
+    for (const site of input[kind.field] ?? []) {
+      row++;
+      const bindings = site.bindings ?? [];
+      const ports = [...new Set(bindings.map((b) => b.port))].sort((a, b) => a - b);
+      const hostNames = [
+        ...new Set(bindings.map((b) => b.host?.toLowerCase()).filter((h): h is string => !!h)),
+      ];
+      const key = `${host.id}/${kind.key}/${site.name.toLowerCase()}`;
+      const r = add(batch, row, {
+        id: key,
+        name: `${site.name} (${host.name})`,
+        type: "APPLICATION",
+        description: [
+          `${kind.label} on ${host.name}`,
+          bindings.length
+            ? bindings.map((b) => `${b.protocol}:${b.port}${b.host ? ` ${b.host}` : ""}`).join(", ")
+            : null,
+        ]
+          .filter(Boolean)
+          .join(" · "),
+        fqdn: hostNames[0],
+        ports,
+        tags: [kind.tag],
       });
+      if (r) runsOn(key, `${kind.label} (reported by the agent)`);
+    }
   }
-  for (const db of input.sqlDatabases ?? []) {
-    if (SYSTEM_DBS.has(db.name.toLowerCase())) continue;
-    row++;
-    const named = db.instance.toUpperCase() !== "MSSQLSERVER";
-    const where = named ? `${host.name}\\${db.instance}` : host.name;
-    const key = `${host.id}/mssql/${db.instance.toLowerCase()}/${db.name.toLowerCase()}`;
-    const r = add(batch, row, {
-      id: key,
-      name: `${db.name} (${where})`,
-      type: "DATABASE",
-      description: `SQL Server database on ${host.name}${named ? `, instance ${db.instance}` : ""}`,
-      tags: ["sql-server"],
-    });
-    if (r)
-      batch.relationships.push({
-        row,
-        from: key,
-        to: hostRef,
-        type: "RUNS_ON",
-        note: "SQL Server database (reported by the agent)",
-        suggested: false,
+
+  for (const kind of DATABASE_KINDS) {
+    const system = new Set<string>(kind.system);
+    for (const db of input[kind.field] ?? []) {
+      if (system.has(db.name.toLowerCase())) continue;
+      row++;
+      const named = !kind.defaultInstance(db.instance);
+      const where = named ? `${host.name}\\${db.instance}` : host.name;
+      const key = `${host.id}/${kind.key}/${db.instance.toLowerCase()}/${db.name.toLowerCase()}`;
+      const r = add(batch, row, {
+        id: key,
+        name: `${db.name} (${where})`,
+        type: "DATABASE",
+        description: `${kind.label} on ${host.name}${named ? `, ${kind.instanceLabel(db.instance)}` : ""}`,
+        tags: [kind.tag],
       });
+      if (r) runsOn(key, `${kind.label} (reported by the agent)`);
+    }
   }
 }
 

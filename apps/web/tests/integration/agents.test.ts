@@ -134,7 +134,7 @@ describe("agent reports", () => {
     expect(res.status).toBe(202);
     expect(await res.json()).toEqual({
       config: { reportIntervalSec: 300, sampleIntervalSec: 30 },
-      features: ["workloads"],
+      features: ["workloads", "workloads-linux"],
     });
 
     const [host] = await listResources(ctx);

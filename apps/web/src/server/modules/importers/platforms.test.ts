@@ -292,3 +292,42 @@ describe("windows workloads (M16)", () => {
     expect(plan.errors.map((e) => e.message)).toEqual(['Unknown resource "id:someone-else".']);
   });
 });
+
+describe("linux workloads (M20)", () => {
+  it("imports nginx / Apache sites and PostgreSQL / MySQL databases, skipping system ones", () => {
+    const batch = parseImport(
+      JSON.stringify({
+        host: { id: "host-lin01", name: "LIN01" },
+        nginxSites: [
+          {
+            name: "shop.example.com",
+            bindings: [{ protocol: "https", port: 443, host: "shop.example.com" }],
+          },
+        ],
+        apacheSites: [{ name: "intranet", bindings: [{ protocol: "http", port: 8080 }] }],
+        postgresDatabases: [
+          { instance: "5432", name: "orders" },
+          { instance: "5432", name: "postgres" },
+          { instance: "5433", name: "reports" },
+        ],
+        mysqlDatabases: [
+          { instance: "default", name: "wordpress" },
+          { instance: "default", name: "performance_schema" },
+        ],
+      }),
+      "workloads",
+    );
+    expect(batch.errors).toEqual([]);
+    expect(batch.resources.map((r) => [r.key, r.input.name, r.input.type, r.input.tags])).toEqual([
+      ["host-lin01/nginx/shop.example.com", "shop.example.com (LIN01)", "APPLICATION", ["nginx"]],
+      ["host-lin01/apache/intranet", "intranet (LIN01)", "APPLICATION", ["apache"]],
+      ["host-lin01/postgresql/5432/orders", "orders (LIN01)", "DATABASE", ["postgresql"]],
+      ["host-lin01/postgresql/5433/reports", "reports (LIN01\\5433)", "DATABASE", ["postgresql"]],
+      ["host-lin01/mysql/default/wordpress", "wordpress (LIN01)", "DATABASE", ["mysql"]],
+    ]);
+    expect(batch.resources[3]!.input.description).toBe("PostgreSQL database on LIN01, port 5433");
+    expect(batch.relationships.every((r) => r.type === "RUNS_ON" && r.to === "id:host-lin01")).toBe(
+      true,
+    );
+  });
+});

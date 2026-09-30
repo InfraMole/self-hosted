@@ -30,10 +30,14 @@ export const AGENT_LIMITS = {
  * enroll / report response. An agent only sends a section the server listed,
  * so a newer agent keeps working with an older server (M16).
  */
-export const AGENT_FEATURES = ["workloads"] as const;
+export const AGENT_FEATURES = ["workloads", "workloads-linux"] as const;
 
-/** SQL Server system databases: never reported, never imported. */
-export const SYSTEM_DATABASES = ["master", "model", "msdb", "tempdb"] as const;
+/** System databases per engine: never reported, never imported. */
+export const SYSTEM_DATABASES = {
+  mssql: ["master", "model", "msdb", "tempdb"],
+  postgresql: ["postgres", "template0", "template1"],
+  mysql: ["information_schema", "mysql", "performance_schema", "sys"],
+} as const;
 
 export const REPORT_INTERVAL = { min: 60, max: 3600, default: 300 } as const;
 export const SAMPLE_INTERVAL_SEC = 30;
@@ -64,6 +68,42 @@ const processRef = z
     pid: z.number().int().nonnegative().optional(),
   })
   .strict();
+
+/** A web site: IIS site, nginx server block or Apache virtual host (M16, M20). */
+const webSites = z
+  .array(
+    z
+      .object({
+        name: text(256).min(1),
+        bindings: z
+          .array(
+            z
+              .object({
+                protocol: z.enum(["http", "https"]),
+                port: port.min(1),
+                /** Host header / server name; absent = any host name. */
+                host: text(253).optional(),
+              })
+              .strict(),
+          )
+          .max(AGENT_LIMITS.bindingsPerSite),
+      })
+      .strict(),
+  )
+  .max(AGENT_LIMITS.iisSites);
+
+/** Database names of a local engine instance (M16, M20). */
+const databases = z
+  .array(
+    z
+      .object({
+        /** SQL Server instance ("MSSQLSERVER" = default), PostgreSQL port, MySQL "default". */
+        instance: text(128).min(1),
+        name: text(128).min(1),
+      })
+      .strict(),
+  )
+  .max(AGENT_LIMITS.sqlDatabases);
 
 export const reportSchemaV1 = z
   .object({
@@ -179,40 +219,14 @@ export const reportSchemaV1 = z
     workloads: z
       .object({
         collectedAt: datetime,
-        iisSites: z
-          .array(
-            z
-              .object({
-                name: text(256).min(1),
-                bindings: z
-                  .array(
-                    z
-                      .object({
-                        protocol: z.enum(["http", "https"]),
-                        port: port.min(1),
-                        /** Host header; absent = any host name. */
-                        host: text(253).optional(),
-                      })
-                      .strict(),
-                  )
-                  .max(AGENT_LIMITS.bindingsPerSite),
-              })
-              .strict(),
-          )
-          .max(AGENT_LIMITS.iisSites)
-          .optional(),
-        sqlDatabases: z
-          .array(
-            z
-              .object({
-                /** Instance name, "MSSQLSERVER" for the default instance. */
-                instance: text(128).min(1),
-                name: text(128).min(1),
-              })
-              .strict(),
-          )
-          .max(AGENT_LIMITS.sqlDatabases)
-          .optional(),
+        /** Windows (feature "workloads"). */
+        iisSites: webSites.optional(),
+        sqlDatabases: databases.optional(),
+        /** Linux (feature "workloads-linux", M20): same shapes. */
+        nginxSites: webSites.optional(),
+        apacheSites: webSites.optional(),
+        postgresDatabases: databases.optional(),
+        mysqlDatabases: databases.optional(),
       })
       .strict()
       .optional(),

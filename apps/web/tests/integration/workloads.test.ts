@@ -50,7 +50,7 @@ async function enrolledAgent(ctx: WorkspaceContext, machineId: string, hostname:
     }),
   );
   const body = (await res.json()) as { agentSecret: string; features: string[] };
-  expect(body.features).toContain("workloads");
+  expect(body.features).toEqual(["workloads", "workloads-linux"]);
   return (report: ReportV1) =>
     reportRoute(post(report, { authorization: `Bearer ${body.agentSecret}` }));
 }
@@ -86,7 +86,10 @@ describe("windows workloads", () => {
       }),
     );
     expect(res.status).toBe(202);
-    expect(((await res.json()) as { features: string[] }).features).toEqual(["workloads"]);
+    expect(((await res.json()) as { features: string[] }).features).toEqual([
+      "workloads",
+      "workloads-linux",
+    ]);
 
     const resources = await adminDb().resource.findMany({
       where: { workspaceId: ctx.workspaceId },
@@ -186,5 +189,55 @@ describe("windows workloads", () => {
       iisSites: [{ ...portal, physicalPath: "C:\\inetpub\\portal" } as never],
     });
     expect((await report(bad)).status).toBe(422);
+  });
+});
+
+describe("linux workloads (M20)", () => {
+  it("imports nginx / Apache sites and PostgreSQL / MySQL databases on the Linux host", async () => {
+    const ctx = await ownerContext("Acme");
+    const report = await enrolledAgent(ctx, "machine-lin01", "LIN01");
+    const lin01 = (workloads: ReportV1["workloads"]) =>
+      sampleReport({
+        host: { ...sampleReport().host, hostname: "LIN01", os: "linux", osName: "Ubuntu 24.04" },
+        interfaces: [{ name: "eth0", addresses: ["10.0.0.90/24"] }],
+        connections: [],
+        workloads,
+      });
+    const res = await report(
+      lin01({
+        collectedAt: at,
+        nginxSites: [
+          {
+            name: "shop.example.com",
+            bindings: [{ protocol: "https", port: 443, host: "shop.example.com" }],
+          },
+        ],
+        apacheSites: [],
+        postgresDatabases: [
+          { instance: "5432", name: "orders" },
+          { instance: "5432", name: "postgres" },
+        ],
+        mysqlDatabases: [{ instance: "default", name: "wordpress" }],
+      }),
+    );
+    expect(res.status).toBe(202);
+    const rows = await adminDb().resource.findMany({
+      where: { workspaceId: ctx.workspaceId },
+      orderBy: { name: "asc" },
+      select: { name: true, type: true, tags: true, sourceRef: true },
+    });
+    expect(rows.map((r) => [r.name, r.type, r.tags])).toEqual([
+      ["LIN01", "SERVER", []],
+      ["orders (LIN01)", "DATABASE", ["postgresql"]],
+      ["shop.example.com (LIN01)", "APPLICATION", ["nginx"]],
+      ["wordpress (LIN01)", "DATABASE", ["mysql"]],
+    ]);
+    expect(rows.find((r) => r.name === "orders (LIN01)")!.sourceRef).toMatch(
+      /^collector:.+:postgresql$/,
+    );
+    const runsOn = await adminDb().relationship.count({
+      where: { type: "RUNS_ON", status: "CONFIRMED" },
+    });
+    expect(runsOn).toBe(3);
   });
 });

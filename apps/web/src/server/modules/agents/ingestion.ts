@@ -296,7 +296,7 @@ const blank = {
  * never fails the report: the host data is already stored.
  */
 /**
- * Windows workloads (M16): each kind present in the report is a full snapshot
+ * Workloads (M16 Windows, M20 Linux): each kind present in the report is a full snapshot
  * for this host, imported with its own source so that a site or database
  * that disappears becomes STALE (ADR-021) without touching the other kind.
  * Never fails the report.
@@ -306,10 +306,26 @@ async function importWorkloads(agent: Agent, hostId: string, report: ReportV1) {
   const host = { id: hostId, name: report.host.hostname };
   const kinds = [
     { kind: "iis", label: "IIS", data: w.iisSites && { host, iisSites: w.iisSites } },
+    { kind: "nginx", label: "nginx", data: w.nginxSites && { host, nginxSites: w.nginxSites } },
+    {
+      kind: "apache",
+      label: "Apache",
+      data: w.apacheSites && { host, apacheSites: w.apacheSites },
+    },
     {
       kind: "mssql",
       label: "SQL Server",
       data: w.sqlDatabases && { host, sqlDatabases: w.sqlDatabases },
+    },
+    {
+      kind: "postgresql",
+      label: "PostgreSQL",
+      data: w.postgresDatabases && { host, postgresDatabases: w.postgresDatabases },
+    },
+    {
+      kind: "mysql",
+      label: "MySQL",
+      data: w.mysqlDatabases && { host, mysqlDatabases: w.mysqlDatabases },
     },
   ] as const;
   for (const { kind, label, data } of kinds) {

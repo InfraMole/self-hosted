@@ -293,6 +293,13 @@ last IP, expired sessions and tokens) is deleted, not kept "just in case".
 - Map export (M17) is rendered in the browser from data the user can
   already see; nothing is uploaded or stored, and no third-party library
   processes the map.
+- Linux workloads (M20, ADR-031): nginx / Apache configs are read for
+  server names and ports only (bounded: 200 files, depth 10, 2 MB each;
+  certificate and key directives are never decoded); PostgreSQL and MySQL
+  are opt-in and use the local socket with the agent's OS identity (peer /
+  unix_socket / auth_socket) — the agent never stores or sends a password
+  and gives up if one is required. Hand-written minimal protocol clients
+  send exactly one fixed read-only query.
 - Windows workloads (M16, ADR-028): the agent reads only the site list of
   `applicationHost.config` (never paths, pools or stored credentials — unit
   tested with a fixture full of them) and, **only when enabled locally**,

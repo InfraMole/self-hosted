@@ -52,6 +52,10 @@ const copy = {
         data: "Windows, only if you turn it on: SQL Server database names (system databases excluded) — hourly",
         why: "Show the databases that live on the server, so impact can name them.",
       },
+      {
+        data: "Linux: nginx and Apache site names and ports; only if you turn them on, PostgreSQL and MySQL / MariaDB database names — hourly",
+        why: "The same, for Linux servers.",
+      },
     ],
     neverTitle: "Never collected",
     never: [
@@ -79,8 +83,8 @@ const copy = {
         rest: "It runs as a service (LocalSystem or root) so it can see which process owns a port. Without admin rights it still works, with fewer process names.",
       },
       {
-        strong: "IIS and SQL Server.",
-        rest: "IIS sites come from the site list in IIS's own configuration file; paths, application pools and any stored credentials are never read. SQL Server is off until you enable it on the host: the agent then connects to the local instances with its Windows service identity — no password is stored — and runs a single query for database names.",
+        strong: "Web servers and databases.",
+        rest: "Sites come from the web server's own configuration (IIS, nginx, Apache); paths, certificates, keys and any stored credentials are never read. Databases (SQL Server, PostgreSQL, MySQL / MariaDB) are off until you enable them on the host: the agent then logs in locally with its own service identity — no password is ever stored — and runs a single query for database names.",
       },
       {
         strong: "Optional Proxmox inventory.",
@@ -142,6 +146,10 @@ const copy = {
         data: "Windows, solo si lo activas: nombres de las bases de datos de SQL Server (sin las de sistema) — cada hora",
         why: "Mostrar las bases de datos que viven en el servidor, para que el impacto pueda nombrarlas.",
       },
+      {
+        data: "Linux: nombres y puertos de los sitios de nginx y Apache; solo si lo activas, nombres de las bases de datos de PostgreSQL y MySQL / MariaDB — cada hora",
+        why: "Lo mismo, en servidores Linux.",
+      },
     ],
     neverTitle: "Nunca se recoge",
     never: [
@@ -169,8 +177,8 @@ const copy = {
         rest: "Se ejecuta como servicio (LocalSystem o root) para poder ver qué proceso usa cada puerto. Sin permisos de administrador sigue funcionando, con menos nombres de proceso.",
       },
       {
-        strong: "IIS y SQL Server.",
-        rest: "Los sitios de IIS se leen de la lista de sitios del propio fichero de configuración de IIS; nunca se leen rutas, grupos de aplicaciones ni credenciales guardadas. SQL Server está desactivado hasta que lo actives en el equipo: entonces el agente se conecta a las instancias locales con la identidad de su servicio de Windows — sin guardar ninguna contraseña — y ejecuta una única consulta con los nombres de las bases de datos.",
+        strong: "Servidores web y bases de datos.",
+        rest: "Los sitios se leen de la propia configuración del servidor web (IIS, nginx, Apache); nunca se leen rutas, certificados, claves ni credenciales guardadas. Las bases de datos (SQL Server, PostgreSQL, MySQL / MariaDB) están desactivadas hasta que las actives en el equipo: entonces el agente inicia sesión localmente con la identidad de su propio servicio — nunca se guarda una contraseña — y ejecuta una única consulta con los nombres de las bases de datos.",
       },
       {
         strong: "Inventario de Proxmox opcional.",
