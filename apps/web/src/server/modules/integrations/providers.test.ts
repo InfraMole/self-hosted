@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { parseImport } from "@/server/modules/importers/parse";
 import { planImport } from "@/server/modules/importers/plan";
 import type { SafeResponse } from "@/server/safe-fetch";
-import { IntegrationError, aws, azure, cloudflare, type Http } from "./providers";
+import { IntegrationError, aws, azure, cloudflare, linkedRecords, type Http } from "./providers";
 
 const res = (status: number, body: unknown): SafeResponse => ({
   status,
@@ -165,7 +165,7 @@ describe("cloudflare provider", () => {
       ],
     ]);
     const out = await cloudflare.fetchExport(
-      { zones: "example.com" },
+      { zones: "example.com", records: "all" },
       { apiToken: "cf_token_xxxxxxxxxxxxxxxx" },
       { http },
     );
@@ -186,7 +186,11 @@ describe("cloudflare provider", () => {
       ],
     ]);
     await expect(
-      cloudflare.fetchExport({}, { apiToken: "cf_token_xxxxxxxxxxxxxxxx" }, { http }),
+      cloudflare.fetchExport(
+        { records: "all" },
+        { apiToken: "cf_token_xxxxxxxxxxxxxxxx" },
+        { http },
+      ),
     ).rejects.toThrow("Cloudflare API: Invalid access token");
   });
 });
@@ -283,5 +287,113 @@ describe("aws provider", () => {
     await expect(failing).rejects.toThrow(/AWS API: UnauthorizedOperation/);
     expect(aws.configSchema.safeParse({ region: "eu-central-1" }).success).toBe(true);
     expect(aws.configSchema.safeParse({ region: "https://evil" }).success).toBe(false);
+  });
+});
+
+describe("cloudflare linked records", () => {
+  const records = [
+    { name: "inframole.com", type: "A", content: "146.59.154.3" },
+    { name: "inframole.com", type: "AAAA", content: "2001:41d0:305:2100::1:7830" },
+    { name: "www.inframole.com", type: "CNAME", content: "inframole.com" },
+    { name: "alias.inframole.com", type: "CNAME", content: "www.inframole.com" },
+    { name: "send.inframole.com", type: "CNAME", content: "send.forge.rmta.net" },
+    { name: "dropmyway.com", type: "CNAME", content: "x.vercel-dns-017.com" },
+    { name: "dev.spookops.com", type: "A", content: "93.189.89.137" },
+  ];
+
+  it("keeps only names that resolve to a known machine IP (through CNAME chains)", () => {
+    expect(
+      linkedRecords(records, new Set(["146.59.154.3"])).map((r) => `${r.name} ${r.type}`),
+    ).toEqual([
+      "inframole.com A",
+      "inframole.com AAAA",
+      "www.inframole.com CNAME",
+      "alias.inframole.com CNAME",
+    ]);
+    expect(linkedRecords(records, new Set())).toEqual([]);
+  });
+
+  it("the provider filters with the workspace's IPs only in linked mode", async () => {
+    const http: Http = async (url) =>
+      res(200, {
+        success: true,
+        result: url.includes("dns_records") ? records : [{ id: "z1", name: "inframole.com" }],
+        result_info: { total_pages: 1 },
+      });
+    const libraryIps = async () => new Set(["2001:41d0:305:2100::1:7830"]);
+    const linked = await cloudflare.fetchExport(
+      { records: "linked" },
+      { apiToken: "cf_token_xxxxxxxxxxxxxxxx" },
+      { http, libraryIps },
+    );
+    expect(JSON.parse(linked.text).result).toHaveLength(4);
+    const all = await cloudflare.fetchExport(
+      cloudflare.configSchema.parse({ zones: "" }),
+      { apiToken: "cf_token_xxxxxxxxxxxxxxxx" },
+      { http, libraryIps },
+    );
+    expect(JSON.parse(all.text).result).toHaveLength(records.length);
+  });
+
+  it("skips names with an underscore label (DKIM, SRV…)", () => {
+    const batch = parseImport(
+      JSON.stringify({
+        result: [
+          {
+            name: "clk._domainkey.example.com",
+            type: "CNAME",
+            content: "dkim.x.com",
+            proxied: false,
+          },
+          { name: "app.example.com", type: "A", content: "203.0.113.5", proxied: false },
+        ],
+      }),
+      "cloudflare",
+    );
+    expect(batch.resources.map((r) => r.input.name)).toEqual(["app.example.com"]);
+  });
+});
+
+describe("ip references", () => {
+  it("resolve to the machine, never to a domain that points at the same IP", () => {
+    const batch = parseImport(
+      JSON.stringify({
+        result: [{ name: "inframole.com", type: "A", content: "146.59.154.3", proxied: false }],
+      }),
+      "cloudflare",
+    );
+    const existing = [
+      {
+        id: "srv",
+        name: "vps-1",
+        type: "VM",
+        source: "IMPORT",
+        externalId: "cloud:ovhcloud/server/vps/vps-1",
+        metadata: { ipAddresses: ["146.59.154.3"] },
+        tags: [],
+        environment: null,
+        criticality: null,
+        description: null,
+        notes: null,
+      },
+      {
+        id: "dom",
+        name: "inframole.com",
+        type: "DOMAIN",
+        source: "IMPORT",
+        externalId: "cloudflare:dns/inframole.com",
+        metadata: { ipAddresses: ["146.59.154.3"] },
+        tags: [],
+        environment: null,
+        criticality: null,
+        description: null,
+        notes: null,
+      },
+    ] as unknown as Parameters<typeof planImport>[1];
+    const p = planImport(batch, existing, []);
+    expect(p.warnings).toEqual([]);
+    expect(p.relationships.map((r) => [r.fromLabel, r.type, r.toLabel])).toEqual([
+      ["inframole.com", "DEPENDS_ON", "vps-1"],
+    ]);
   });
 });

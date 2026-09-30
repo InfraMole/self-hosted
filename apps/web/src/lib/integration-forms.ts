@@ -87,6 +87,14 @@ export const INTEGRATION_FORMS: Record<IntegrationKindName, IntegrationForm> = {
         placeholder: "example.com, other.org — empty = all",
         optional: true,
       },
+      {
+        name: "records",
+        label: "Records",
+        options: [
+          { value: "linked", label: "Only records pointing to servers in InfraMole" },
+          { value: "all", label: "All A / AAAA / CNAME records" },
+        ],
+      },
     ],
     secret: [{ name: "apiToken", label: "API token", secret: true }],
   },
@@ -125,8 +133,8 @@ export const INTEGRATION_FORMS: Record<IntegrationKindName, IntegrationForm> = {
     label: "OVHcloud",
     preview: true,
     permissions:
-      "Application key + consumer key created with GET-only rights on /cloud/project/* and /dedicated/server/*.",
-    imports: "Public Cloud instances with IPs and region, and dedicated servers.",
+      "Application key + consumer key created with GET-only rights on /vps, /vps/*, /cloud/project, /cloud/project/*, /dedicated/server and /dedicated/server/*.",
+    imports: "VPS, Public Cloud instances and dedicated servers, with their IPs.",
     config: [
       {
         name: "endpoint",

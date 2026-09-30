@@ -84,8 +84,10 @@ In the integration, list the zones to read (for example
 
 1. Create an application key at the token page of your region (for Europe,
    `https://eu.api.ovh.com/createToken/`).
-2. Rights: **GET** on `/cloud/project`, `/cloud/project/*` and
-   `/dedicated/server`, `/dedicated/server/*` — nothing else.
+2. Rights: **GET** on `/vps`, `/vps/*`, `/cloud/project`,
+   `/cloud/project/*`, `/dedicated/server` and `/dedicated/server/*` —
+   nothing else. (Rights cannot be changed later: to add one, create a new
+   key.)
 
 You will need the **application key**, **application secret** and
 **consumer key**. Leave the project empty to read every Public Cloud project
@@ -110,7 +112,12 @@ InfraMole. InfraMole only calls `GET /v1/servers`.
 In **Settings › Integrations › Add integration**, choose the provider, give
 it a name, choose how often it syncs (every 6 hours by default, from 1 hour
 to 7 days) and paste the values. Optionally, for Cloudflare, list the zones
-to import (empty = all).
+to import (empty = all) and which records: **only records pointing to
+servers in InfraMole** (recommended — A / AAAA records whose IP belongs to a
+server or VM in the Library, plus CNAMEs to them) or **all** A / AAAA /
+CNAME records. Names with a label starting with `_` (DKIM, SRV…) are never
+imported. Connect your servers first (agent or cloud integration), then
+Cloudflare; a record whose server arrives later appears on the next sync.
 
 :::note Preview integrations
 Hetzner Cloud, DigitalOcean, Scaleway, OVHcloud, Google Cloud and Clouding
@@ -139,7 +146,7 @@ On self-hosted installations scheduled syncs need `CRON_SECRET` (set by
 | Hetzner Cloud | Servers (public IPv4 and private IPs, type, location, image, labels); load balancers                | Servers configured as load balancer targets (also through label selectors) _exposed through_ it                                                         |
 | DigitalOcean  | Droplets (IPs, size, region, tags); load balancers; managed databases                               | Droplets of a load balancer _exposed through_ it                                                                                                        |
 | Scaleway      | Instances of the listed zones; load balancers; managed databases                                    | Backend IPs of a load balancer _exposed through_ it (only if exactly one resource owns the IP)                                                          |
-| OVHcloud      | Public Cloud instances; dedicated servers (as servers)                                              | —                                                                                                                                                       |
+| OVHcloud      | VPS (display name, IPs, zone, model); Public Cloud instances; dedicated servers (as servers)        | —                                                                                                                                                       |
 | Google Cloud  | Compute Engine instances (internal / external IPs, machine type, zone, labels); Cloud SQL instances | —                                                                                                                                                       |
 | Clouding      | Servers (public / private IPs, vCores, RAM, image, power state)                                     | —                                                                                                                                                       |
 

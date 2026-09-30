@@ -15,7 +15,13 @@ import { tenantDb } from "@/server/db";
 import { refreshDetectedRelationships } from "@/server/modules/discovery/discovery";
 import { diffResource, type ResourceSnapshot } from "@/server/modules/resources/diff";
 import { resourceMetadataSchema } from "@/server/modules/resources/schemas";
-import { IMPORT_LIMITS, detectFormat, parseImport, type ImportFormat } from "./parse";
+import {
+  IMPORT_LIMITS,
+  detectFormat,
+  parseImport,
+  type ImportFormat,
+  type RowError,
+} from "./parse";
 import { planImport, type ExistingResource, type ImportPlan } from "./plan";
 
 export const importRequestSchema = z.object({
@@ -41,8 +47,14 @@ export const importRequestSchema = z.object({
 export type ImportRequest = z.input<typeof importRequestSchema>;
 
 export class ImportHasErrorsError extends Error {
-  constructor(count: number) {
-    super(`The import has ${count} error(s); nothing was imported. Fix them and preview again.`);
+  constructor(count: number, first?: RowError) {
+    const detail = first ? ` First: ${first.row ? `row ${first.row}: ` : ""}${first.message}` : "";
+    super(
+      `The import has ${count} error(s); nothing was imported. Fix them and preview again.${detail}`.slice(
+        0,
+        300,
+      ),
+    );
     this.name = "ImportHasErrorsError";
   }
 }
@@ -162,7 +174,7 @@ export async function runImport(
   // Imports, integration syncs and agent collectors all pass here (ADR-023).
   await assertDiscoveryActive(ctx.workspaceId);
   const { plan, request } = await buildPlan(ctx, raw);
-  if (plan.errors.length > 0) throw new ImportHasErrorsError(plan.errors.length);
+  if (plan.errors.length > 0) throw new ImportHasErrorsError(plan.errors.length, plan.errors[0]);
   await assertCanAddNodes(ctx.workspaceId, billableCreates(plan));
 
   const source = plan.format;

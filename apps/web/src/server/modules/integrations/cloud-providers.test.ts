@@ -361,6 +361,22 @@ describe("ovhcloud", () => {
           }),
       ],
       ["https://eu.api.ovh.com/1.0/dedicated/server", () => res(200, ["ns1234.ip-1-2-3.eu"])],
+      [
+        "https://eu.api.ovh.com/1.0/vps/vps-abc123.vps.ovh.net/ips",
+        () => res(200, ["146.59.154.3", "2001:41d0:305:2100::1:7830"]),
+      ],
+      [
+        "https://eu.api.ovh.com/1.0/vps/vps-abc123.vps.ovh.net",
+        () =>
+          res(200, {
+            name: "vps-abc123.vps.ovh.net",
+            displayName: "im-web-01",
+            zone: "Region OpenStack: os-gra9",
+            state: "running",
+            model: { name: "vps-2025-model1", vcore: 2, memory: 4096 },
+          }),
+      ],
+      ["https://eu.api.ovh.com/1.0/vps", () => res(200, ["vps-abc123.vps.ovh.net"])],
     ]);
     const secret = {
       applicationKey: "appkey12345",
@@ -389,6 +405,14 @@ describe("ovhcloud", () => {
     const inv = JSON.parse(out.text);
     expect(inv.servers).toEqual([
       expect.objectContaining({
+        id: "vps/vps-abc123.vps.ovh.net",
+        name: "im-web-01",
+        hostname: "vps-abc123.vps.ovh.net",
+        region: "os-gra9",
+        size: "2 vCores / 4 GB RAM",
+        ips: ["146.59.154.3", "2001:41d0:305:2100::1:7830"],
+      }),
+      expect.objectContaining({
         id: "dedicated/ns1234.ip-1-2-3.eu",
         name: "backup.example.com",
         kind: "SERVER",
@@ -396,7 +420,7 @@ describe("ovhcloud", () => {
       }),
     ]);
     const { batch } = plan(out.text);
-    expect(batch.resources[0]!.input.type).toBe("SERVER");
+    expect(batch.resources.map((r) => r.input.type)).toEqual(["VM", "SERVER"]);
   });
 
   it("computes the documented signature", () => {

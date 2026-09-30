@@ -529,6 +529,14 @@ interface OvhInstance {
   ipAddresses?: { ip: string; type?: string; version?: number }[];
 }
 
+interface OvhVps {
+  name: string;
+  displayName?: string;
+  zone?: string;
+  state?: string;
+  model?: { name?: string; offer?: string; vcore?: number; memory?: number };
+}
+
 interface OvhDedicated {
   name: string;
   ip?: string;
@@ -595,6 +603,26 @@ export const ovhcloud: Provider<z.infer<typeof ovhConfig>, z.infer<typeof ovhSec
           status: i.status,
           ips: strings((i.ipAddresses ?? []).map((a) => a.ip)),
         });
+    }
+    const vpsNames = (await optional(() => get<string[]>("/vps"))).slice(0, 200);
+    for (const name of vpsNames) {
+      const path = `/vps/${encodeURIComponent(name)}`;
+      const [v, ips] = await Promise.all([
+        get<OvhVps>(path),
+        optional(() => get<string[]>(`${path}/ips`)),
+      ]);
+      servers.push({
+        id: `vps/${v.name}`,
+        name: v.displayName && v.displayName !== v.name ? v.displayName : v.name,
+        hostname: v.name,
+        region: v.zone?.replace(/^Region OpenStack: /i, ""),
+        size:
+          v.model?.vcore && v.model?.memory
+            ? `${v.model.vcore} vCores / ${Math.round(v.model.memory / 1024)} GB RAM`
+            : v.model?.name,
+        status: v.state,
+        ips: strings(ips.map((ip) => ip.replace(/\/(32|128)$/, ""))),
+      });
     }
     const dedicated = (await optional(() => get<string[]>("/dedicated/server"))).slice(0, 200);
     for (const name of dedicated) {

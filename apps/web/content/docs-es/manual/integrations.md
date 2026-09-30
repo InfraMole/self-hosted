@@ -84,8 +84,10 @@ En la integración, indica las zonas que se leen (por ejemplo
 
 1. Crea una clave de aplicación en la página de tokens de tu región (para
    Europa, `https://eu.api.ovh.com/createToken/`).
-2. Derechos: **GET** sobre `/cloud/project`, `/cloud/project/*` y
-   `/dedicated/server`, `/dedicated/server/*` — nada más.
+2. Derechos: **GET** sobre `/vps`, `/vps/*`, `/cloud/project`,
+   `/cloud/project/*`, `/dedicated/server` y `/dedicated/server/*` — nada
+   más. (Los derechos no se pueden cambiar después: para añadir uno, crea
+   una clave nueva.)
 
 Necesitarás la **application key**, el **application secret** y la
 **consumer key**. Deja el proyecto vacío para leer todos los proyectos de
@@ -110,7 +112,13 @@ use InfraMole. InfraMole solo llama a `GET /v1/servers`.
 En **Settings › Integrations › Add integration**, elige el proveedor, dale
 un nombre, elige cada cuánto se sincroniza (cada 6 horas por defecto, de 1
 hora a 7 días) y pega los valores. Opcionalmente, en Cloudflare, indica las
-zonas que se importan (vacío = todas).
+zonas que se importan (vacío = todas) y qué registros: **solo los que
+apuntan a servidores de InfraMole** (recomendado — registros A / AAAA cuya
+IP pertenece a un servidor o VM de la Library, más los CNAME hacia ellos) o
+**todos** los A / AAAA / CNAME. Los nombres con una etiqueta que empieza
+por `_` (DKIM, SRV…) nunca se importan. Conecta primero tus servidores
+(agente o integración en la nube) y después Cloudflare; un registro cuyo
+servidor llega más tarde aparece en la siguiente sincronización.
 
 :::note Integraciones en Preview
 Hetzner Cloud, DigitalOcean, Scaleway, OVHcloud, Google Cloud y Clouding
@@ -139,7 +147,7 @@ programadas necesitan `CRON_SECRET` (lo rellena `gen-secrets`).
 | Hetzner Cloud | Servidores (IPv4 pública e IP privadas, tipo, ubicación, imagen, etiquetas); balanceadores de carga              | Los servidores configurados como destinos de un balanceador (también mediante selectores de etiquetas) quedan _exposed through_ él                                          |
 | DigitalOcean  | Droplets (IP, tamaño, región, etiquetas); balanceadores de carga; bases de datos gestionadas                     | Los droplets de un balanceador quedan _exposed through_ él                                                                                                                  |
 | Scaleway      | Instancias de las zonas indicadas; balanceadores de carga; bases de datos gestionadas                            | Las IP de backend de un balanceador quedan _exposed through_ él (solo si exactamente un recurso tiene esa IP)                                                               |
-| OVHcloud      | Instancias de Public Cloud; servidores dedicados (como servidores)                                               | —                                                                                                                                                                           |
+| OVHcloud      | VPS (nombre visible, IP, zona, modelo); instancias de Public Cloud; servidores dedicados (como servidores)       | —                                                                                                                                                                           |
 | Google Cloud  | Instancias de Compute Engine (IP internas / externas, tipo de máquina, zona, etiquetas); instancias de Cloud SQL | —                                                                                                                                                                           |
 | Clouding      | Servidores (IP públicas / privadas, vCores, RAM, imagen, estado de encendido)                                    | —                                                                                                                                                                           |
 

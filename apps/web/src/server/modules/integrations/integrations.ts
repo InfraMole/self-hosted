@@ -31,6 +31,23 @@ import { IntegrationError, PROVIDERS, type ProviderDeps } from "./providers";
 
 const defaultDeps: ProviderDeps = { http: safeFetch };
 
+/** Adds the workspace's machine IPs (Cloudflare "linked" records); explicit deps win. */
+function withLibrary(workspaceId: string, userId: string | null, deps: ProviderDeps): ProviderDeps {
+  return {
+    libraryIps: async () => {
+      const rows = await tenantDb({ workspaceId, userId }).resource.findMany({
+        where: { workspaceId, type: { not: "DOMAIN" }, status: { not: "ARCHIVED" } },
+        select: { metadata: true },
+      });
+      const ips = rows.flatMap(
+        (r) => ((r.metadata as { ipAddresses?: string[] } | null)?.ipAddresses ?? []) as string[],
+      );
+      return new Set(ips.map((ip) => ip.toLowerCase()));
+    },
+    ...deps,
+  };
+}
+
 const INTEGRATION_KIND_LABEL = Object.fromEntries(
   Object.entries(INTEGRATION_KIND_FORMS).map(([k, v]) => [k, v.label]),
 ) as Record<keyof typeof INTEGRATION_KIND_FORMS, string>;
@@ -125,7 +142,11 @@ export async function testIntegration(
 ) {
   assertRole(ctx, "ADMIN");
   const v = validated(input);
-  const exported = await v.provider.fetchExport(v.config as never, v.secret as never, deps);
+  const exported = await v.provider.fetchExport(
+    v.config as never,
+    v.secret as never,
+    withLibrary(ctx.workspaceId, ctx.userId, deps),
+  );
   return previewImport(ctx, { text: exported.text, format: exported.format });
 }
 
@@ -237,7 +258,7 @@ async function syncRow(
     const exported = await provider.fetchExport(
       provider.configSchema.parse(row.config) as never,
       provider.secretSchema.parse(secret) as never,
-      deps,
+      withLibrary(workspaceId, userId, deps),
     );
     const result = await runImport(
       { workspaceId, userId },

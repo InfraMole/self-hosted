@@ -204,8 +204,11 @@ interface CfRecord {
  * DEPEND_ON their target when it is in the same export.
  */
 function cloudflare(batch: ImportBatch, data: unknown) {
-  const records = (((data as { result?: CfRecord[] })?.result ?? []) as CfRecord[]).filter((r) =>
-    ["A", "AAAA", "CNAME"].includes(r.type),
+  // Names with a label starting with "_" (DKIM, SRV, ACME…) never name a host.
+  const records = (((data as { result?: CfRecord[] })?.result ?? []) as CfRecord[]).filter(
+    (r) =>
+      ["A", "AAAA", "CNAME"].includes(r.type) &&
+      !r.name.split(".").some((label) => label.startsWith("_")),
   );
   const byName = new Map<string, CfRecord[]>();
   for (const r of records) {
@@ -439,11 +442,7 @@ function cloud(batch: ImportBatch, data: unknown) {
     }
   }
 
-  if (row === 0)
-    batch.errors.push({
-      row: 0,
-      message: `No servers, databases or load balancers found in ${label}.`,
-    });
+  if (row === 0) batch.warnings.push(`No servers, databases or load balancers found in ${label}.`);
 }
 
 function add(batch: ImportBatch, row: number, fields: Record<string, unknown>) {

@@ -170,8 +170,10 @@ export function planImport(
     const k = r.name.toLowerCase();
     existingByName.set(k, [...(existingByName.get(k) ?? []), r]);
   }
+  // A domain points to an IP, it does not own it: "ip:" refs resolve to the machine only.
   const byIp = new Map<string, ExistingResource[]>();
   for (const r of existing) {
+    if (r.type === "DOMAIN") continue;
     for (const ip of r.metadata.ipAddresses ?? []) {
       byIp.set(ip.toLowerCase(), [...(byIp.get(ip.toLowerCase()) ?? []), r]);
     }

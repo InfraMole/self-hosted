@@ -13,6 +13,8 @@ export interface AwsApi {
 
 export interface ProviderDeps {
   http: Http;
+  /** IPs owned by the workspace's non-DOMAIN resources (lower-case). Filled by integrations.ts. */
+  libraryIps?: () => Promise<Set<string>>;
   aws?: (region: string, credentials: { accessKeyId: string; secretAccessKey: string }) => AwsApi;
 }
 

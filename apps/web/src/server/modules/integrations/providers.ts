@@ -220,7 +220,38 @@ export const aws: Provider<z.infer<typeof awsConfig>, z.infer<typeof awsSecret>>
 const cfConfig = z.object({
   /** Optional comma-separated zone names to include (empty = all zones the token can read). */
   zones: z.string().trim().max(500).optional(),
+  /**
+   * "linked": only records that point (directly or through CNAMEs) to an IP of
+   * a resource already in the Library. Integrations created before this
+   * option have no value and keep importing everything.
+   */
+  records: z.enum(["linked", "all"]).default("all"),
 });
+
+interface CfApiRecord {
+  name: string;
+  type: string;
+  content: string;
+}
+
+/** Records whose name resolves, directly or through CNAMEs, to one of `ips`. */
+export function linkedRecords<R extends CfApiRecord>(records: R[], ips: Set<string>): R[] {
+  const keep = new Set<string>();
+  for (const r of records)
+    if ((r.type === "A" || r.type === "AAAA") && ips.has(r.content.toLowerCase()))
+      keep.add(r.name.toLowerCase());
+  for (let changed = true; changed;) {
+    changed = false;
+    for (const r of records) {
+      const name = r.name.toLowerCase();
+      if (r.type === "CNAME" && !keep.has(name) && keep.has(r.content.toLowerCase())) {
+        keep.add(name);
+        changed = true;
+      }
+    }
+  }
+  return records.filter((r) => keep.has(r.name.toLowerCase()));
+}
 const cfSecret = z.object({ apiToken: z.string().trim().min(20).max(200) });
 const CF = "https://api.cloudflare.com/client/v4";
 
@@ -228,7 +259,7 @@ export const cloudflare: Provider<z.infer<typeof cfConfig>, z.infer<typeof cfSec
   configSchema: cfConfig,
   secretSchema: cfSecret,
   hint: (s) => last4(s.apiToken),
-  async fetchExport(config, secret, { http }) {
+  async fetchExport(config, secret, { http, libraryIps }) {
     const headers = { authorization: `Bearer ${secret.apiToken}` };
     const get = async (path: string) => {
       const res = await http(`${CF}${path}`, { headers });
@@ -265,7 +296,11 @@ export const cloudflare: Provider<z.infer<typeof cfConfig>, z.infer<typeof cfSec
         if (page >= (body.result_info?.total_pages ?? 1)) break;
       }
     }
-    return { format: "cloudflare", text: JSON.stringify({ result }) };
+    const kept =
+      config.records === "linked"
+        ? linkedRecords(result as unknown as CfApiRecord[], (await libraryIps?.()) ?? new Set())
+        : result;
+    return { format: "cloudflare", text: JSON.stringify({ result: kept }) };
   },
 };
 
