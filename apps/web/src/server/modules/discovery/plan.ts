@@ -26,6 +26,10 @@ export interface FactInput {
 export interface ResourceIps {
   id: string;
   ipAddresses: readonly string[];
+  /** Ports this resource listens on (IIS site bindings, M16). */
+  ports?: readonly number[];
+  /** Host it runs on (confirmed RUNS_ON), for workload attribution. */
+  runsOn?: string | null;
 }
 
 export interface RelationshipInput {
@@ -148,6 +152,23 @@ export function excludedSuggestions(
     .map((s) => s.relationshipId);
 }
 
+/**
+ * A connection to a host port that exactly one workload on that host listens
+ * on (an IIS site with its own binding) is attributed to that workload —
+ * unless the pair is already described at host level, which wins.
+ */
+export function attributeToWorkload(
+  ends: { from: string; to: string },
+  port: number,
+  portOwners: ReadonlyMap<string, readonly string[]>,
+  relsByPair: ReadonlyMap<string, readonly RelationshipInput[]>,
+): string {
+  const owners = portOwners.get(`${ends.to}|${port}`) ?? [];
+  if (owners.length !== 1 || owners[0] === ends.from) return ends.to;
+  if ((relsByPair.get(`${ends.from}|${ends.to}`) ?? []).length > 0) return ends.to;
+  return owners[0]!;
+}
+
 export function planDiscovery(
   facts: readonly FactInput[],
   resources: readonly ResourceIps[],
@@ -159,6 +180,22 @@ export function planDiscovery(
   const known = new Set(resources.map((r) => r.id));
   const plan: DiscoveryPlan = { resolutions: [], creates: [], evidence: [] };
 
+  const relsByPair = new Map<string, RelationshipInput[]>();
+  for (const r of relationships) {
+    const key = `${r.from}|${r.to}`;
+    relsByPair.set(key, [...(relsByPair.get(key) ?? []), r]);
+  }
+
+  // M16: "host|port" → workloads on that host listening on that port.
+  const portOwners = new Map<string, string[]>();
+  for (const r of resources) {
+    if (!r.runsOn) continue;
+    for (const p of r.ports ?? []) {
+      const key = `${r.runsOn}|${p}`;
+      portOwners.set(key, [...(portOwners.get(key) ?? []), r.id]);
+    }
+  }
+
   const byPair = new Map<string, { from: string; to: string; facts: FactInput[] }>();
   for (const fact of facts) {
     if (!known.has(fact.sourceResourceId)) continue; // host archived/deleted
@@ -168,18 +205,15 @@ export function planDiscovery(
     }
     if (rules.length > 0 && isExcluded(fact, remote, rules)) continue;
     if (!remote || fact.sampleCount < minSamples) continue;
-    const { from, to } = factEndpoints(fact, remote);
+    const ends = factEndpoints(fact, remote);
+    const { from } = ends;
+    const to = attributeToWorkload(ends, fact.port, portOwners, relsByPair);
     const key = `${from}|${to}`;
     const entry = byPair.get(key) ?? { from, to, facts: [] };
     entry.facts.push(fact);
     byPair.set(key, entry);
   }
 
-  const relsByPair = new Map<string, RelationshipInput[]>();
-  for (const r of relationships) {
-    const key = `${r.from}|${r.to}`;
-    relsByPair.set(key, [...(relsByPair.get(key) ?? []), r]);
-  }
   const rank: Record<RelationshipStatusLike, number> = { CONFIRMED: 0, UNCONFIRMED: 1, IGNORED: 2 };
 
   for (const pair of byPair.values()) {

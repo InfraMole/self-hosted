@@ -11,7 +11,7 @@
 import type { ImportBatch, ImportFormat, RowError } from "./parse";
 import { buildResourceRow } from "./parse";
 
-export type PlatformFormat = "proxmox" | "azure" | "aws" | "cloudflare";
+export type PlatformFormat = "proxmox" | "azure" | "aws" | "cloudflare" | "workloads";
 
 /** Detects a platform export inside already-parsed JSON (null = generic JSON). */
 export function detectPlatform(data: unknown): PlatformFormat | null {
@@ -40,10 +40,96 @@ export function parsePlatform(format: PlatformFormat, data: unknown): ImportBatc
     warnings: [],
   };
   if (format === "proxmox") proxmox(batch, data);
+  else if (format === "workloads") workloads(batch, data);
   else if (format === "azure") azure(batch, data);
   else if (format === "cloudflare") cloudflare(batch, data);
   else aws(batch, data);
   return batch;
+}
+
+// ───────────────────────── Windows workloads (M16) ─────────────────────────
+
+/** What ingestion passes for one agent host (built from a validated report). */
+export interface WorkloadsInput {
+  host: { id: string; name: string };
+  iisSites?: { name: string; bindings: { protocol: string; port: number; host?: string }[] }[];
+  sqlDatabases?: { instance: string; name: string }[];
+}
+
+const SYSTEM_DBS = new Set(["master", "model", "msdb", "tempdb"]);
+
+/**
+ * IIS sites → APPLICATION, SQL Server databases → DATABASE, each RUNS_ON the
+ * agent's host (confirmed: the agent read it on that machine; origin
+ * DETECTED). Names carry the host so "Default Web Site" on twenty servers
+ * stays twenty distinguishable resources. Keys include the host id.
+ */
+function workloads(batch: ImportBatch, data: unknown) {
+  const input = data as WorkloadsInput;
+  const host = input?.host;
+  if (!host?.id || !host.name) {
+    batch.errors.push({ row: 0, message: "Workloads need their host." });
+    return;
+  }
+  const hostRef = `id:${host.id}`;
+  let row = 0;
+  for (const site of input.iisSites ?? []) {
+    row++;
+    const bindings = site.bindings ?? [];
+    const ports = [...new Set(bindings.map((b) => b.port))].sort((a, b) => a - b);
+    const hostNames = [
+      ...new Set(bindings.map((b) => b.host?.toLowerCase()).filter((h): h is string => !!h)),
+    ];
+    const key = `${host.id}/iis/${site.name.toLowerCase()}`;
+    const r = add(batch, row, {
+      id: key,
+      name: `${site.name} (${host.name})`,
+      type: "APPLICATION",
+      description: [
+        `IIS site on ${host.name}`,
+        bindings.length
+          ? bindings.map((b) => `${b.protocol}:${b.port}${b.host ? ` ${b.host}` : ""}`).join(", ")
+          : null,
+      ]
+        .filter(Boolean)
+        .join(" · "),
+      fqdn: hostNames[0],
+      ports,
+      tags: ["iis"],
+    });
+    if (r)
+      batch.relationships.push({
+        row,
+        from: key,
+        to: hostRef,
+        type: "RUNS_ON",
+        note: "IIS site (reported by the agent)",
+        suggested: false,
+      });
+  }
+  for (const db of input.sqlDatabases ?? []) {
+    if (SYSTEM_DBS.has(db.name.toLowerCase())) continue;
+    row++;
+    const named = db.instance.toUpperCase() !== "MSSQLSERVER";
+    const where = named ? `${host.name}\\${db.instance}` : host.name;
+    const key = `${host.id}/mssql/${db.instance.toLowerCase()}/${db.name.toLowerCase()}`;
+    const r = add(batch, row, {
+      id: key,
+      name: `${db.name} (${where})`,
+      type: "DATABASE",
+      description: `SQL Server database on ${host.name}${named ? `, instance ${db.instance}` : ""}`,
+      tags: ["sql-server"],
+    });
+    if (r)
+      batch.relationships.push({
+        row,
+        from: key,
+        to: hostRef,
+        type: "RUNS_ON",
+        note: "SQL Server database (reported by the agent)",
+        suggested: false,
+      });
+  }
 }
 
 // ───────────────────────── Cloudflare ─────────────────────────

@@ -21,7 +21,17 @@ import { planImport, type ExistingResource, type ImportPlan } from "./plan";
 export const importRequestSchema = z.object({
   text: z.string().min(1, "Paste or upload something to import.").max(IMPORT_LIMITS.bytes),
   format: z
-    .enum(["auto", "csv", "json", "docker-compose", "proxmox", "azure", "aws", "cloudflare"])
+    .enum([
+      "auto",
+      "csv",
+      "json",
+      "docker-compose",
+      "proxmox",
+      "azure",
+      "aws",
+      "cloudflare",
+      "workloads",
+    ])
     .default("auto"),
   project: z.string().trim().max(64).optional(),
   /** CSV/JSON relationships become suggestions instead of confirmed facts. */
@@ -159,7 +169,11 @@ export async function runImport(
   const humanAuthored = source === "csv" || source === "json";
   /** Platform inventories arrive as DISCOVERED, like agent hosts. */
   const createStatus =
-    source === "proxmox" || source === "azure" || source === "aws" || source === "cloudflare"
+    source === "proxmox" ||
+    source === "azure" ||
+    source === "aws" ||
+    source === "cloudflare" ||
+    source === "workloads"
       ? "DISCOVERED"
       : "ACTIVE";
   let suggestions = 0;
@@ -230,7 +244,8 @@ export async function runImport(
             field === "fqdn" ||
             field === "os" ||
             field === "version" ||
-            field === "ipAddresses"
+            field === "ipAddresses" ||
+            field === "ports"
           ) {
             metadata[field] = r.input.metadata[field];
           } else {

@@ -20,7 +20,20 @@ export const AGENT_LIMITS = {
   listeners: 500,
   connections: 2000,
   inventoryItems: 2000,
+  iisSites: 200,
+  bindingsPerSite: 20,
+  sqlDatabases: 500,
 } as const;
+
+/**
+ * Optional report sections this server accepts, sent to the agent in every
+ * enroll / report response. An agent only sends a section the server listed,
+ * so a newer agent keeps working with an older server (M16).
+ */
+export const AGENT_FEATURES = ["workloads"] as const;
+
+/** SQL Server system databases: never reported, never imported. */
+export const SYSTEM_DATABASES = ["master", "model", "msdb", "tempdb"] as const;
 
 export const REPORT_INTERVAL = { min: 60, max: 3600, default: 300 } as const;
 export const SAMPLE_INTERVAL_SEC = 30;
@@ -154,6 +167,52 @@ export const reportSchemaV1 = z
               .strict(),
           )
           .max(AGENT_LIMITS.inventoryItems),
+      })
+      .strict()
+      .optional(),
+    /**
+     * Windows workloads (M16): IIS sites from applicationHost.config (name and
+     * bindings only — never physical paths or credentials) and, when enabled
+     * locally, SQL Server database names. A present array is a full snapshot
+     * of that kind on this host; an absent one means "not collected".
+     */
+    workloads: z
+      .object({
+        collectedAt: datetime,
+        iisSites: z
+          .array(
+            z
+              .object({
+                name: text(256).min(1),
+                bindings: z
+                  .array(
+                    z
+                      .object({
+                        protocol: z.enum(["http", "https"]),
+                        port: port.min(1),
+                        /** Host header; absent = any host name. */
+                        host: text(253).optional(),
+                      })
+                      .strict(),
+                  )
+                  .max(AGENT_LIMITS.bindingsPerSite),
+              })
+              .strict(),
+          )
+          .max(AGENT_LIMITS.iisSites)
+          .optional(),
+        sqlDatabases: z
+          .array(
+            z
+              .object({
+                /** Instance name, "MSSQLSERVER" for the default instance. */
+                instance: text(128).min(1),
+                name: text(128).min(1),
+              })
+              .strict(),
+          )
+          .max(AGENT_LIMITS.sqlDatabases)
+          .optional(),
       })
       .strict()
       .optional(),

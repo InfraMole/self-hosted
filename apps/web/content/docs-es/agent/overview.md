@@ -14,6 +14,7 @@ lectura**.
 | Servicios en ejecución (nombre, estado, tipo de inicio) | Mostrar qué se ejecuta en el equipo |
 | Puertos TCP en escucha + nombre / ruta del proceso propietario | Saber qué ofrece el equipo |
 | Conexiones TCP establecidas, **agregadas** por destino, puerto y proceso | Sugerir dependencias |
+| Windows: nombres y enlaces de los sitios de IIS; nombres de las bases de datos de SQL Server si se activa | Mostrar qué se ejecuta en el servidor ([IIS y SQL Server](/es/docs/agent/windows-workloads)) |
 
 Las conexiones se muestrean cada 30 segundos y se resumen; se ignora el
 tráfico loopback, link-local y multicast. La lista completa, con un informe

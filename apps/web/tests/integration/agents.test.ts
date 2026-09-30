@@ -132,7 +132,10 @@ describe("agent reports", () => {
 
     const res = await report(body.agentSecret as string);
     expect(res.status).toBe(202);
-    expect(await res.json()).toEqual({ config: { reportIntervalSec: 300, sampleIntervalSec: 30 } });
+    expect(await res.json()).toEqual({
+      config: { reportIntervalSec: 300, sampleIntervalSec: 30 },
+      features: ["workloads"],
+    });
 
     const [host] = await listResources(ctx);
     expect(host).toMatchObject({

@@ -199,3 +199,44 @@ describe("exclusion rules (M15)", () => {
     expect(excludedSuggestions(suggestions, [])).toEqual([]);
   });
 });
+
+describe("workload attribution (M16)", () => {
+  const web = [
+    { id: "app01", ipAddresses: ["10.0.0.23"] },
+    { id: "web01", ipAddresses: ["10.0.0.80"] },
+    { id: "portal", ipAddresses: [], ports: [443], runsOn: "web01" },
+    { id: "intranet", ipAddresses: [], ports: [80, 8080], runsOn: "web01" },
+    { id: "legacy", ipAddresses: [], ports: [80], runsOn: "web01" },
+  ];
+
+  it("points a connection to the only site bound to that port", () => {
+    const plan = planDiscovery([fact({ remoteIp: "10.0.0.80", port: 443 })], web, []);
+    expect(plan.creates.map((c) => [c.from, c.to])).toEqual([["app01", "portal"]]);
+    const onlyIntranet = planDiscovery([fact({ remoteIp: "10.0.0.80", port: 8080 })], web, []);
+    expect(onlyIntranet.creates.map((c) => c.to)).toEqual(["intranet"]);
+  });
+
+  it("stays on the host when several sites share the port or the host pair is already described", () => {
+    expect(
+      planDiscovery([fact({ remoteIp: "10.0.0.80", port: 80 })], web, []).creates.map((c) => c.to),
+    ).toEqual(["web01"]);
+    const rels: RelationshipInput[] = [
+      { id: "r1", from: "app01", to: "web01", status: "CONFIRMED" },
+    ];
+    const plan = planDiscovery([fact({ remoteIp: "10.0.0.80", port: 443 })], web, rels);
+    expect(plan.creates).toEqual([]);
+    expect(plan.evidence.map((e) => e.relationshipId)).toEqual(["r1"]);
+  });
+
+  it("attributes inbound connections seen by the web server's own agent too", () => {
+    const inbound = fact({
+      sourceResourceId: "web01",
+      direction: "INBOUND",
+      remoteIp: "10.0.0.23",
+      port: 443,
+    });
+    expect(planDiscovery([inbound], web, []).creates.map((c) => [c.from, c.to])).toEqual([
+      ["app01", "portal"],
+    ]);
+  });
+});

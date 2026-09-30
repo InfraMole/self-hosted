@@ -3,6 +3,7 @@ import { clientIp, jsonResponse, readJsonLimited } from "@/server/http";
 import { enrollAgent } from "@/server/modules/agents/ingestion";
 import { PlanLimitError } from "@/server/modules/billing/limits";
 import {
+  AGENT_FEATURES,
   AGENT_LIMITS,
   describeIssues,
   enrollRequestSchema,
@@ -38,5 +39,5 @@ export async function POST(request: Request) {
     throw error;
   }
   if (!result) return jsonResponse({ error: "invalid_enrollment_token" }, 401);
-  return jsonResponse(result, 201);
+  return jsonResponse({ ...result, features: AGENT_FEATURES }, 201);
 }

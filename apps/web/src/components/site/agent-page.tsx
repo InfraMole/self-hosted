@@ -44,6 +44,14 @@ const copy = {
         data: "Established TCP connections, aggregated per peer, port and process — counts and first/last seen",
         why: "Suggest who depends on whom. Shown as “detected”, never as confirmed.",
       },
+      {
+        data: "Windows: IIS site names and their bindings (protocol, port, host name) — hourly",
+        why: "Show the sites that run on the server, and point connections to the right one.",
+      },
+      {
+        data: "Windows, only if you turn it on: SQL Server database names (system databases excluded) — hourly",
+        why: "Show the databases that live on the server, so impact can name them.",
+      },
     ],
     neverTitle: "Never collected",
     never: [
@@ -69,6 +77,10 @@ const copy = {
       {
         strong: "Permissions.",
         rest: "It runs as a service (LocalSystem or root) so it can see which process owns a port. Without admin rights it still works, with fewer process names.",
+      },
+      {
+        strong: "IIS and SQL Server.",
+        rest: "IIS sites come from the site list in IIS's own configuration file; paths, application pools and any stored credentials are never read. SQL Server is off until you enable it on the host: the agent then connects to the local instances with its Windows service identity — no password is stored — and runs a single query for database names.",
       },
       {
         strong: "Optional Proxmox inventory.",
@@ -122,6 +134,14 @@ const copy = {
         data: "Conexiones TCP establecidas, agregadas por destino, puerto y proceso — recuentos y primera/última vez vistas",
         why: "Sugerir quién depende de quién. Se muestran como «detectadas», nunca como confirmadas.",
       },
+      {
+        data: "Windows: nombres de los sitios de IIS y sus enlaces (protocolo, puerto, nombre de host) — cada hora",
+        why: "Mostrar los sitios que se ejecutan en el servidor y dirigir las conexiones al correcto.",
+      },
+      {
+        data: "Windows, solo si lo activas: nombres de las bases de datos de SQL Server (sin las de sistema) — cada hora",
+        why: "Mostrar las bases de datos que viven en el servidor, para que el impacto pueda nombrarlas.",
+      },
     ],
     neverTitle: "Nunca se recoge",
     never: [
@@ -147,6 +167,10 @@ const copy = {
       {
         strong: "Permisos.",
         rest: "Se ejecuta como servicio (LocalSystem o root) para poder ver qué proceso usa cada puerto. Sin permisos de administrador sigue funcionando, con menos nombres de proceso.",
+      },
+      {
+        strong: "IIS y SQL Server.",
+        rest: "Los sitios de IIS se leen de la lista de sitios del propio fichero de configuración de IIS; nunca se leen rutas, grupos de aplicaciones ni credenciales guardadas. SQL Server está desactivado hasta que lo actives en el equipo: entonces el agente se conecta a las instancias locales con la identidad de su servicio de Windows — sin guardar ninguna contraseña — y ejecuta una única consulta con los nombres de las bases de datos.",
       },
       {
         strong: "Inventario de Proxmox opcional.",

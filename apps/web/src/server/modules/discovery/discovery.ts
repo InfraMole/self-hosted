@@ -138,6 +138,7 @@ export async function refreshDetectedRelationships(
         id: true,
         fromResourceId: true,
         toResourceId: true,
+        type: true,
         status: true,
         lastObservedAt: true,
       },
@@ -174,11 +175,21 @@ export async function refreshDetectedRelationships(
 
   const names = new Map(resources.map((r) => [r.id, r.name]));
   const lastObserved = new Map(relationships.map((r) => [r.id, r.lastObservedAt]));
+  const runsOn = new Map(
+    relationships
+      .filter((r) => r.type === "RUNS_ON" && r.status === "CONFIRMED")
+      .map((r) => [r.fromResourceId, r.toResourceId]),
+  );
   const plan = planDiscovery(
     facts,
     resources.map((r) => {
       const meta = resourceMetadataSchema.safeParse(r.metadata);
-      return { id: r.id, ipAddresses: meta.success ? (meta.data.ipAddresses ?? []) : [] };
+      return {
+        id: r.id,
+        ipAddresses: meta.success ? (meta.data.ipAddresses ?? []) : [],
+        ports: meta.success ? meta.data.ports : undefined,
+        runsOn: runsOn.get(r.id) ?? null,
+      };
     }),
     relationships.map((r) => ({
       id: r.id,

@@ -3,6 +3,7 @@ import { clientIp, jsonResponse, readJsonLimited } from "@/server/http";
 import { authenticateAgent, ingestReport } from "@/server/modules/agents/ingestion";
 import { PlanPausedError, assertDiscoveryActive } from "@/server/modules/billing/limits";
 import {
+  AGENT_FEATURES,
   AGENT_LIMITS,
   PROTOCOL_VERSION,
   describeIssues,
@@ -59,5 +60,5 @@ export async function POST(request: Request) {
     ip: clientIp(request),
     bytes: body.bytes,
   });
-  return jsonResponse({ config }, 202);
+  return jsonResponse({ config, features: AGENT_FEATURES }, 202);
 }

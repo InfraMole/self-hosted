@@ -36,7 +36,7 @@ export const SAMPLE_REPORT = {
       localPort: 0,
       remoteAddress: "10.20.4.40",
       remotePort: 1433,
-      process: { name: "w3wp.exe", path: "C:\Windows\System32\inetsrv\w3wp.exe" },
+      process: { name: "w3wp.exe", path: "C:\\Windows\\System32\\inetsrv\\w3wp.exe" },
       count: 42,
       firstSeen: "2026-09-29T10:00:00Z",
       lastSeen: "2026-09-29T10:04:30Z",
@@ -53,4 +53,14 @@ export const SAMPLE_REPORT = {
     },
   ],
   truncated: false,
+  workloads: {
+    collectedAt: "2026-09-29T10:05:00Z",
+    iisSites: [
+      {
+        name: "Portal",
+        bindings: [{ protocol: "https", port: 443, host: "portal.corp.local" }],
+      },
+    ],
+    sqlDatabases: [{ instance: "MSSQLSERVER", name: "Customers" }],
+  },
 } as const;

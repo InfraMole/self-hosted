@@ -38,6 +38,7 @@ export default async function ResourceOverviewPage({
     ["IP addresses", m.ipAddresses?.length ? m.ipAddresses.join("\n") : undefined],
     ["OS / platform", m.os && <span className="font-sans">{m.os}</span>],
     ["Version", m.version],
+    ["Ports", m.ports?.length ? m.ports.join(", ") : undefined],
   ];
   const identity = allIdentity.filter(([, value]) => Boolean(value));
 

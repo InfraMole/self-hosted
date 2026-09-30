@@ -14,7 +14,7 @@ import {
 } from "@/server/modules/resources/schemas";
 
 export type ImportFormat =
-  "csv" | "json" | "docker-compose" | "proxmox" | "azure" | "aws" | "cloudflare";
+  "csv" | "json" | "docker-compose" | "proxmox" | "azure" | "aws" | "cloudflare" | "workloads";
 
 export const IMPORT_LIMITS = { bytes: 1024 * 1024, resources: 2000, relationships: 5000 } as const;
 
@@ -30,7 +30,8 @@ export type ProvidedField =
   | "fqdn"
   | "os"
   | "version"
-  | "ipAddresses";
+  | "ipAddresses"
+  | "ports";
 
 export interface ImportResource {
   row: number;
@@ -88,7 +89,8 @@ export function parseImport(
     format === "proxmox" ||
     format === "azure" ||
     format === "aws" ||
-    format === "cloudflare"
+    format === "cloudflare" ||
+    format === "workloads"
       ? parseJsonOrPlatform(text, format)
       : format === "csv"
         ? parseCsvImport(text)
@@ -211,6 +213,8 @@ export function buildResourceRow(
   }
   const ips = list(get("ipaddresses", "ip_addresses", "ips", "ip"));
   if (ips.length) metadata.ipAddresses = mark("ipAddresses", ips);
+  const ports = get("ports");
+  if (Array.isArray(ports) && ports.length) metadata.ports = mark("ports", ports);
 
   const typeRaw = get("type");
   const candidate = {

@@ -286,6 +286,13 @@ last IP, expired sessions and tokens) is deleted, not kept "just in case".
   remove, leave), integrations (create, delete, manual sync), agents (token
   create/revoke, enroll, revoke) and workspace creation; Better Auth hooks
   record sign-ins (session IP/UA) and password resets at account level.
+- Windows workloads (M16, ADR-028): the agent reads only the site list of
+  `applicationHost.config` (never paths, pools or stored credentials — unit
+  tested with a fixture full of them) and, **only when enabled locally**,
+  SQL Server database names through the service's own Windows identity
+  (integrated auth; no password stored; one fixed read-only query). The
+  server schema is strict (`physicalPath` → 422). The server can never turn
+  either on: it only advertises that it accepts the section.
 - Discovery exclusion rules (M15) change what the workspace is told about
   its infrastructure, so creating and deleting them is audited
   (`discovery.rule_created` / `discovery.rule_deleted`, MEMBER+, same as

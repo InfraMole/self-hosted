@@ -176,7 +176,13 @@ export function planImport(
       byIp.set(ip.toLowerCase(), [...(byIp.get(ip.toLowerCase()) ?? []), r]);
     }
   }
+  const byId = new Map(existing.map((r) => [r.id, r]));
   const resolve = (ref: string): { id?: string; externalId?: string; label: string } | string => {
+    // "id:<resourceId>": an existing resource of this workspace (agent workloads → their host).
+    if (ref.startsWith("id:")) {
+      const target = byId.get(ref.slice(3));
+      return target ? { id: target.id, label: target.name } : `Unknown resource "${ref}".`;
+    }
     if (ref.startsWith("ip:")) {
       const owners = byIp.get(ref.slice(3).toLowerCase()) ?? [];
       return owners.length === 1

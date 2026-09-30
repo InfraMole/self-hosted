@@ -120,12 +120,13 @@ unique (two "web" apps may exist; a duplicate warning is backlog).
 (`src/server/modules/resources/schemas.ts`, `.strict()` — unknown keys are
 rejected so it can never become a secrets bucket):
 
-| Key            | Validation      |
-| -------------- | --------------- |
-| hostname, fqdn | ≤ 253 chars     |
-| os             | ≤ 128 chars     |
-| version        | ≤ 64 chars      |
-| ipAddresses    | IPv4/IPv6, ≤ 32 |
+| Key            | Validation                                                                                  |
+| -------------- | ------------------------------------------------------------------------------------------- |
+| hostname, fqdn | ≤ 253 chars                                                                                 |
+| os             | ≤ 128 chars                                                                                 |
+| version        | ≤ 64 chars                                                                                  |
+| ipAddresses    | IPv4/IPv6, ≤ 32                                                                             |
+| ports          | 1–65535, ≤ 50 — set by discovery (IIS bindings, M16); kept when a person edits the resource |
 
 **Status**: humans may set only `ACTIVE` / `ARCHIVED`; `DISCOVERED` and `STALE`
 are reserved for discovery. The Library hides `ARCHIVED` unless filtered.

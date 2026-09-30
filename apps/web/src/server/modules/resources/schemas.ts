@@ -48,6 +48,8 @@ export const resourceMetadataSchema = z
       .array(z.union([z.ipv4(), z.ipv6()], { error: "Invalid IP address" }))
       .max(LIMITS.ipAddresses)
       .optional(),
+    /** Ports a workload listens on (IIS bindings, M16). Set by discovery. */
+    ports: z.array(z.number().int().min(1).max(65535)).max(50).optional(),
   })
   .strict();
 export type ResourceMetadata = z.infer<typeof resourceMetadataSchema>;

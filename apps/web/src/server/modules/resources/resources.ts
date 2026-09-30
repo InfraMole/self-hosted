@@ -147,7 +147,13 @@ export async function updateResource(
     if (!before) throw new ResourceNotFoundError();
     // Becoming a billable node (e.g. unarchived, or APPLICATION → SERVER) counts as adding one.
     if (!isBillable(before) && isBillable(input)) await assertCanAddNodes(ctx.workspaceId, 1);
-    const after = await tx.resource.update({ where: key, data: input });
+    // Ports are set by discovery (IIS bindings, M16) and not on the form: keep them.
+    const kept = resourceMetadataSchema.safeParse(before.metadata);
+    const ports = kept.success ? kept.data.ports : undefined;
+    const after = await tx.resource.update({
+      where: key,
+      data: ports ? { ...input, metadata: { ...input.metadata, ports } } : input,
+    });
 
     const diff = diffResource(snapshot(before), snapshot(after));
     if (Object.keys(diff).length > 0) {

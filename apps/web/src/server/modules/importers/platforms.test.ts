@@ -210,3 +210,85 @@ describe("matching platform guests to agent hosts", () => {
     expect(plan.resources.find((r) => r.name === "APP-STG01")!.action).toBe("create");
   });
 });
+
+describe("windows workloads (M16)", () => {
+  const host = { id: "host-web01", name: "WEB01" };
+  const existing = [
+    {
+      id: "host-web01",
+      name: "WEB01",
+      type: "SERVER" as const,
+      source: "AGENT" as const,
+      externalId: "agent-1",
+      environment: null,
+      criticality: null,
+      description: null,
+      notes: null,
+      tags: [],
+      metadata: {},
+    },
+  ];
+
+  it("turns IIS sites and user databases into resources that run on the host", () => {
+    const batch = parseImport(
+      JSON.stringify({
+        host,
+        iisSites: [
+          {
+            name: "Portal",
+            bindings: [
+              { protocol: "https", port: 443, host: "Portal.corp.local" },
+              { protocol: "http", port: 80, host: "portal.corp.local" },
+            ],
+          },
+          { name: "Default Web Site", bindings: [{ protocol: "http", port: 8080 }] },
+        ],
+        sqlDatabases: [
+          { instance: "MSSQLSERVER", name: "Customers" },
+          { instance: "REPORTING", name: "Sales" },
+          { instance: "MSSQLSERVER", name: "master" },
+        ],
+      }),
+      "workloads",
+    );
+    expect(batch.errors).toEqual([]);
+    expect(
+      batch.resources.map((r) => [r.input.name, r.input.type, r.input.metadata, r.input.tags]),
+    ).toEqual([
+      ["Portal (WEB01)", "APPLICATION", { fqdn: "portal.corp.local", ports: [80, 443] }, ["iis"]],
+      ["Default Web Site (WEB01)", "APPLICATION", { ports: [8080] }, ["iis"]],
+      ["Customers (WEB01)", "DATABASE", {}, ["sql-server"]],
+      ["Sales (WEB01\\REPORTING)", "DATABASE", {}, ["sql-server"]],
+    ]);
+    expect(batch.resources[0]!.input.description).toBe(
+      "IIS site on WEB01 · https:443 Portal.corp.local, http:80 portal.corp.local",
+    );
+    const plan = planImport(batch, existing, []);
+    expect(plan.errors).toEqual([]);
+    expect(
+      plan.relationships.map((r) => [r.fromLabel, r.type, r.toLabel, r.from.externalId]),
+    ).toEqual([
+      ["Portal (WEB01)", "RUNS_ON", "WEB01", "workloads:host-web01/iis/portal"],
+      ["Default Web Site (WEB01)", "RUNS_ON", "WEB01", "workloads:host-web01/iis/default web site"],
+      ["Customers (WEB01)", "RUNS_ON", "WEB01", "workloads:host-web01/mssql/mssqlserver/customers"],
+      [
+        "Sales (WEB01\\REPORTING)",
+        "RUNS_ON",
+        "WEB01",
+        "workloads:host-web01/mssql/reporting/sales",
+      ],
+    ]);
+  });
+
+  it("only resolves id: references to resources of this workspace", () => {
+    const batch = parseImport(
+      JSON.stringify({
+        host: { id: "someone-else", name: "X" },
+        iisSites: [{ name: "A", bindings: [] }],
+      }),
+      "workloads",
+    );
+    const plan = planImport(batch, existing, []);
+    expect(plan.errors.map((e) => e.message)).toEqual(['Unknown resource "id:someone-else".']);
+  });
+});

@@ -13,6 +13,7 @@ your InfraMole server every five minutes. It is strictly **read-only**.
 | Running services (name, state, start type) | Showing what runs on the host |
 | Listening TCP ports + owning process name / path | Knowing what the host offers |
 | Established TCP connections, **aggregated** per peer, port and process | Suggesting dependencies |
+| Windows: IIS site names and bindings; SQL Server database names if enabled | Showing what runs on the server ([IIS and SQL Server](/docs/agent/windows-workloads)) |
 
 Connections are sampled every 30 seconds and summarised; loopback,
 link-local and multicast traffic is ignored. The full list, with a real

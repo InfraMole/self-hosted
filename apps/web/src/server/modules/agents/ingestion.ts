@@ -129,6 +129,7 @@ export async function ingestReport(
   const fromAgent = agentHostMetadata(report);
 
   let ipsChanged = true;
+  let hostId: string | null = null;
   await tenantDb({ workspaceId: agent.workspaceId }).$transaction(async (tx) => {
     // Baseline for "what changed" (M7): the previous observation of this agent.
     const previous = await tx.observation.findFirst({
@@ -150,6 +151,7 @@ export async function ingestReport(
 
     const host = await upsertHostResource(tx, agent, report, fromAgent, now);
     const resourceId = host.id;
+    hostId = host.id;
     ipsChanged = host.ipsChanged;
 
     const changes = diffObserved(
@@ -191,6 +193,7 @@ export async function ingestReport(
   });
 
   if (report.inventory) await importInventory(agent, report.inventory);
+  if (report.workloads && hostId) await importWorkloads(agent, hostId, report);
   // Discover → Suggest (M6): resolve endpoints and create/refresh DETECTED relationships.
   // Only this agent's facts, unless the host is new or its addresses changed:
   // then other hosts' connections to it may resolve differently (M15).
@@ -292,6 +295,48 @@ const blank = {
  * pipeline as an uploaded export, attributed to the agent. A bad inventory
  * never fails the report: the host data is already stored.
  */
+/**
+ * Windows workloads (M16): each kind present in the report is a full snapshot
+ * for this host, imported with its own source so that a site or database
+ * that disappears becomes STALE (ADR-021) without touching the other kind.
+ * Never fails the report.
+ */
+async function importWorkloads(agent: Agent, hostId: string, report: ReportV1) {
+  const w = report.workloads!;
+  const host = { id: hostId, name: report.host.hostname };
+  const kinds = [
+    { kind: "iis", label: "IIS", data: w.iisSites && { host, iisSites: w.iisSites } },
+    {
+      kind: "mssql",
+      label: "SQL Server",
+      data: w.sqlDatabases && { host, sqlDatabases: w.sqlDatabases },
+    },
+  ] as const;
+  for (const { kind, label, data } of kinds) {
+    if (!data) continue;
+    try {
+      await runImport(
+        { workspaceId: agent.workspaceId, userId: null },
+        { text: JSON.stringify(data), format: "workloads" },
+        {
+          actorType: "AGENT",
+          actorId: agent.id,
+          source: {
+            ref: `collector:${agent.id}:${kind}`,
+            label: `${label} via agent on ${report.host.hostname}`,
+            reconcile: true,
+          },
+        },
+      );
+    } catch (error) {
+      console.warn(
+        `[agent ${agent.id}] ${kind} workloads not imported:`,
+        error instanceof Error ? error.message : "unknown error",
+      );
+    }
+  }
+}
+
 async function importInventory(agent: Agent, inventory: NonNullable<ReportV1["inventory"]>) {
   if (inventory.items.length === 0) return;
   try {
