@@ -68,30 +68,44 @@ Una integración cubre un proyecto.
 1. **API › Tokens › Generate New Token** con **Custom scopes**.
 2. Marca solo **droplet:read**, **load_balancer:read** y
    **database:read** (los dos últimos son opcionales).
-   @tab Scaleway
 
-3. **IAM › Applications › Create application** (por ejemplo
+Necesitarás el **token** (`dop_v1_…`).
+@tab Scaleway
+
+1. **IAM › Applications › Create application** (por ejemplo
    `inframole-reader`).
-4. Asóciale una política con solo **InstancesReadOnly**,
+2. Asóciale una política con solo **InstancesReadOnly**,
    **LoadBalancersReadOnly** y **RelationalDatabasesReadOnly** sobre el
    proyecto.
-5. **API keys › Generate an API key** para la aplicación; copia la
+3. **API keys › Generate an API key** para la aplicación; copia la
    **secret key**.
 
 En la integración, indica las zonas que se leen (por ejemplo
 `fr-par-1, nl-ams-1`).
 @tab OVHcloud
 
-1. Crea una clave de aplicación en la página de tokens de tu región (para
-   Europa, `https://eu.api.ovh.com/createToken/`).
-2. Derechos: **GET** sobre `/vps`, `/vps/*`, `/cloud/project`,
-   `/cloud/project/*`, `/dedicated/server` y `/dedicated/server/*` — nada
-   más. (Los derechos no se pueden cambiar después: para añadir uno, crea
-   una clave nueva.)
+1. Abre la página de tokens de tu región: Europa
+   `https://eu.api.ovh.com/createToken/`, Canadá
+   `https://ca.api.ovh.com/createToken/`, EE. UU.
+   `https://api.us.ovhcloud.com/createToken/`.
+2. Ponle un nombre (por ejemplo `inframole-reader`) y una validez, y añade
+   exactamente estos derechos — uno por línea, método **GET**:
+
+   ```text
+   GET /vps
+   GET /vps/*
+   GET /cloud/project
+   GET /cloud/project/*
+   GET /dedicated/server
+   GET /dedicated/server/*
+   ```
+
+3. Crea las claves y copia los tres valores.
 
 Necesitarás la **application key**, el **application secret** y la
-**consumer key**. Deja el proyecto vacío para leer todos los proyectos de
-Public Cloud que la clave pueda ver.
+**consumer key**. Los derechos no se pueden cambiar después: para añadir
+uno, crea una clave nueva. Deja el proyecto vacío para leer todos los
+proyectos de Public Cloud que la clave pueda ver.
 @tab Google Cloud
 
 1. **IAM & Admin › Service accounts › Create service account** (por
@@ -99,9 +113,11 @@ Public Cloud que la clave pueda ver.
 2. Concédele **Compute Viewer** y, si usas Cloud SQL, **Cloud SQL Viewer**
    sobre el proyecto.
 3. **Keys › Add key › JSON**, y pega el fichero completo.
-   @tab Clouding
 
-4. En el portal de Clouding: **API › Crear API key**.
+El fichero de la clave se cifra como cualquier otra credencial.
+@tab Clouding
+
+1. En el portal de Clouding: **API › Crear API key**.
 
 Las API keys de Clouding no se pueden limitar a lectura: crea una que solo
 use InfraMole. InfraMole solo llama a `GET /v1/servers`.

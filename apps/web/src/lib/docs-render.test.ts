@@ -61,6 +61,13 @@ describe("docs renderer", () => {
     expect(renderDoc("[x](/docs/quickstart)").html).not.toContain("_blank");
   });
 
+  it("renders up to 12 tabs and refuses more (globals.css shows panels by position)", () => {
+    const tabs = (n: number) =>
+      `:::tabs\n${Array.from({ length: n }, (_, i) => `@tab T${i}\nbody ${i}`).join("\n")}\n:::`;
+    expect(renderDoc(tabs(12)).html.match(/doc-tab-panel/g)).toHaveLength(12);
+    expect(() => renderDoc(tabs(13))).toThrow(/at most 12 tabs/);
+  });
+
   it("slugifies and strips markup for search", () => {
     expect(slugify("Back up `.env` — now!")).toBe("back-up-env-now");
     expect(plainText("## Title\n```sh\nsecret\n```\n:::note\nHello *there*\n:::")).toBe(

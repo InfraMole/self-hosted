@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { Marked, type Tokens } from "marked";
 
+/** Tabs per :::tabs group that globals.css can show (nth-of-type rules). */
+const MAX_TABS = 12;
+
 /**
  * Markdown → HTML for the documentation portal (build time only; the input is
  * repository content, never user input). Adds, on top of GFM:
@@ -143,6 +146,8 @@ export function renderDoc(
             else if (tabs.length) tabs.at(-1)!.body.push(line);
           }
           if (tabs.length === 0) throw new Error("docs: :::tabs needs @tab lines");
+          // globals.css shows panels by position; keep MAX_TABS in step with it.
+          if (tabs.length > MAX_TABS) throw new Error(`docs: at most ${MAX_TABS} tabs per :::tabs`);
           const inputs = tabs
             .map(
               (t, i) =>
