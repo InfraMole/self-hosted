@@ -14,9 +14,14 @@ import {
   countSuggestions,
   listSuggestions,
 } from "@/server/modules/discovery/discovery";
-import { listDiscoveryRules, listRuleResourceOptions } from "@/server/modules/discovery/rules";
+import {
+  listDiscoveryRules,
+  listRuleResourceOptions,
+  listRuleTemplates,
+} from "@/server/modules/discovery/rules";
 import { requireWorkspace } from "@/server/tenancy";
 import {
+  applyRuleTemplateAction,
   confirmSuggestionAction,
   confirmSuggestionsAction,
   createRuleAction,
@@ -87,6 +92,8 @@ export default async function SuggestionsPage({
             canEdit={canReview}
             createRule={createRuleAction.bind(null, ctx.workspaceSlug)}
             deleteRule={deleteRuleAction.bind(null, ctx.workspaceSlug)}
+            templates={await listRuleTemplates(ctx)}
+            applyTemplate={applyRuleTemplateAction.bind(null, ctx.workspaceSlug)}
           />
         ) : view === "ignored" ? (
           ignored === 0 ? (

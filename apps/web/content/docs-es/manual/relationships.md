@@ -77,6 +77,17 @@ ese tráfico en sugerencias. Las relaciones confirmadas nunca se modifican.
 Si borras la regla, ese tráfico puede volver a sugerirse al momento. Añadir
 y quitar reglas queda anotado en el registro de auditoría.
 
+### Reglas sugeridas
+
+La pestaña **Rules** también ofrece reglas ya preparadas para tráfico que
+casi nunca es una dependencia: software de copias de seguridad (Veeam,
+NetBackup, Commvault, Bacula, Acronis), consolas de antivirus y EDR (ESET,
+Sophos, Trend Micro, Kaspersky), agentes de monitorización (Zabbix, Nagios /
+Icinga, exportadores de Prometheus, Checkmk, PRTG, Munin) y administración
+remota (RDP, SSH, WinRM). Cada una muestra los puertos que cubre y cuántas
+de tus sugerencias actuales eliminaría. No se aplica nada hasta que pulsas
+**Add**, y cada regla se puede quitar como las que escribes tú.
+
 ### Sugerencias que desaparecen
 
 Una sugerencia que ningún agente ha observado en **30 días** se elimina

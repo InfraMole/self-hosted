@@ -10,7 +10,9 @@ import { listChangesForResource } from "@/server/modules/changes/changes";
 import { listSuggestions } from "@/server/modules/discovery/discovery";
 import {
   DiscoveryRuleError,
+  applyRuleTemplate,
   createDiscoveryRule,
+  listRuleTemplates,
   deleteDiscoveryRule,
   listDiscoveryRules,
 } from "@/server/modules/discovery/rules";
@@ -341,5 +343,47 @@ describe("expiry and incremental discovery", () => {
     expect(await listSuggestions(ctx)).toMatchObject([
       { from: { name: "APP01" }, to: { name: "API01" }, evidence: { ports: [8080] } },
     ]);
+  });
+});
+
+describe("suggested rules (M19)", () => {
+  it("shows what each entry would remove, adds its missing rules once, and is audited", async () => {
+    const ctx = await ownerContext("Acme");
+    const viewer = await memberContext(ctx, "VIEWER");
+    const { report, toBackup } = await threeSuggestions(ctx); // includes BACKUP:9102 (bpcd.exe)
+
+    const before = await listRuleTemplates(ctx);
+    expect(before.find((t) => t.id === "bacula")).toMatchObject({ added: false, matches: 1 });
+    expect(before.find((t) => t.id === "zabbix")).toMatchObject({ added: false, matches: 0 });
+
+    await expect(applyRuleTemplate(viewer, "bacula")).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(applyRuleTemplate(ctx, "nope")).rejects.toBeInstanceOf(DiscoveryRuleError);
+
+    // One rule already exists by hand: only the two missing ones are added.
+    await createDiscoveryRule(ctx, { port: 9101 });
+    expect(await applyRuleTemplate(ctx, "bacula")).toEqual({ added: 2, removed: 1 });
+    expect((await listSuggestions(ctx)).map((s) => s.id)).not.toContain(toBackup.id);
+    expect(await applyRuleTemplate(ctx, "bacula")).toEqual({ added: 0, removed: 0 });
+
+    await report(); // stays excluded on the next report
+    expect(await listSuggestions(ctx)).toHaveLength(2);
+    expect((await listRuleTemplates(ctx)).find((t) => t.id === "bacula")).toMatchObject({
+      added: true,
+      matches: 0,
+    });
+    const rules = await listDiscoveryRules(ctx);
+    expect(rules.map((r) => [r.port, r.note]).sort()).toEqual(
+      [
+        [9101, null],
+        [9102, "Bacula / Bareos"],
+        [9103, "Bacula / Bareos"],
+      ].sort(),
+    );
+    const audit = await adminDb().auditEvent.findMany({
+      where: { workspaceId: ctx.workspaceId, action: "discovery.rule_created" },
+    });
+    expect(
+      audit.filter((a) => (a.metadata as { template?: string } | null)?.template === "bacula"),
+    ).toHaveLength(2);
   });
 });

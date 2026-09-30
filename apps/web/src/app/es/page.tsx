@@ -8,6 +8,13 @@ export const metadata: Metadata = {
   description:
     "Un mapa vivo y sencillo de tu infraestructura — para equipos de IT pequeños, MSP y homelabs.",
   alternates: languageAlternates("/"),
+  openGraph: {
+    title: "InfraMole — Descubre qué depende de qué",
+    description:
+      "Un mapa vivo y sencillo de tu infraestructura — para equipos de IT pequeños, MSP y homelabs.",
+    locale: "es_ES",
+    url: "/es",
+  },
 };
 
 export default function HomeEs() {

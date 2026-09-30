@@ -6,6 +6,7 @@ import { ZodError } from "zod";
 import { ForbiddenError } from "@/server/authz";
 import {
   DiscoveryRuleError,
+  applyRuleTemplate,
   createDiscoveryRule,
   deleteDiscoveryRule,
   discoveryRuleSchema,
@@ -170,4 +171,26 @@ export async function deleteRuleAction(slug: string, id: string): Promise<RuleSt
   }
   revalidatePath(`/w/${ctx.workspaceSlug}`, "layout");
   return { ok: true, message: "Rule removed. Matching traffic can be suggested again." };
+}
+
+export async function applyRuleTemplateAction(
+  slug: string,
+  templateId: string,
+): Promise<RuleState> {
+  const ctx = await requireWorkspace(slug);
+  try {
+    const { added, removed } = await applyRuleTemplate(ctx, templateId);
+    revalidatePath(`/w/${ctx.workspaceSlug}`, "layout");
+    return {
+      ok: true,
+      message:
+        added === 0
+          ? "These rules were already in place."
+          : `Added ${plural(added, "rule")}.${removed ? ` ${plural(removed, "matching suggestion")} removed.` : ""}`,
+    };
+  } catch (error) {
+    if (error instanceof ForbiddenError || error instanceof DiscoveryRuleError)
+      return { error: error.message };
+    throw error;
+  }
 }

@@ -1,0 +1,99 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: AGPL-3.0-only -->
+<!--
+  Share image (Open Graph / Twitter) of the public website, M18.
+  Rendered by Chrome at 1200×630 into src/app/opengraph-image.png (?lang=en)
+  and src/app/es/opengraph-image.png (?lang=es) — see og/README.md.
+-->
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      @font-face {
+        font-family: "Geist";
+        src: url("../node_modules/geist/dist/fonts/geist-sans/Geist-Regular.woff2") format("woff2");
+        font-weight: 400;
+      }
+      @font-face {
+        font-family: "Geist";
+        src: url("../node_modules/geist/dist/fonts/geist-sans/Geist-SemiBold.woff2") format("woff2");
+        font-weight: 600;
+      }
+      html,
+      body {
+        margin: 0;
+      }
+      .card {
+        width: 1200px;
+        height: 630px;
+        box-sizing: border-box;
+        padding: 64px 72px;
+        display: flex;
+        align-items: center;
+        background: linear-gradient(135deg, #fbfaff 0%, #f1ebff 100%);
+        font-family: "Geist", sans-serif;
+        color: #151329;
+      }
+      .text {
+        width: 640px;
+      }
+      .wordmark {
+        font-size: 40px;
+        font-weight: 600;
+        letter-spacing: -0.4px;
+      }
+      .wordmark span {
+        color: #8b65fc;
+      }
+      h1 {
+        margin: 36px 0 0;
+        font-size: 64px;
+        font-weight: 600;
+        line-height: 1.05;
+        letter-spacing: -1.5px;
+      }
+      p {
+        margin: 28px 0 0;
+        font-size: 26px;
+        line-height: 1.4;
+        color: #4b4760;
+      }
+      .url {
+        margin-top: 36px;
+        font-size: 22px;
+        color: #8b65fc;
+      }
+      img {
+        margin-left: auto;
+        width: 440px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="text">
+        <div class="wordmark">Infra<span>Mole</span></div>
+        <h1 id="headline"></h1>
+        <p id="body"></p>
+        <div class="url">inframole.com</div>
+      </div>
+      <img src="../public/brand/inframole-mascot.png" alt="" />
+    </div>
+    <script>
+      const copy = {
+        en: {
+          headline: "See what depends on what.",
+          body: "A lightweight, read-only map of your infrastructure — for small IT teams, MSPs and homelabs. Free and open source.",
+        },
+        es: {
+          headline: "Descubre qué depende de qué.",
+          body: "Un mapa ligero y de solo lectura de tu infraestructura — para equipos de IT pequeños, MSP y homelabs. Gratis y de código abierto.",
+        },
+      };
+      const t = copy[new URLSearchParams(location.search).get("lang") === "es" ? "es" : "en"];
+      document.getElementById("headline").textContent = t.headline;
+      document.getElementById("body").textContent = t.body;
+      document.documentElement.lang = t === copy.es ? "es" : "en";
+    </script>
+  </body>
+</html>

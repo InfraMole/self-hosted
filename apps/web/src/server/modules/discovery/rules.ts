@@ -4,7 +4,9 @@ import { z } from "zod";
 import { assertRole, type WorkspaceContext } from "@/server/authz";
 import { tenantDb } from "@/server/db";
 import { recordAudit, userActor } from "@/server/modules/audit/audit";
+import { RULE_TEMPLATES, findRuleTemplate, type RuleTemplate } from "@/lib/rule-templates";
 import { refreshDetectedRelationships } from "./discovery";
+import { excludedSuggestions, type RuleInput } from "./plan";
 
 /**
  * Discovery exclusion rules (M15, ADR-027): "never suggest traffic on port
@@ -165,4 +167,107 @@ export async function listRuleResourceOptions(
     orderBy: { name: "asc" },
     take: 5000,
   });
+}
+
+// ───────────────────────── Suggested rules (M19) ─────────────────────────
+
+export interface RuleTemplateView extends RuleTemplate {
+  /** Every rule of the template already exists in this workspace. */
+  added: boolean;
+  /** Suggestions waiting for review that it would remove now. */
+  matches: number;
+}
+
+const ruleKey = (r: { port?: number | null; processName?: string | null }) =>
+  `${r.port ?? ""}|${(r.processName ?? "").toLowerCase()}`;
+
+const asRuleInputs = (t: RuleTemplate): RuleInput[] =>
+  t.rules.map((r, i) => ({
+    id: `${t.id}-${i}`,
+    port: r.port ?? null,
+    processName: r.processName ?? null,
+    resourceId: null,
+  }));
+
+/** The catalogue, with what each entry would do in this workspace right now. */
+export async function listRuleTemplates(ctx: WorkspaceContext): Promise<RuleTemplateView[]> {
+  const db = tenantDb(ctx);
+  const [rules, suggestions] = await Promise.all([
+    db.discoveryRule.findMany({
+      where: { workspaceId: ctx.workspaceId, resourceId: null },
+      select: { port: true, processName: true },
+    }),
+    db.relationship.findMany({
+      where: { workspaceId: ctx.workspaceId, status: "UNCONFIRMED", evidence: { some: {} } },
+      select: {
+        id: true,
+        fromResourceId: true,
+        toResourceId: true,
+        evidence: { select: { port: true, processName: true } },
+      },
+    }),
+  ]);
+  const existing = new Set(rules.map(ruleKey));
+  const inputs = suggestions.map((r) => ({
+    relationshipId: r.id,
+    from: r.fromResourceId,
+    to: r.toResourceId,
+    evidence: r.evidence,
+  }));
+  return RULE_TEMPLATES.map((t) => ({
+    ...t,
+    added: t.rules.every((r) => existing.has(ruleKey(r))),
+    matches: excludedSuggestions(inputs, asRuleInputs(t)).length,
+  }));
+}
+
+/**
+ * Adds the rules of one catalogue entry that the workspace does not have yet
+ * (each audited like a hand-made rule), then re-plans discovery once.
+ */
+export async function applyRuleTemplate(
+  ctx: WorkspaceContext,
+  templateId: string,
+): Promise<{ added: number; removed: number }> {
+  assertRole(ctx, "MEMBER");
+  const template = findRuleTemplate(templateId);
+  if (!template) throw new DiscoveryRuleError("Unknown suggested rule.");
+  const added = await tenantDb(ctx).$transaction(async (tx) => {
+    const current = await tx.discoveryRule.findMany({
+      where: { workspaceId: ctx.workspaceId },
+      select: { port: true, processName: true, resourceId: true },
+    });
+    const have = new Set(current.filter((r) => r.resourceId === null).map(ruleKey));
+    const missing = template.rules.filter((r) => !have.has(ruleKey(r)));
+    if (current.length + missing.length > RULES_LIMIT)
+      throw new DiscoveryRuleError(`A workspace can have up to ${RULES_LIMIT} rules.`);
+    for (const r of missing) {
+      const created = await tx.discoveryRule.create({
+        data: {
+          workspaceId: ctx.workspaceId,
+          port: r.port ?? null,
+          processName: r.processName ?? null,
+          note: template.name,
+          createdById: ctx.userId,
+        },
+      });
+      await recordAudit(tx, {
+        workspaceId: ctx.workspaceId,
+        action: "discovery.rule_created",
+        actor: userActor(ctx),
+        target: {
+          type: "discovery_rule",
+          id: created.id,
+          label: describeRule({ port: created.port, processName: created.processName }),
+        },
+        metadata: { template: template.id },
+      });
+    }
+    return missing.length;
+  });
+  const { removed } =
+    added > 0
+      ? await refreshDetectedRelationships(ctx.workspaceId, { userId: ctx.userId })
+      : { removed: 0 };
+  return { added, removed };
 }

@@ -108,6 +108,14 @@ and run `docker compose up -d`. From then on only people you invite from
 **Settings › Members** can create an account (with the invited address). The
 very first account of an installation can always be created.
 
+## Search engines
+
+A self-hosted InfraMole tells search engines not to index it: its
+`robots.txt` disallows everything, so your sign-in page and documentation
+copy do not show up in search results. Only a public website
+(`PUBLIC_SITE=true`) publishes a sitemap and lets crawlers read its public
+pages — never the application.
+
 ## Business licence
 
 Several workspaces, priority support or a commercial licence instead of the

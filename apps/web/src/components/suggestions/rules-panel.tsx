@@ -3,11 +3,22 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { EyeOff, Plus, Trash2 } from "lucide-react";
+import { Check, EyeOff, Plus, Trash2 } from "lucide-react";
 import type { RuleState } from "@/app/w/[slug]/suggestions/actions";
 import { RuleDialog, type ResourceOption } from "@/components/suggestions/rule-dialog";
 import { Button } from "@/components/ui/button";
 import { formatDateTime, formatRelative } from "@/lib/format";
+import {
+  RULE_TEMPLATE_CATEGORIES,
+  describeTemplate,
+  type RuleTemplate,
+  type RuleTemplateCategory,
+} from "@/lib/rule-templates";
+
+export interface TemplateRow extends RuleTemplate {
+  added: boolean;
+  matches: number;
+}
 
 export interface RuleRow {
   id: string;
@@ -25,12 +36,16 @@ export function RulesPanel({
   canEdit,
   createRule,
   deleteRule,
+  templates,
+  applyTemplate,
 }: {
   rules: RuleRow[];
   resources: ResourceOption[];
   canEdit: boolean;
   createRule: (input: unknown) => Promise<RuleState>;
   deleteRule: (id: string) => Promise<RuleState>;
+  templates: TemplateRow[];
+  applyTemplate: (id: string) => Promise<RuleState>;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -95,6 +110,18 @@ export function RulesPanel({
           ))}
         </ul>
       )}
+      <SuggestedRules
+        templates={templates}
+        canEdit={canEdit}
+        pending={pending}
+        onApply={(id) =>
+          startTransition(async () => {
+            const result = await applyTemplate(id);
+            setFeedback(result);
+            if (result.ok) router.refresh();
+          })
+        }
+      />
       <RuleDialog
         open={open}
         onOpenChange={setOpen}
@@ -115,5 +142,83 @@ function Chip({ label, value }: { label: string; value: string }) {
       <span className="text-subtle">{label}</span>
       <span className="font-mono">{value}</span>
     </span>
+  );
+}
+
+/** M19: a curated catalogue, one click per entry, never applied automatically. */
+function SuggestedRules({
+  templates,
+  canEdit,
+  pending,
+  onApply,
+}: {
+  templates: TemplateRow[];
+  canEdit: boolean;
+  pending: boolean;
+  onApply: (id: string) => void;
+}) {
+  const categories = Object.keys(RULE_TEMPLATE_CATEGORIES) as RuleTemplateCategory[];
+  return (
+    <section aria-labelledby="suggested-rules" className="mt-6 flex flex-col gap-3">
+      <div>
+        <h2 id="suggested-rules" className="text-sm font-semibold">
+          Suggested rules
+        </h2>
+        <p className="text-muted mt-1 max-w-2xl text-xs">
+          Common traffic that is almost never an application dependency. Nothing is applied until
+          you add it; each rule can be removed later.
+        </p>
+      </div>
+      {categories.map((cat) => {
+        const items = templates.filter((t) => t.category === cat);
+        if (items.length === 0) return null;
+        return (
+          <div key={cat} className="flex flex-col gap-2">
+            <h3 className="text-subtle text-[11px] font-medium tracking-wider uppercase">
+              {RULE_TEMPLATE_CATEGORIES[cat]}
+            </h3>
+            <ul className="grid gap-2 md:grid-cols-2">
+              {items.map((t) => (
+                <li
+                  key={t.id}
+                  className="border-border bg-surface flex items-start gap-3 rounded-lg border px-3 py-2.5"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium">{t.name}</p>
+                    <p className="text-muted mt-0.5 text-xs">{t.description}</p>
+                    <p className="text-subtle mt-1 font-mono text-[11px]">
+                      {describeTemplate(t)}
+                      {t.matches > 0 && (
+                        <span className="text-accent font-sans">
+                          {" "}
+                          · matches {t.matches} suggestion{t.matches === 1 ? "" : "s"} now
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                  {t.added ? (
+                    <span className="text-muted flex items-center gap-1 text-xs">
+                      <Check className="size-3.5" /> Added
+                    </span>
+                  ) : (
+                    canEdit && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        disabled={pending}
+                        aria-label={`Add rule: ${t.name}`}
+                        onClick={() => onApply(t.id)}
+                      >
+                        <Plus /> Add
+                      </Button>
+                    )
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      })}
+    </section>
   );
 }

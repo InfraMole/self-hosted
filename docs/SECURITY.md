@@ -286,6 +286,10 @@ last IP, expired sessions and tokens) is deleted, not kept "just in case".
   remove, leave), integrations (create, delete, manual sync), agents (token
   create/revoke, enroll, revoke) and workspace creation; Better Auth hooks
   record sign-ins (session IP/UA) and password resets at account level.
+- Indexing (M18): a private install's `robots.txt` is `Disallow: /` and its
+  sitemap is empty, so sign-in pages of self-hosted instances are not
+  advertised to search engines; a public site never lists or allows the
+  application paths (`/w/`, `/api/`, auth pages).
 - Map export (M17) is rendered in the browser from data the user can
   already see; nothing is uploaded or stored, and no third-party library
   processes the map.

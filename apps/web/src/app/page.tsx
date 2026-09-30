@@ -5,6 +5,10 @@ import { languageAlternates } from "@/lib/i18n";
 
 export const metadata: Metadata = {
   title: { absolute: "InfraMole — See what depends on what" },
+  openGraph: {
+    title: "InfraMole — See what depends on what",
+    url: "/",
+  },
   alternates: languageAlternates("/"),
 };
 

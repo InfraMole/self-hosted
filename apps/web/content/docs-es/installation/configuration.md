@@ -114,6 +114,14 @@ invites desde **Settings › Members** pueden crear una cuenta (con la
 dirección invitada). La primera cuenta de una instalación siempre se puede
 crear.
 
+## Buscadores
+
+Un InfraMole autoalojado pide a los buscadores que no lo indexen: su
+`robots.txt` lo prohíbe todo, así que tu página de inicio de sesión y tu
+copia de la documentación no aparecen en los resultados de búsqueda. Solo un
+sitio web público (`PUBLIC_SITE=true`) publica un mapa del sitio (sitemap) y
+deja que los rastreadores lean sus páginas públicas — nunca la aplicación.
+
 ## Licencia Business
 
 Varios espacios de trabajo, soporte prioritario o una licencia comercial en

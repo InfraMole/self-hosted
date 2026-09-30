@@ -73,6 +73,17 @@ relationships are never changed. Delete the rule and the traffic can be
 suggested again straight away. Adding and removing rules is recorded in the
 audit log.
 
+### Suggested rules
+
+The **Rules** tab also offers ready-made rules for traffic that is almost
+never a dependency: backup software (Veeam, NetBackup, Commvault, Bacula,
+Acronis), antivirus and EDR consoles (ESET, Sophos, Trend Micro,
+Kaspersky), monitoring agents (Zabbix, Nagios / Icinga, Prometheus
+exporters, Checkmk, PRTG, Munin) and remote administration (RDP, SSH,
+WinRM). Each one shows the ports it covers and how many of your current
+suggestions it would remove. Nothing is applied until you click **Add**, and
+every rule can be removed like one you wrote.
+
 ### Suggestions that go away
 
 A suggestion that no agent has observed for **30 days** is removed

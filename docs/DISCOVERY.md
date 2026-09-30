@@ -91,7 +91,10 @@ UNCONFIRMED)` + evidence (port, protocol guess, process, samples) and a
    **Exclusion rules** (`discovery_rule`: port, process, resource on either
    end; ANDed, null = any): matching facts are skipped by the planner, and
    unreviewed suggestions whose every evidence row matches are deleted;
-   deleting a rule re-plans so they return. **Expiry**: the maintenance job
+   deleting a rule re-plans so they return. **Suggested rules** ✅ M19
+   (`lib/rule-templates.ts`, ADR-030): a curated catalogue of backup / AV /
+   monitoring / administration ports, each added with one click (missing
+   rules only, note = product name, audited with `metadata.template`). **Expiry**: the maintenance job
    deletes unreviewed suggestions not observed for 30 days (agent evidence
    only). **Incremental**: a report that changed no host IP re-plans only
    that agent's facts; a new host or an IP change re-plans the workspace.
