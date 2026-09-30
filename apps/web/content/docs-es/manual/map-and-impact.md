@@ -55,3 +55,17 @@ fiable.
 
 Los recursos archivados y las relaciones ignoradas quedan fuera del mapa y
 del impacto.
+
+## Exportar un mapa o un impacto
+
+**Export PNG** o **PDF** en la barra del mapa guarda exactamente lo que ves:
+el mapa completo, los filtros actuales, un recurso en foco o una vista de
+impacto. El fichero tiene fondo blanco para imprimirlo y compartirlo, con
+un título (espacio de trabajo y vista), la fecha, la leyenda de los estilos
+de línea y, en el impacto, qué recurso falla y qué podría verse afectado.
+Una nota al pie recuerda que las relaciones detectadas e inferidas son
+sugerencias.
+
+El fichero se dibuja en tu navegador: el mapa no se envía a ningún sitio
+para crearlo. Los mapas muy grandes se exportan con menos resolución para
+que el navegador pueda con ellos.

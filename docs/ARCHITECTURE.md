@@ -237,7 +237,14 @@ too slow for a browser (load test: 22 s at 1,000 nodes), so `layeredLayout`
 (linear: longest-path layers, cycle breaking, two barycenter sweeps) is used,
 React Flow renders only what is in the viewport, and the map says "Large map:
 simplified layout". Wide layers (a hub's dependents) wrap into rows of
-`MAX_ROW` in both layouts. Selecting a node dims everything but its neighbours and
+`MAX_ROW` in both layouts.
+
+**Export (M17, ADR-029)**: `lib/map-export/scene.ts` (pure) turns the
+visible nodes (current positions), edges and view state into a scene;
+`components/map/export-map.ts` paints it on a canvas (2×, reduced for huge
+maps to stay under 16k px / 100 MP) and downloads PNG, or JPEG wrapped by
+`lib/map-export/pdf.ts` (hand-written one-page PDF, no library). All in the
+browser — no server round trip, no new dependency. Selecting a node dims everything but its neighbours and
 labels its edges from the dependent's view; the inspector lists Depends on /
 Used by / Related. Dragged positions are cosmetic and reset on re-layout.
 `?focus=` is kept in the URL (shareable). Presentation rules: ADR-015.

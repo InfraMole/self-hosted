@@ -44,6 +44,7 @@ export default async function MapPage({ params, searchParams }: PageProps<"/w/[s
         <div className="min-h-0 flex-1">
           <MapView
             workspaceSlug={ctx.workspaceSlug}
+            workspaceName={ctx.workspaceName}
             nodes={graph.nodes}
             edges={graph.edges}
             initialFocus={initialFocus}

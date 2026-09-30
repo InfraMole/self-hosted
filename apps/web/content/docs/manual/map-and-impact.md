@@ -48,3 +48,16 @@ larger or smaller. Confirm the suggestions that matter to make it reliable.
 
 Archived resources and ignored relationships are left out of both the map
 and impact.
+
+## Export a map or an impact
+
+**Export PNG** or **PDF** in the map toolbar saves exactly what is on
+screen: the whole map, the current filters, a focused resource or an impact
+view. The file has a white background for printing and sharing, with a
+title (workspace and view), the date, the legend of line styles and, for
+impact, which resource fails and what could be affected. A note at the
+bottom says that detected and inferred relationships are suggestions.
+
+The file is drawn in your browser: the map is not sent anywhere to create
+it. Very large maps are exported at a lower resolution so the browser can
+handle them.

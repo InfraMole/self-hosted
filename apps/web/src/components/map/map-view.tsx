@@ -15,7 +15,7 @@ import {
   useReactFlow,
   type Edge,
 } from "@xyflow/react";
-import { Crosshair, Radar, X } from "lucide-react";
+import { Crosshair, Download, Radar, X } from "lucide-react";
 import {
   RELATIONSHIP_TYPE_INFO,
   dependencyDirection,
@@ -29,8 +29,16 @@ import { ConfidenceBadge } from "@/components/relationships/confidence-badge";
 import { Select } from "@/components/ui/select";
 import { ENVIRONMENTS, RESOURCE_TYPES, entries } from "@/lib/resource-presentation";
 import { cn } from "@/lib/utils";
+import { buildScene, exportFileName, type ExportImpact } from "@/lib/map-export/scene";
 import type { MapEdge, MapNode } from "@/server/modules/map/map";
-import { DETAILED_LAYOUT_LIMIT, drawDirection, layoutGraph } from "./layout";
+import { downloadPdf, downloadPng } from "./export-map";
+import {
+  DETAILED_LAYOUT_LIMIT,
+  NODE_HEIGHT,
+  NODE_WIDTH,
+  drawDirection,
+  layoutGraph,
+} from "./layout";
 import { MapInspector } from "./map-inspector";
 import { ResourceNode, type ImpactLevel, type ResourceFlowNode } from "./resource-node";
 
@@ -59,6 +67,7 @@ export interface Focus {
 
 interface Props {
   workspaceSlug: string;
+  workspaceName: string;
   nodes: MapNode[];
   edges: MapEdge[];
   initialFocus: string | null;
@@ -73,7 +82,14 @@ export function MapView(props: Props) {
   );
 }
 
-function MapCanvas({ workspaceSlug, nodes, edges, initialFocus, initialImpact }: Props) {
+function MapCanvas({
+  workspaceSlug,
+  workspaceName,
+  nodes,
+  edges,
+  initialFocus,
+  initialImpact,
+}: Props) {
   const { fitView } = useReactFlow();
   const [typeFilter, setTypeFilter] = useState("");
   const [envFilter, setEnvFilter] = useState("");
@@ -268,6 +284,106 @@ function MapCanvas({ workspaceSlug, nodes, edges, initialFocus, initialImpact }:
   const selected = selectedId ? byId.get(selectedId) : undefined;
   const focusNode = focus ? byId.get(focus.id) : undefined;
   const impactRoot = impactResult ? byId.get(impactResult.rootId) : undefined;
+
+  /** M17: export exactly what is on screen (filters, focus or impact). */
+  const exportView = useCallback(
+    async (format: "png" | "pdf") => {
+      const now = new Date();
+      let view = "Map";
+      let subtitle: string;
+      if (impactResult && impactRoot) {
+        const by = (c: string) => impactResult.affected.filter((a) => a.confidence === c).length;
+        view = `Impact of ${impactRoot.name}`;
+        subtitle = `If ${impactRoot.name} fails, ${impactResult.affected.length} resources could be affected (${by("confirmed")} confirmed, ${by("detected")} detected, ${by("inferred")} inferred)`;
+      } else if (focus && focusNode) {
+        const dir =
+          focus.direction === "both"
+            ? "both ways"
+            : focus.direction === "dependsOn"
+              ? "what it depends on"
+              : "what uses it";
+        view = `Around ${focusNode.name}`;
+        subtitle = `Focus on ${focusNode.name}: ${dir}, ${focus.depth === 99 ? "all hops" : `${focus.depth} hop${focus.depth === 1 ? "" : "s"}`}`;
+      } else {
+        const parts = [
+          typeFilter
+            ? `Type: ${RESOURCE_TYPES[typeFilter as keyof typeof RESOURCE_TYPES].label}`
+            : null,
+          envFilter
+            ? `Environment: ${ENVIRONMENTS[envFilter as keyof typeof ENVIRONMENTS].label}`
+            : null,
+        ].filter(Boolean);
+        subtitle = parts.length ? parts.join(" · ") : "All resources";
+        if (!showUnconfirmed) subtitle += " · confirmed relationships only";
+      }
+      subtitle += ` · ${visibleIds.length} resources, ${visibleEdges.length} relationships`;
+      const position = new Map(flowNodes.map((n) => [n.id, n.position]));
+      const scene = buildScene({
+        title: `${workspaceName} — ${view}`,
+        subtitle,
+        stamp: `Exported ${new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeStyle: "short" }).format(now)} · InfraMole`,
+        impactMode: !!impactLevels,
+        nodeWidth: NODE_WIDTH,
+        nodeHeight: NODE_HEIGHT,
+        nodes: visibleIds.map((id) => {
+          const r = byId.get(id)!;
+          const p = position.get(id) ?? positions.get(id)!;
+          return {
+            id,
+            name: r.name,
+            typeLabel: [
+              RESOURCE_TYPES[r.type].label,
+              r.environment ? ENVIRONMENTS[r.environment].label : null,
+            ]
+              .filter(Boolean)
+              .join(" · "),
+            environment: r.environment,
+            criticality: r.criticality,
+            x: p.x,
+            y: p.y,
+            impact: (impactLevels?.get(id) ?? null) as ExportImpact | null,
+          };
+        }),
+        edges: visibleEdges.map((e) => {
+          const { source, target } = drawDirection(e);
+          return {
+            source,
+            target,
+            confidence: edgeConfidence(e.status, e.origin)!,
+            informational: dependencyDirection(e) === null,
+            onImpactPath: impactEdgeIds.has(e.id),
+          };
+        }),
+      });
+      const fileName = exportFileName(workspaceName, view, now, format);
+      const style = getComputedStyle(document.body);
+      const fonts = {
+        sans: style.fontFamily,
+        mono:
+          getComputedStyle(document.documentElement).getPropertyValue("--font-geist-mono").trim() ||
+          "ui-monospace, Consolas, Menlo, monospace",
+      };
+      if (format === "png") await downloadPng(scene, fileName, fonts);
+      else await downloadPdf(scene, fileName, `${workspaceName} — ${view}`, fonts);
+    },
+    [
+      impactResult,
+      impactRoot,
+      focus,
+      focusNode,
+      typeFilter,
+      envFilter,
+      showUnconfirmed,
+      visibleIds,
+      visibleEdges,
+      flowNodes,
+      positions,
+      workspaceName,
+      impactLevels,
+      byId,
+      impactEdgeIds,
+    ],
+  );
   const selectedImpact = impactResult?.affected.find((a) => a.resourceId === selectedId);
 
   return (
@@ -408,6 +524,7 @@ function MapCanvas({ workspaceSlug, nodes, edges, initialFocus, initialImpact }:
           <span className="text-subtle pointer-events-auto ml-auto font-mono text-[11px]">
             {visibleIds.length} resources · {visibleEdges.length} relationships
           </span>
+          <ExportMenu onExport={exportView} />
           {visibleIds.length > DETAILED_LAYOUT_LIMIT && (
             <p
               role="note"
@@ -497,6 +614,46 @@ function Legend() {
         {line(undefined, COLORS.informational)} Informational (no impact)
       </span>
       <span className="text-subtle mt-1">Arrows point to what a resource depends on.</span>
+    </div>
+  );
+}
+
+/** PNG / PDF of the current view (M17). Rendered in the browser; nothing is uploaded. */
+function ExportMenu({ onExport }: { onExport: (format: "png" | "pdf") => Promise<void> }) {
+  const [busy, setBusy] = useState<"png" | "pdf" | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const run = async (format: "png" | "pdf") => {
+    setBusy(format);
+    setError(null);
+    try {
+      await onExport(format);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Export failed.");
+    } finally {
+      setBusy(null);
+    }
+  };
+  return (
+    <div className="border-border bg-surface/95 pointer-events-auto flex items-center gap-1 rounded-lg border p-1 pl-2 text-xs backdrop-blur">
+      <Download className="text-subtle size-3.5" aria-hidden />
+      <span className="text-muted">Export</span>
+      {(["png", "pdf"] as const).map((f) => (
+        <button
+          key={f}
+          type="button"
+          disabled={busy !== null}
+          onClick={() => void run(f)}
+          aria-label={`Export this view as ${f.toUpperCase()}`}
+          className="hover:bg-surface-2 hover:text-foreground text-muted rounded px-1.5 py-0.5 font-mono uppercase disabled:opacity-50"
+        >
+          {busy === f ? "…" : f}
+        </button>
+      ))}
+      {error && (
+        <span role="alert" className="text-danger pl-1">
+          {error}
+        </span>
+      )}
     </div>
   );
 }

@@ -286,6 +286,9 @@ last IP, expired sessions and tokens) is deleted, not kept "just in case".
   remove, leave), integrations (create, delete, manual sync), agents (token
   create/revoke, enroll, revoke) and workspace creation; Better Auth hooks
   record sign-ins (session IP/UA) and password resets at account level.
+- Map export (M17) is rendered in the browser from data the user can
+  already see; nothing is uploaded or stored, and no third-party library
+  processes the map.
 - Windows workloads (M16, ADR-028): the agent reads only the site list of
   `applicationHost.config` (never paths, pools or stored credentials — unit
   tested with a fixture full of them) and, **only when enabled locally**,
