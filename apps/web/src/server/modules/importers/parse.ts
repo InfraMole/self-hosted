@@ -14,7 +14,15 @@ import {
 } from "@/server/modules/resources/schemas";
 
 export type ImportFormat =
-  "csv" | "json" | "docker-compose" | "proxmox" | "azure" | "aws" | "cloudflare" | "workloads";
+  | "csv"
+  | "json"
+  | "docker-compose"
+  | "proxmox"
+  | "azure"
+  | "aws"
+  | "cloudflare"
+  | "workloads"
+  | "cloud";
 
 export const IMPORT_LIMITS = { bytes: 1024 * 1024, resources: 2000, relationships: 5000 } as const;
 
@@ -90,7 +98,8 @@ export function parseImport(
     format === "azure" ||
     format === "aws" ||
     format === "cloudflare" ||
-    format === "workloads"
+    format === "workloads" ||
+    format === "cloud"
       ? parseJsonOrPlatform(text, format)
       : format === "csv"
         ? parseCsvImport(text)

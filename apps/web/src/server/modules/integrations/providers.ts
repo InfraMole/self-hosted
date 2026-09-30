@@ -9,54 +9,25 @@
  * fixed regional AWS endpoints (region validated by pattern).
  */
 import { z } from "zod";
-import type { ImportFormat } from "@/server/modules/importers/parse";
-import type { SafeFetchOptions, SafeResponse } from "@/server/safe-fetch";
+import {
+  IntegrationError,
+  json,
+  last4,
+  uuid,
+  type AwsApi,
+  type Http,
+  type Provider,
+} from "./provider-base";
+import {
+  clouding,
+  digitalocean,
+  googleCloud,
+  hetzner,
+  ovhcloud,
+  scaleway,
+} from "./cloud-providers";
 
-export type Http = (url: string, init?: SafeFetchOptions) => Promise<SafeResponse>;
-
-export interface AwsApi {
-  describeInstances(nextToken?: string): Promise<{ Reservations?: unknown[]; NextToken?: string }>;
-  describeDbInstances(marker?: string): Promise<{ DBInstances?: unknown[]; Marker?: string }>;
-}
-
-export interface ProviderDeps {
-  http: Http;
-  aws?: (region: string, credentials: { accessKeyId: string; secretAccessKey: string }) => AwsApi;
-}
-
-export class IntegrationError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "IntegrationError";
-  }
-}
-
-export interface ExportResult {
-  format: ImportFormat;
-  text: string;
-}
-
-export interface Provider<C = unknown, S = unknown> {
-  configSchema: z.ZodType<C>;
-  secretSchema: z.ZodType<S>;
-  /** Last characters of the main secret, for display. */
-  hint(secret: S): string;
-  fetchExport(config: C, secret: S, deps: ProviderDeps): Promise<ExportResult>;
-}
-
-const uuid = z
-  .string()
-  .trim()
-  .regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, "Must be a GUID");
-const last4 = (s: string) => (s.length >= 8 ? s.slice(-4) : "");
-
-async function json(res: SafeResponse, what: string): Promise<Record<string, unknown>> {
-  try {
-    return JSON.parse(res.text) as Record<string, unknown>;
-  } catch {
-    throw new IntegrationError(`${what}: unexpected response (HTTP ${res.status}).`);
-  }
-}
+export * from "./provider-base";
 
 // ───────────────────────── Azure ─────────────────────────
 
@@ -298,5 +269,15 @@ export const cloudflare: Provider<z.infer<typeof cfConfig>, z.infer<typeof cfSec
   },
 };
 
-export const PROVIDERS = { AZURE: azure, AWS: aws, CLOUDFLARE: cloudflare } as const;
+export const PROVIDERS = {
+  AZURE: azure,
+  AWS: aws,
+  CLOUDFLARE: cloudflare,
+  HETZNER: hetzner,
+  DIGITALOCEAN: digitalocean,
+  SCALEWAY: scaleway,
+  OVHCLOUD: ovhcloud,
+  GOOGLE_CLOUD: googleCloud,
+  CLOUDING: clouding,
+} as const;
 export type ProviderKind = keyof typeof PROVIDERS;

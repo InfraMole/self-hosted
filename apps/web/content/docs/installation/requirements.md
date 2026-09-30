@@ -34,7 +34,7 @@ small (about 10 KB) and raw reports are kept for 7 days only.
 - **Agents** need outbound HTTPS (443) to that name. Nothing connects to the
   agents.
 - Optional: outbound SMTP (465 or 587) for emails, and outbound HTTPS to
-  Azure / AWS / Cloudflare APIs if you use integrations.
+  the APIs of the cloud providers you connect with integrations.
 
 :::note Internal-only instances
 Let's Encrypt must reach ports 80/443 to issue the certificate. If the server

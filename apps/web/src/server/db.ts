@@ -60,6 +60,27 @@ function scopeSql(scope: DbScope): string {
   );
 }
 
+/**
+ * A transaction owns one pg connection, but Prisma may load relations of one
+ * query in parallel (e.g. `from`, `to` and `evidence` of a relationship).
+ * pg only queues concurrent queries on a client as deprecated behaviour (an
+ * error from pg@9), so run them one after another explicitly.
+ */
+function serialized(tx: Transaction): Transaction {
+  let chain: Promise<unknown> = Promise.resolve();
+  const run = <T>(fn: () => Promise<T>): Promise<T> => {
+    const next = chain.then(fn, fn);
+    chain = next.catch(() => {});
+    return next;
+  };
+  return Object.assign(Object.create(tx), {
+    queryRaw: (q: SqlQuery) => run(() => tx.queryRaw(q)),
+    executeRaw: (q: SqlQuery) => run(() => tx.executeRaw(q)),
+    commit: () => run(() => tx.commit()),
+    rollback: () => run(() => tx.rollback()),
+  }) as Transaction;
+}
+
 /** Applies the scope active when the transaction starts, right after BEGIN. */
 function scopedAdapter(inner: SqlDriverAdapter): SqlDriverAdapter {
   return Object.assign(Object.create(inner), {
@@ -67,7 +88,7 @@ function scopedAdapter(inner: SqlDriverAdapter): SqlDriverAdapter {
       isolationLevel?: Parameters<SqlDriverAdapter["startTransaction"]>[0],
     ) => {
       const scope = scopeStore.getStore();
-      const tx: Transaction = await inner.startTransaction(isolationLevel);
+      const tx: Transaction = serialized(await inner.startTransaction(isolationLevel));
       if (scope) {
         try {
           await tx.executeRaw({ sql: scopeSql(scope), ...NO_ARGS } satisfies SqlQuery);

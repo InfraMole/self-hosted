@@ -170,3 +170,79 @@ describe("integrations with stored credentials", () => {
     expect(await ok.json()).toEqual({ due: 0, ok: 0, failed: 0 });
   });
 });
+
+describe("cloud integrations (M23)", () => {
+  const HZ_TOKEN = "hetzner_read_token_0123456789abcdef0123456789";
+  /** Fake Hetzner Cloud API; `servers` changes between syncs. */
+  const fakeHetzner = (servers: { id: number; name: string; ip: string }[]): ProviderDeps => ({
+    http: async (url, init) => {
+      if (init?.headers?.authorization !== `Bearer ${HZ_TOKEN}`)
+        return { status: 401, headers: new Headers(), text: "{}" };
+      const body = url.includes("/load_balancers")
+        ? {
+            load_balancers: [
+              {
+                id: 9,
+                name: "lb-web",
+                public_net: { ipv4: { ip: "203.0.113.99" } },
+                services: [{ listen_port: 443 }],
+                targets: servers.map((s) => ({ type: "server", server: { id: s.id } })),
+              },
+            ],
+            meta: { pagination: { next_page: null } },
+          }
+        : {
+            servers: servers.map((s) => ({
+              id: s.id,
+              name: s.name,
+              status: "running",
+              public_net: { ipv4: { ip: s.ip } },
+            })),
+            meta: { pagination: { next_page: null } },
+          };
+      return { status: 200, headers: new Headers(), text: JSON.stringify(body) };
+    },
+  });
+
+  it("imports servers and load balancer backends, and reconciles removed servers", async () => {
+    const ctx = await ownerContext("Acme");
+    const created = await createIntegration(ctx, {
+      kind: "HETZNER",
+      name: "Hetzner",
+      secret: { apiToken: HZ_TOKEN },
+    });
+    const first = await syncIntegration(
+      ctx,
+      created.id,
+      fakeHetzner([
+        { id: 1, name: "web-1", ip: "203.0.113.1" },
+        { id: 2, name: "web-2", ip: "203.0.113.2" },
+      ]),
+    );
+    expect(first).toMatchObject({ ok: true });
+    const resources = await listResources(ctx, {});
+    expect(resources.map((r) => [r.name, r.type, r.status]).sort()).toEqual([
+      ["lb-web", "NETWORK", "DISCOVERED"],
+      ["web-1", "VM", "DISCOVERED"],
+      ["web-2", "VM", "DISCOVERED"],
+    ]);
+    const rels = await adminDb().relationship.findMany({
+      where: { workspaceId: ctx.workspaceId },
+      include: { from: true, to: true },
+    });
+    expect(rels.map((r) => [r.from.name, r.type, r.to.name, r.status]).sort()).toEqual([
+      ["web-1", "EXPOSED_THROUGH", "lb-web", "CONFIRMED"],
+      ["web-2", "EXPOSED_THROUGH", "lb-web", "CONFIRMED"],
+    ]);
+
+    // web-2 deleted in Hetzner: the next sync marks it stale (reconcile), nothing is deleted.
+    await syncIntegration(
+      ctx,
+      created.id,
+      fakeHetzner([{ id: 1, name: "web-1", ip: "203.0.113.1" }]),
+    );
+    const after = await listResources(ctx, {});
+    expect(after.find((r) => r.name === "web-2")!.status).toBe("STALE");
+    expect(after.find((r) => r.name === "web-1")!.status).toBe("DISCOVERED");
+  });
+});

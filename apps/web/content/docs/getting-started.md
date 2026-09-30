@@ -17,7 +17,7 @@ teams, MSPs, startups and homelabs. It answers four questions:
 InfraMole follows three steps: **Install → Discover → Understand**.
 
 1. **Install** a small read-only agent on your servers (Windows or Linux),
-   connect a cloud account (Azure, AWS, Cloudflare), or import a file.
+   connect a cloud account (Azure, AWS, Cloudflare and more), or import a file.
 2. **Discover**: hosts, services and the network connections between them
    are observed and turned into **suggestions**.
 3. **Understand**: your team confirms what matters and adds the context only
@@ -38,12 +38,12 @@ confirms them, and impact results always say how certain each path is.
 
 ## Architecture
 
-| Component                     | What it does                                                                                                                    |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| **InfraMole server**          | The web application and API, a PostgreSQL database, and Caddy for HTTPS. Runs in Docker.                                        |
-| **Agent** (`inframole-agent`) | One binary per server. Reports host facts, services, listening ports and aggregated TCP connections every 5 minutes over HTTPS. |
-| **Integrations**              | Read-only API tokens for Azure, AWS and Cloudflare, encrypted at rest and synced on a schedule.                                 |
-| **Importers**                 | CSV, JSON, docker-compose and exports from Proxmox, Azure, AWS and Cloudflare.                                                  |
+| Component                     | What it does                                                                                                                     |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| **InfraMole server**          | The web application and API, a PostgreSQL database, and Caddy for HTTPS. Runs in Docker.                                         |
+| **Agent** (`inframole-agent`) | One binary per server. Reports host facts, services, listening ports and aggregated TCP connections every 5 minutes over HTTPS.  |
+| **Integrations**              | Read-only API tokens for Azure, AWS, Cloudflare and (Preview) Hetzner, DigitalOcean, Scaleway, OVHcloud, Google Cloud, Clouding. |
+| **Importers**                 | CSV, JSON, docker-compose and exports from Proxmox, Azure, AWS and Cloudflare.                                                   |
 
 ## Self-hosted today, Cloud later
 

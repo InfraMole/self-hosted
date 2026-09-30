@@ -7,14 +7,25 @@
  *   Azure    az vm list -d --output json
  *   AWS      aws ec2 describe-instances --output json
  *            aws rds describe-db-instances --output json
+ *   Cloud    normalised inventory built by the API integrations of smaller
+ *            clouds (Hetzner, DigitalOcean, Scaleway, OVHcloud, Google Cloud,
+ *            Clouding — M23, ADR-034); see `CloudInventory`.
  */
 import type { ImportBatch, ImportFormat, RowError } from "./parse";
 import { buildResourceRow } from "./parse";
 
-export type PlatformFormat = "proxmox" | "azure" | "aws" | "cloudflare" | "workloads";
+export type PlatformFormat = "proxmox" | "azure" | "aws" | "cloudflare" | "workloads" | "cloud";
 
 /** Detects a platform export inside already-parsed JSON (null = generic JSON). */
 export function detectPlatform(data: unknown): PlatformFormat | null {
+  const doc = data as { provider?: unknown; servers?: unknown } | null;
+  if (
+    doc &&
+    typeof doc.provider === "string" &&
+    (CLOUD_PROVIDERS as readonly string[]).includes(doc.provider) &&
+    Array.isArray(doc.servers)
+  )
+    return "cloud";
   const result = (data as { result?: unknown })?.result;
   if (Array.isArray(result) && result.some((r) => r && typeof r === "object" && "proxied" in r)) {
     return "cloudflare";
@@ -43,6 +54,7 @@ export function parsePlatform(format: PlatformFormat, data: unknown): ImportBatc
   else if (format === "workloads") workloads(batch, data);
   else if (format === "azure") azure(batch, data);
   else if (format === "cloudflare") cloudflare(batch, data);
+  else if (format === "cloud") cloud(batch, data);
   else aws(batch, data);
   return batch;
 }
@@ -265,6 +277,173 @@ function cloudflare(batch: ImportBatch, data: unknown) {
   }
   if (records.length === 0)
     batch.errors.push({ row: 0, message: "No A, AAAA or CNAME records found." });
+}
+
+// ───────────────────────── Cloud inventory (M23) ─────────────────────────
+
+export const CLOUD_PROVIDERS = [
+  "hetzner",
+  "digitalocean",
+  "scaleway",
+  "ovhcloud",
+  "gcp",
+  "clouding",
+] as const;
+export type CloudProvider = (typeof CLOUD_PROVIDERS)[number];
+
+const CLOUD_LABELS: Record<CloudProvider, string> = {
+  hetzner: "Hetzner Cloud",
+  digitalocean: "DigitalOcean",
+  scaleway: "Scaleway",
+  ovhcloud: "OVHcloud",
+  gcp: "Google Cloud",
+  clouding: "Clouding",
+};
+
+export interface CloudServer {
+  id: string;
+  name: string;
+  /** "SERVER" for bare metal (OVHcloud dedicated); default VM. */
+  kind?: "VM" | "SERVER";
+  hostname?: string;
+  region?: string;
+  size?: string;
+  os?: string;
+  status?: string;
+  ips?: string[];
+  labels?: Record<string, string>;
+}
+
+export interface CloudLoadBalancer {
+  id: string;
+  name: string;
+  region?: string;
+  ips?: string[];
+  ports?: number[];
+  /** Backends as configured in the provider: a server id of this inventory, or an IP. */
+  targets?: { server?: string; ip?: string }[];
+  labels?: Record<string, string>;
+}
+
+export interface CloudDatabase {
+  id: string;
+  name: string;
+  engine?: string;
+  version?: string;
+  region?: string;
+  size?: string;
+  hostname?: string;
+  ips?: string[];
+  port?: number;
+  labels?: Record<string, string>;
+}
+
+/** What the integrations of M23 produce: one provider account (project / zones). */
+export interface CloudInventory {
+  provider: CloudProvider;
+  servers: CloudServer[];
+  loadBalancers?: CloudLoadBalancer[];
+  databases?: CloudDatabase[];
+}
+
+/**
+ * Servers → VM (or SERVER), managed databases → DATABASE, load balancers →
+ * NETWORK. A backend configured on a load balancer is EXPOSED_THROUGH it:
+ * configuration read from the provider, so a fact (not a suggestion). IP
+ * backends resolve against the Library and are skipped when unknown.
+ * Keys carry the provider, so ids of two providers never collide.
+ */
+function cloud(batch: ImportBatch, data: unknown) {
+  const inv = (data ?? {}) as Partial<CloudInventory>;
+  const provider = inv.provider;
+  if (!provider || !(CLOUD_PROVIDERS as readonly string[]).includes(provider)) {
+    batch.errors.push({ row: 0, message: "Unknown cloud provider." });
+    return;
+  }
+  const label = CLOUD_LABELS[provider];
+  const key = (kind: string, id: string) => `${provider}/${kind}/${String(id).toLowerCase()}`;
+  const unique = (ips?: string[]) => [...new Set((ips ?? []).filter(Boolean))];
+  let row = 0;
+  const serverKeys = new Set<string>();
+
+  for (const s of inv.servers ?? []) {
+    row++;
+    const t = fromCloudTags(s.labels ?? {});
+    const created = add(batch, row, {
+      id: key("server", s.id),
+      name: s.name,
+      type: s.kind ?? "VM",
+      environment: t.environment,
+      description: [label, s.size, s.region, s.status].filter(Boolean).join(" · "),
+      os: s.os,
+      hostname: s.hostname,
+      ips: unique(s.ips),
+      tags: [provider, ...t.tags],
+    });
+    if (created) serverKeys.add(key("server", s.id));
+  }
+
+  for (const db of inv.databases ?? []) {
+    row++;
+    const t = fromCloudTags(db.labels ?? {});
+    add(batch, row, {
+      id: key("db", db.id),
+      name: db.name,
+      type: "DATABASE",
+      environment: t.environment,
+      description: [`${label} managed ${db.engine ?? "database"}`, db.size, db.region]
+        .filter(Boolean)
+        .join(" · "),
+      hostname: db.hostname,
+      version: db.version,
+      ips: unique(db.ips),
+      ports: db.port ? [db.port] : undefined,
+      tags: [provider, "managed-database", ...t.tags],
+    });
+  }
+
+  for (const lb of inv.loadBalancers ?? []) {
+    row++;
+    const t = fromCloudTags(lb.labels ?? {});
+    const self = key("lb", lb.id);
+    const created = add(batch, row, {
+      id: self,
+      name: lb.name,
+      type: "NETWORK",
+      environment: t.environment,
+      description: [`${label} load balancer`, lb.region].filter(Boolean).join(" · "),
+      ips: unique(lb.ips),
+      ports: lb.ports?.length ? [...new Set(lb.ports)].sort((a, b) => a - b) : undefined,
+      tags: [provider, "load-balancer", ...t.tags],
+    });
+    if (!created) continue;
+    const seen = new Set<string>();
+    for (const target of lb.targets ?? []) {
+      const ref = target.server
+        ? key("server", target.server)
+        : target.ip
+          ? `ip:${target.ip}`
+          : null;
+      if (!ref || seen.has(ref)) continue;
+      seen.add(ref);
+      if (target.server && !serverKeys.has(ref)) continue; // not in this inventory
+      batch.relationships.push({
+        row,
+        from: ref,
+        to: self,
+        type: "EXPOSED_THROUGH",
+        note: `Load balancer backend (${label} configuration)`,
+        suggested: false,
+        optional: !target.server,
+      });
+    }
+  }
+
+  if (row === 0)
+    batch.errors.push({
+      row: 0,
+      message: `No servers, databases or load balancers found in ${label}.`,
+    });
 }
 
 function add(batch: ImportBatch, row: number, fields: Record<string, unknown>) {

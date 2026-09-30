@@ -92,8 +92,9 @@ Pick any combination:
   command for Windows and Linux. The agent is read-only and only needs
   outbound HTTPS to your domain. See
   [what the agent collects](https://inframole.com/agent).
-- **Cloud integrations**: Settings › Integrations (Azure, AWS, Cloudflare)
-  with read-only tokens, encrypted at rest.
+- **Cloud integrations**: Settings › Integrations (Azure, AWS, Cloudflare;
+  Hetzner Cloud, DigitalOcean, Scaleway, OVHcloud, Google Cloud and Clouding
+  in Preview) with read-only tokens, encrypted at rest.
 - **Files**: Library › Import (CSV, docker-compose, Proxmox / Azure / AWS /
   Cloudflare exports).
 

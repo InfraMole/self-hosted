@@ -26,6 +26,7 @@ import {
   type ImportResult,
 } from "@/server/modules/importers/importers";
 import { BlockedDestinationError, safeFetch } from "@/server/safe-fetch";
+import { INTEGRATION_KINDS } from "@/lib/integration-forms";
 import { IntegrationError, PROVIDERS, type ProviderDeps } from "./providers";
 
 const defaultDeps: ProviderDeps = { http: safeFetch };
@@ -59,7 +60,7 @@ const aad = (workspaceId: string, integrationId: string) =>
   `integration:${workspaceId}:${integrationId}`;
 
 export const integrationInputSchema = z.object({
-  kind: z.enum(["AZURE", "AWS", "CLOUDFLARE"]),
+  kind: z.enum(INTEGRATION_KINDS),
   name: z.string().trim().min(1, "Name is required").max(64),
   syncIntervalHours: z.coerce.number().int().min(1).max(168).default(6),
   config: z.record(z.string(), z.unknown()).default({}),

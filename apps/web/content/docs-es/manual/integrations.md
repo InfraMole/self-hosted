@@ -1,7 +1,9 @@
 # Integraciones en la nube
 
-Las integraciones mantienen InfraMole sincronizado con **Azure**, **AWS** y
-**Cloudflare** usando credenciales de API de solo lectura. Las gestionan los
+Las integraciones mantienen InfraMole sincronizado con **Azure**, **AWS**,
+**Cloudflare**, **Hetzner Cloud**, **DigitalOcean**, **Scaleway**,
+**OVHcloud**, **Google Cloud** y **Clouding** usando credenciales de API de
+solo lectura. Las gestionan los
 admins y owners del espacio de trabajo en **Settings › Integrations**.
 
 :::note Cómo se protegen las credenciales
@@ -54,6 +56,53 @@ Una integración cubre una región.
 3. Recursos de zona: las zonas que quieras (o todas).
 
 Usa un **token** de API, nunca la clave global de API.
+@tab Hetzner Cloud
+
+1. En la Cloud Console, abre el proyecto: **Security › API tokens ›
+   Generate API token**.
+2. Permiso: **Read** (nunca Read & Write).
+
+Una integración cubre un proyecto.
+@tab DigitalOcean
+
+1. **API › Tokens › Generate New Token** con **Custom scopes**.
+2. Marca solo **droplet:read**, **load_balancer:read** y
+   **database:read** (los dos últimos son opcionales).
+   @tab Scaleway
+
+3. **IAM › Applications › Create application** (por ejemplo
+   `inframole-reader`).
+4. Asóciale una política con solo **InstancesReadOnly**,
+   **LoadBalancersReadOnly** y **RelationalDatabasesReadOnly** sobre el
+   proyecto.
+5. **API keys › Generate an API key** para la aplicación; copia la
+   **secret key**.
+
+En la integración, indica las zonas que se leen (por ejemplo
+`fr-par-1, nl-ams-1`).
+@tab OVHcloud
+
+1. Crea una clave de aplicación en la página de tokens de tu región (para
+   Europa, `https://eu.api.ovh.com/createToken/`).
+2. Derechos: **GET** sobre `/cloud/project`, `/cloud/project/*` y
+   `/dedicated/server`, `/dedicated/server/*` — nada más.
+
+Necesitarás la **application key**, el **application secret** y la
+**consumer key**. Deja el proyecto vacío para leer todos los proyectos de
+Public Cloud que la clave pueda ver.
+@tab Google Cloud
+
+1. **IAM & Admin › Service accounts › Create service account** (por
+   ejemplo `inframole-reader`).
+2. Concédele **Compute Viewer** y, si usas Cloud SQL, **Cloud SQL Viewer**
+   sobre el proyecto.
+3. **Keys › Add key › JSON**, y pega el fichero completo.
+   @tab Clouding
+
+4. En el portal de Clouding: **API › Crear API key**.
+
+Las API keys de Clouding no se pueden limitar a lectura: crea una que solo
+use InfraMole. InfraMole solo llama a `GET /v1/servers`.
 :::
 
 ### Añade la integración
@@ -62,6 +111,14 @@ En **Settings › Integrations › Add integration**, elige el proveedor, dale
 un nombre, elige cada cuánto se sincroniza (cada 6 horas por defecto, de 1
 hora a 7 días) y pega los valores. Opcionalmente, en Cloudflare, indica las
 zonas que se importan (vacío = todas).
+
+:::note Integraciones en Preview
+Hetzner Cloud, DigitalOcean, Scaleway, OVHcloud, Google Cloud y Clouding
+están marcadas como **Preview**: están hechas a partir de la documentación
+de la API de cada proveedor y probadas con respuestas grabadas, pero todavía
+no con una cuenta real. Usa primero **Test connection** — muestra qué se
+importaría sin guardar nada — y avísanos si algo no cuadra.
+:::
 
 ### Lanza la primera sincronización
 
@@ -74,14 +131,22 @@ programadas necesitan `CRON_SECRET` (lo rellena `gen-secrets`).
 
 ## Qué se importa
 
-| Proveedor  | Recursos                                                                                     | Relaciones                                                                                                                                                                  |
-| ---------- | -------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Azure      | Máquinas virtuales con IP privadas / públicas, tamaño, región, sistema operativo y etiquetas | —                                                                                                                                                                           |
-| AWS        | Instancias EC2 (etiqueta Name, IP, plataforma) y bases de datos RDS                          | —                                                                                                                                                                           |
-| Cloudflare | Registros A / AAAA / CNAME como dominios; un servicio externo `Cloudflare`                   | Los registros con proxy quedan _exposed through_ Cloudflare; un registro _depends on_ el recurso dueño de su IP de origen (solo si hay exactamente uno); CNAME → su destino |
+| Proveedor     | Recursos                                                                                                         | Relaciones                                                                                                                                                                  |
+| ------------- | ---------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Azure         | Máquinas virtuales con IP privadas / públicas, tamaño, región, sistema operativo y etiquetas                     | —                                                                                                                                                                           |
+| AWS           | Instancias EC2 (etiqueta Name, IP, plataforma) y bases de datos RDS                                              | —                                                                                                                                                                           |
+| Cloudflare    | Registros A / AAAA / CNAME como dominios; un servicio externo `Cloudflare`                                       | Los registros con proxy quedan _exposed through_ Cloudflare; un registro _depends on_ el recurso dueño de su IP de origen (solo si hay exactamente uno); CNAME → su destino |
+| Hetzner Cloud | Servidores (IPv4 pública e IP privadas, tipo, ubicación, imagen, etiquetas); balanceadores de carga              | Los servidores configurados como destinos de un balanceador (también mediante selectores de etiquetas) quedan _exposed through_ él                                          |
+| DigitalOcean  | Droplets (IP, tamaño, región, etiquetas); balanceadores de carga; bases de datos gestionadas                     | Los droplets de un balanceador quedan _exposed through_ él                                                                                                                  |
+| Scaleway      | Instancias de las zonas indicadas; balanceadores de carga; bases de datos gestionadas                            | Las IP de backend de un balanceador quedan _exposed through_ él (solo si exactamente un recurso tiene esa IP)                                                               |
+| OVHcloud      | Instancias de Public Cloud; servidores dedicados (como servidores)                                               | —                                                                                                                                                                           |
+| Google Cloud  | Instancias de Compute Engine (IP internas / externas, tipo de máquina, zona, etiquetas); instancias de Cloud SQL | —                                                                                                                                                                           |
+| Clouding      | Servidores (IP públicas / privadas, vCores, RAM, imagen, estado de encendido)                                    | —                                                                                                                                                                           |
 
 Los recursos importados empiezan como **Discovered**. Las etiquetas
-llamadas `env` o `environment` fijan el entorno.
+llamadas `env` o `environment` fijan el entorno. El backend de un
+balanceador se lee de la propia configuración del proveedor, así que se
+importa como relación confirmada, no como sugerencia.
 
 ## Cuando algo desaparece
 

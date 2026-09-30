@@ -265,7 +265,7 @@ evidence without a fact.
 
 ### Integration ✅ M8b (ADR-018 D)
 
-`id, workspaceId (cascade), kind AZURE|AWS|CLOUDFLARE, name (unique per
+`id, workspaceId (cascade), kind AZURE|AWS|CLOUDFLARE|HETZNER|DIGITALOCEAN|SCALEWAY|OVHCLOUD|GOOGLE_CLOUD|CLOUDING (M23), name (unique per
 workspace), config JSONB (non-secret: tenant/subscription, region, zones),
 secretCiphertext, secretIv, secretKeyVersion, secretHint? (last 4),
 syncIntervalHours (1–168, default 6), lastSyncAt?, lastSyncOk?,

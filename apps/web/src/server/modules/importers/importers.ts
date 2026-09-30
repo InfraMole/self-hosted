@@ -31,6 +31,7 @@ export const importRequestSchema = z.object({
       "aws",
       "cloudflare",
       "workloads",
+      "cloud",
     ])
     .default("auto"),
   project: z.string().trim().max(64).optional(),
@@ -173,7 +174,8 @@ export async function runImport(
     source === "azure" ||
     source === "aws" ||
     source === "cloudflare" ||
-    source === "workloads"
+    source === "workloads" ||
+    source === "cloud"
       ? "DISCOVERED"
       : "ACTIVE";
   let suggestions = 0;

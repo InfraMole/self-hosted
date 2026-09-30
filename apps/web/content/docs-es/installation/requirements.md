@@ -37,7 +37,7 @@ informes en bruto solo se guardan 7 días.
 - Los **agentes** necesitan HTTPS saliente (443) hacia ese nombre. Nada se
   conecta a los agentes.
 - Opcional: SMTP saliente (465 o 587) para los correos, y HTTPS saliente
-  hacia las API de Azure / AWS / Cloudflare si usas integraciones.
+  hacia las API de los proveedores que conectes con integraciones.
 
 :::note Instancias solo internas
 Let's Encrypt tiene que llegar a los puertos 80/443 para emitir el

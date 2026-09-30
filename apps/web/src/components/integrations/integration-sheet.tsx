@@ -8,7 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogTrigger, SheetContent } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { Select } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { INTEGRATION_FORMS, type IntegrationKindName } from "@/lib/integration-forms";
 import type { IntegrationInput } from "@/server/modules/integrations/integrations";
 
@@ -31,7 +33,9 @@ export function IntegrationSheet({ test, save }: Props) {
     kind,
     name: name || form.label,
     syncIntervalHours: Number(syncHours),
-    config: Object.fromEntries(form.config.map((f) => [f.name, values[f.name] ?? ""])),
+    config: Object.fromEntries(
+      form.config.map((f) => [f.name, values[f.name] ?? f.options?.[0]?.value ?? ""]),
+    ),
     secret: Object.fromEntries(form.secret.map((f) => [f.name, values[f.name] ?? ""])),
   });
 
@@ -89,6 +93,7 @@ export function IntegrationSheet({ test, save }: Props) {
                   {(Object.keys(INTEGRATION_FORMS) as IntegrationKindName[]).map((k) => (
                     <option key={k} value={k}>
                       {INTEGRATION_FORMS[k].label}
+                      {INTEGRATION_FORMS[k].preview ? " (Preview)" : ""}
                     </option>
                   ))}
                 </Select>
@@ -124,6 +129,13 @@ export function IntegrationSheet({ test, save }: Props) {
               <div className="space-y-1">
                 <p className="text-foreground">{form.permissions}</p>
                 <p className="text-muted">Imports: {form.imports}</p>
+                {form.preview && (
+                  <p className="text-muted">
+                    <Badge className="mr-1">Preview</Badge>
+                    Built from {form.label}&apos;s API documentation, not yet verified against a
+                    real account. Use Test connection and review the preview before saving.
+                  </p>
+                )}
               </div>
             </div>
 
@@ -133,16 +145,42 @@ export function IntegrationSheet({ test, save }: Props) {
                   {f.label}
                   {f.secret && <span className="text-subtle"> · encrypted</span>}
                 </Label>
-                <Input
-                  id={`f-${f.name}`}
-                  type={f.secret ? "password" : "text"}
-                  autoComplete={f.secret ? "new-password" : "off"}
-                  spellCheck={false}
-                  value={values[f.name] ?? ""}
-                  onChange={(e) => setValues({ ...values, [f.name]: e.target.value })}
-                  placeholder={f.placeholder}
-                  className="font-mono text-xs"
-                />
+                {f.options ? (
+                  <Select
+                    id={`f-${f.name}`}
+                    value={values[f.name] ?? f.options[0]!.value}
+                    onChange={(e) => setValues({ ...values, [f.name]: e.target.value })}
+                  >
+                    {f.options.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </Select>
+                ) : f.multiline ? (
+                  <Textarea
+                    id={`f-${f.name}`}
+                    autoComplete="off"
+                    spellCheck={false}
+                    rows={5}
+                    value={values[f.name] ?? ""}
+                    onChange={(e) => setValues({ ...values, [f.name]: e.target.value })}
+                    placeholder={f.placeholder}
+                    // Masked like a password field while typed or pasted.
+                    className={`font-mono text-xs ${f.secret ? "[-webkit-text-security:disc]" : ""}`}
+                  />
+                ) : (
+                  <Input
+                    id={`f-${f.name}`}
+                    type={f.secret ? "password" : "text"}
+                    autoComplete={f.secret ? "new-password" : "off"}
+                    spellCheck={false}
+                    value={values[f.name] ?? ""}
+                    onChange={(e) => setValues({ ...values, [f.name]: e.target.value })}
+                    placeholder={f.placeholder}
+                    className="font-mono text-xs"
+                  />
+                )}
               </div>
             ))}
 

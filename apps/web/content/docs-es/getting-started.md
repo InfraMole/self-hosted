@@ -18,7 +18,7 @@ equipos de IT pequeños, MSP, startups y homelabs. Responde a cuatro preguntas:
 InfraMole sigue tres pasos: **Instalar → Descubrir → Entender**.
 
 1. **Instalar** un pequeño agente de solo lectura en tus servidores (Windows
-   o Linux), conectar una cuenta en la nube (Azure, AWS, Cloudflare) o
+   o Linux), conectar una cuenta en la nube (Azure, AWS, Cloudflare y más) o
    importar un fichero.
 2. **Descubrir**: se observan los equipos, los servicios y las conexiones de
    red entre ellos, y se convierten en **sugerencias**.
@@ -41,12 +41,12 @@ de cada camino.
 
 ## Arquitectura
 
-| Componente                     | Qué hace                                                                                                                            |
-| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
-| **Servidor InfraMole**         | La aplicación web y la API, una base de datos PostgreSQL y Caddy para HTTPS. Funciona en Docker.                                    |
-| **Agente** (`inframole-agent`) | Un binario por servidor. Cada 5 minutos envía por HTTPS datos del equipo, servicios, puertos en escucha y conexiones TCP agregadas. |
-| **Integraciones**              | Tokens de API de solo lectura para Azure, AWS y Cloudflare, cifrados en reposo y sincronizados periódicamente.                      |
-| **Importadores**               | CSV, JSON, docker-compose y exportaciones de Proxmox, Azure, AWS y Cloudflare.                                                      |
+| Componente                     | Qué hace                                                                                                                                 |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| **Servidor InfraMole**         | La aplicación web y la API, una base de datos PostgreSQL y Caddy para HTTPS. Funciona en Docker.                                         |
+| **Agente** (`inframole-agent`) | Un binario por servidor. Cada 5 minutos envía por HTTPS datos del equipo, servicios, puertos en escucha y conexiones TCP agregadas.      |
+| **Integraciones**              | Tokens de API de solo lectura para Azure, AWS, Cloudflare y (Preview) Hetzner, DigitalOcean, Scaleway, OVHcloud, Google Cloud, Clouding. |
+| **Importadores**               | CSV, JSON, docker-compose y exportaciones de Proxmox, Azure, AWS y Cloudflare.                                                           |
 
 ## Autoalojado hoy, Cloud más adelante
 

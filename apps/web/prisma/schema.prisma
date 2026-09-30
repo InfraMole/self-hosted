@@ -620,6 +620,13 @@ enum IntegrationKind {
   AZURE
   AWS
   CLOUDFLARE
+  /// M23 (ADR-034): smaller clouds, normalised "cloud" import format.
+  HETZNER
+  DIGITALOCEAN
+  SCALEWAY
+  OVHCLOUD
+  GOOGLE_CLOUD
+  CLOUDING
 }
 
 model Integration {

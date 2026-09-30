@@ -14,6 +14,7 @@
 release hosting; agents download binaries from there), Sigstore (signing of
 release checksums), Let's Encrypt (TLS certificates for our domain).
 
-Customer-configured integrations (Azure, AWS, Cloudflare APIs) are called on
+Customer-configured integrations (the APIs of Azure, AWS, Cloudflare or any
+other cloud provider the customer connects) are called on
 the customer's instruction with the customer's own credentials; those
 providers act under the customer's own contracts with them.

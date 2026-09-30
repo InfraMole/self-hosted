@@ -150,7 +150,7 @@ relationship id).
 | `/api/digest/unsubscribe?m&t` | POST unsubscribes (RFC 8058 one-click; HMAC token); GET redirects to the `/digest/unsubscribe` confirmation page (button → POST) — M21 |
 
 Agent admin lives in `/w/[slug]/settings` (Agents + Enrollment tokens), with
-server actions in `src/app/w/[slug]/settings/actions.ts` (integrations: `integration-actions.ts`, module `server/modules/integrations/`) and the module
+server actions in `src/app/w/[slug]/settings/actions.ts` (integrations: `integration-actions.ts`, module `server/modules/integrations/` — `provider-base.ts` contract, `providers.ts` registry + Azure / AWS / Cloudflare, `cloud-providers.ts` the M23 clouds emitting the `cloud` import format) and the module
 `server/modules/agents/` (`secrets`, `protocol`, `host`, `agents`,
 `ingestion`). Helpers: `server/http.ts` (streamed body limit, IP),
 `server/rate-limit.ts` (in-memory fixed window).
