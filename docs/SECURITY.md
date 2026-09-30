@@ -286,6 +286,13 @@ last IP, expired sessions and tokens) is deleted, not kept "just in case".
   remove, leave), integrations (create, delete, manual sync), agents (token
   create/revoke, enroll, revoke) and workspace creation; Better Auth hooks
   record sign-ins (session IP/UA) and password resets at account level.
+- Weekly digest (M21, ADR-032): opt-in per member; counts and resource
+  names only (no IPs, no change summaries), plain text. Unsubscribe links
+  are an HMAC of the membership id with `BETTER_AUTH_SECRET` (no login, no
+  stored token); only POST unsubscribes (link scanners that GET are
+  harmless), with `List-Unsubscribe` + `List-Unsubscribe-Post` headers.
+  Built per workspace with the tenant-scoped client; the cron lookup of due
+  memberships is the only cross-workspace query (`systemDb`).
 - Indexing (M18): a private install's `robots.txt` is `Disallow: /` and its
   sitemap is empty, so sign-in pages of self-hosted instances are not
   advertised to search engines; a public site never lists or allows the

@@ -195,6 +195,12 @@ hand-written in migration `…_relationships`. Duplicate → `P2002` →
 so it appears in both resources' Activity.
 The UI shows the inverse label when viewing the `to` side.
 
+### Membership digest fields ✅ M21 (ADR-032)
+
+`membership.weeklyDigest` (bool, default false) and `digestSentAt` (last
+digest, or when it was turned on so the first one is the next Monday).
+Personal preference: any role may change their own.
+
 ### DiscoveryRule ✅ M15 (ADR-027)
 
 `id, workspaceId, port?, processName? (compared case-insensitively),

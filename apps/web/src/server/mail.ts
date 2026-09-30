@@ -14,6 +14,8 @@ export interface Mail {
   text: string;
   /** Optional Reply-To (feedback: the sender), single line. */
   replyTo?: string;
+  /** One-click unsubscribe URL (RFC 8058) for optional mail such as the weekly digest. */
+  unsubscribeUrl?: string;
 }
 
 type Transport = (mail: Mail) => Promise<void>;
@@ -38,8 +40,15 @@ async function smtpTransport(): Promise<Transport> {
   if (!env.MAIL_FROM) throw new Error("MAIL_FROM is required when SMTP_URL is set");
   const { createTransport } = await import("nodemailer");
   const transporter = createTransport(env.SMTP_URL!);
-  return async (mail) => {
-    await transporter.sendMail({ from: env.MAIL_FROM, ...mail });
+  return async ({ unsubscribeUrl, ...mail }) => {
+    await transporter.sendMail({
+      from: env.MAIL_FROM,
+      ...mail,
+      ...(unsubscribeUrl && {
+        list: { unsubscribe: { url: unsubscribeUrl, comment: "Unsubscribe" } },
+        headers: { "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" },
+      }),
+    });
   };
 }
 

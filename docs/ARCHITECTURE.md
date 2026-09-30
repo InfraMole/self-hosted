@@ -146,6 +146,8 @@ relationship id).
 | `/api/agent/v1/report` | Agent reports (bearer secret) — M5 |
 | `/api/cron/integrations` | POST, `Authorization: Bearer $CRON_SECRET`; syncs due integrations (404 when unset) — M8b |
 | `/api/cron/maintenance` | POST, same bearer guard (`server/cron.ts`); enforces the retention policy — M8c |
+| `/api/cron/digest` | POST, same guard; sends the weekly digests due (Mondays from 06:00 UTC, ≤ 200 per run) — M21 |
+| `/api/digest/unsubscribe?m&t` | POST unsubscribes (RFC 8058 one-click; HMAC token); GET redirects to the `/digest/unsubscribe` confirmation page (button → POST) — M21 |
 
 Agent admin lives in `/w/[slug]/settings` (Agents + Enrollment tokens), with
 server actions in `src/app/w/[slug]/settings/actions.ts` (integrations: `integration-actions.ts`, module `server/modules/integrations/`) and the module

@@ -23,6 +23,19 @@ when.
 Entries are grouped by day and link to the resource when it still exists.
 Each resource page also has its own **Activity** tab.
 
+## Weekly summary by email
+
+In **Account & security › Weekly summary** each person can turn on, per
+workspace, an email every Monday with what changed in the previous week:
+how many resources were created, discovered, changed or stopped reporting,
+the most changed resources, and how many suggestions wait for review. It is
+a summary, not an alert, and it never includes IP addresses or change
+details. Weeks without anything to report send nothing.
+
+It needs email to be configured on the server
+([Configuration](/docs/installation/configuration#email)). Every email has
+an **unsubscribe** link that works without signing in.
+
 ## How long it is kept
 
 Change history is kept for 365 days on self-hosted installations. On

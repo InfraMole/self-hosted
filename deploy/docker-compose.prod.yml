@@ -153,7 +153,7 @@ services:
         [ -n "$$CRON_SECRET" ] || { echo "CRON_SECRET unset: integrations sync disabled"; exec sleep infinity; }
         while true; do
           sleep "$$CRON_EVERY_SECONDS"
-          for job in integrations maintenance demo; do
+          for job in integrations maintenance demo digest; do
             wget -q -O - --header "Authorization: Bearer $$CRON_SECRET" --post-data "" \
               "http://web:3000/api/cron/$$job" || echo "cron $$job failed"
             echo

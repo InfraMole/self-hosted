@@ -24,6 +24,20 @@ importación o el sistema) y cuándo.
 Las entradas se agrupan por día y enlazan al recurso si todavía existe. La
 página de cada recurso tiene además su propia pestaña **Activity**.
 
+## Resumen semanal por correo
+
+En **Account & security › Weekly summary** cada persona puede activar, por
+espacio de trabajo, un correo cada lunes con lo que cambió la semana
+anterior: cuántos recursos se crearon, se descubrieron, cambiaron o dejaron
+de informar, los recursos con más cambios y cuántas sugerencias esperan
+revisión. Es un resumen, no una alerta, y nunca incluye direcciones IP ni
+detalles de los cambios. Las semanas sin nada que contar no se envía nada.
+
+Necesita que el correo esté configurado en el servidor
+([Configuración](/es/docs/installation/configuration#correo-electronico)).
+Cada correo tiene un enlace para **darse de baja** que funciona sin iniciar
+sesión.
+
 ## Cuánto tiempo se guarda
 
 En las instalaciones autoalojadas el historial de cambios se guarda 365

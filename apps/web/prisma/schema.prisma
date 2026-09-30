@@ -127,13 +127,17 @@ enum MembershipRole {
 }
 
 model Membership {
-  id          String         @id @default(cuid())
-  workspaceId String
-  workspace   Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  userId      String
-  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role        MembershipRole @default(MEMBER)
-  createdAt   DateTime       @default(now())
+  id           String         @id @default(cuid())
+  workspaceId  String
+  workspace    Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role         MembershipRole @default(MEMBER)
+  /// M21: weekly email summary of this workspace's changes (opt-in).
+  weeklyDigest Boolean        @default(false)
+  /// Last digest sent (or when it was turned on: the first one is the next Monday).
+  digestSentAt DateTime?
+  createdAt    DateTime       @default(now())
 
   @@unique([workspaceId, userId])
   @@index([userId])
@@ -245,37 +249,37 @@ enum ResourceSource {
 }
 
 model Resource {
-  id          String           @id @default(cuid())
-  workspaceId String
-  workspace   Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  name        String
-  type        ResourceType
-  environment Environment?
-  criticality Criticality?
-  status      ResourceStatus   @default(ACTIVE)
-  description String?
-  notes       String?
-  tags        String[]         @default([])
+  id             String           @id @default(cuid())
+  workspaceId    String
+  workspace      Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  name           String
+  type           ResourceType
+  environment    Environment?
+  criticality    Criticality?
+  status         ResourceStatus   @default(ACTIVE)
+  description    String?
+  notes          String?
+  tags           String[]         @default([])
   /// [{ label, url }] — https only (validated in resources/schemas.ts)
-  links       Json             @default("[]")
+  links          Json             @default("[]")
   /// Validated by resourceMetadataSchema. Never secrets.
-  metadata    Json             @default("{}")
-  source      ResourceSource   @default(MANUAL)
+  metadata       Json             @default("{}")
+  source         ResourceSource   @default(MANUAL)
   /// Idempotent upsert key per source (ADR-011). NULLs are distinct in Postgres.
-  externalId  String?
+  externalId     String?
   /// Which source created this resource (ADR-021): integration:<id>,
   /// collector:<agentId>:<platform>, file:<format>, agent:<agentId>; null = a person.
-  sourceRef   String?
+  sourceRef      String?
   /// Human label of that source at creation time (survives its deletion).
-  sourceLabel String?
-  lastSeenAt  DateTime?
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
-  outgoing    Relationship[]   @relation("RelationshipFrom")
-  incoming    Relationship[]   @relation("RelationshipTo")
-  agents      Agent[]
-  factsFrom   ConnectionFact[] @relation("FactSource")
-  factsTo     ConnectionFact[] @relation("FactRemote")
+  sourceLabel    String?
+  lastSeenAt     DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  outgoing       Relationship[]   @relation("RelationshipFrom")
+  incoming       Relationship[]   @relation("RelationshipTo")
+  agents         Agent[]
+  factsFrom      ConnectionFact[] @relation("FactSource")
+  factsTo        ConnectionFact[] @relation("FactRemote")
   discoveryRules DiscoveryRule[]
 
   /// Target of composite FKs (workspaceId, id) from other tenant tables (ADR-005).

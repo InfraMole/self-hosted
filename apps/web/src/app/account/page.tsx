@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ShieldAlert } from "lucide-react";
 import { DeleteAccount } from "@/components/account/delete-account";
+import { DigestSection } from "@/components/account/digest-section";
 import { PasskeysSection } from "@/components/account/passkeys-section";
 import { SignInMethods } from "@/components/account/sign-in-methods";
 import { TwoFactorSection } from "@/components/account/two-factor-section";
@@ -14,7 +15,14 @@ import { enabledSsoProviders } from "@/server/auth";
 import { getAccountSecurity } from "@/server/modules/account/account";
 import { listAccountEvents } from "@/server/modules/audit/audit";
 import { requireUser } from "@/server/tenancy";
-import { passkeyAddedAction, removePasskeyAction, twoFactorChangedAction } from "./actions";
+import { listDigestPreferences } from "@/server/modules/digest/digest";
+import { mailerConfigured } from "@/server/mail";
+import {
+  passkeyAddedAction,
+  removePasskeyAction,
+  setWeeklyDigestAction,
+  twoFactorChangedAction,
+} from "./actions";
 import { isDemoUser } from "@/server/modules/demo/demo";
 
 export const metadata: Metadata = { title: "Account & security" };
@@ -48,9 +56,10 @@ function describeAgent(ua: string | null): string {
 export default async function AccountPage({ searchParams }: PageProps<"/account">) {
   const user = await requireUser();
   const required = (await searchParams).required;
-  const [security, events] = await Promise.all([
+  const [security, events, digests] = await Promise.all([
     getAccountSecurity(user.id),
     listAccountEvents(user.id),
+    listDigestPreferences(user.id),
   ]);
 
   return (
@@ -89,6 +98,22 @@ export default async function AccountPage({ searchParams }: PageProps<"/account"
               authentication. Turn it on below to continue.
             </p>
           </div>
+        )}
+
+        {digests.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Weekly summary</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <DigestSection
+                rows={digests}
+                mailConfigured={mailerConfigured()}
+                disabled={isDemoUser(user)}
+                setDigest={setWeeklyDigestAction}
+              />
+            </CardContent>
+          </Card>
         )}
 
         <Card>
