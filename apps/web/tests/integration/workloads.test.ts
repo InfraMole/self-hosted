@@ -50,7 +50,7 @@ async function enrolledAgent(ctx: WorkspaceContext, machineId: string, hostname:
     }),
   );
   const body = (await res.json()) as { agentSecret: string; features: string[] };
-  expect(body.features).toEqual(["workloads", "workloads-linux"]);
+  expect(body.features).toEqual(["workloads", "workloads-linux", "hypervisors"]);
   return (report: ReportV1) =>
     reportRoute(post(report, { authorization: `Bearer ${body.agentSecret}` }));
 }
@@ -89,6 +89,7 @@ describe("windows workloads", () => {
     expect(((await res.json()) as { features: string[] }).features).toEqual([
       "workloads",
       "workloads-linux",
+      "hypervisors",
     ]);
 
     const resources = await adminDb().resource.findMany({

@@ -14,7 +14,8 @@
 import type { ImportBatch, ImportFormat, RowError } from "./parse";
 import { buildResourceRow } from "./parse";
 
-export type PlatformFormat = "proxmox" | "azure" | "aws" | "cloudflare" | "workloads" | "cloud";
+export type PlatformFormat =
+  "proxmox" | "azure" | "aws" | "cloudflare" | "workloads" | "cloud" | "hypervisor";
 
 /** Detects a platform export inside already-parsed JSON (null = generic JSON). */
 export function detectPlatform(data: unknown): PlatformFormat | null {
@@ -55,6 +56,7 @@ export function parsePlatform(format: PlatformFormat, data: unknown): ImportBatc
   else if (format === "azure") azure(batch, data);
   else if (format === "cloudflare") cloudflare(batch, data);
   else if (format === "cloud") cloud(batch, data);
+  else if (format === "hypervisor") hypervisor(batch, data);
   else aws(batch, data);
   return batch;
 }
@@ -443,6 +445,108 @@ function cloud(batch: ImportBatch, data: unknown) {
   }
 
   if (row === 0) batch.warnings.push(`No servers, databases or load balancers found in ${label}.`);
+}
+
+// ───────────────────────── Hypervisors (M24) ─────────────────────────
+
+const HYPERVISORS = {
+  vcenter: { label: "VMware", tag: "vmware", host: "ESXi host" },
+  hyperv: { label: "Hyper-V", tag: "hyper-v", host: "Hyper-V host" },
+  xenorchestra: { label: "XCP-ng", tag: "xcp-ng", host: "XCP-ng host" },
+} as const;
+
+/** What ingestion passes for one agent-side hypervisor collection (ADR-035). */
+export interface HypervisorInput {
+  source: keyof typeof HYPERVISORS;
+  hosts: { id: string; name: string; cluster?: string; status?: string; version?: string }[];
+  vms: {
+    id: string;
+    name: string;
+    host?: string;
+    status?: string;
+    cpus?: number;
+    memoryMb?: number;
+    os?: string;
+    hostname?: string;
+    ips?: string[];
+    template?: boolean;
+  }[];
+  /** The agent's own host: Hyper-V guests run on it (`host` absent). */
+  self?: { id: string };
+}
+
+/**
+ * Hosts → SERVER, guests → VM, placement host HOSTS VM (CONFIRMED, origin
+ * DETECTED: the hypervisor itself reports it). Templates are skipped. A
+ * guest that runs the agent is matched to the agent's host by the planner.
+ */
+function hypervisor(batch: ImportBatch, data: unknown) {
+  const input = (data ?? {}) as Partial<HypervisorInput>;
+  const kind = input.source && HYPERVISORS[input.source];
+  if (!kind) {
+    batch.errors.push({ row: 0, message: "Unknown hypervisor source." });
+    return;
+  }
+  const key = (what: string, id: string) => `${input.source}/${what}/${id.toLowerCase()}`;
+  let row = 0;
+  const hostKeys = new Set<string>();
+  for (const h of input.hosts ?? []) {
+    row++;
+    const created = add(batch, row, {
+      id: key("host", h.id),
+      name: h.name,
+      type: "SERVER",
+      description: [kind.host, h.cluster && `cluster ${h.cluster}`, h.version, h.status]
+        .filter(Boolean)
+        .join(" · "),
+      hostname: h.name,
+      tags: [kind.tag],
+    });
+    if (created) hostKeys.add(key("host", h.id));
+  }
+  for (const vm of input.vms ?? []) {
+    row++;
+    if (vm.template) {
+      batch.warnings.push(`Skipped template ${vm.name}.`);
+      continue;
+    }
+    const self = key("vm", vm.id);
+    const created = add(batch, row, {
+      id: self,
+      name: vm.name,
+      type: "VM",
+      description: [
+        `${kind.label} VM`,
+        vm.cpus && `${vm.cpus} vCPU`,
+        vm.memoryMb && `${Math.round((vm.memoryMb / 1024) * 10) / 10} GB RAM`,
+        vm.status,
+      ]
+        .filter(Boolean)
+        .join(" · "),
+      os: vm.os,
+      hostname: vm.hostname,
+      ips: [...new Set(vm.ips ?? [])],
+      tags: [kind.tag],
+    });
+    if (!created) continue;
+    const from = vm.host
+      ? hostKeys.has(key("host", vm.host))
+        ? key("host", vm.host)
+        : null
+      : input.self
+        ? `id:${input.self.id}`
+        : null;
+    if (from)
+      batch.relationships.push({
+        row,
+        from,
+        to: self,
+        type: "HOSTS",
+        note: `Reported by ${kind.label}`,
+        suggested: false,
+      });
+  }
+  if (row === 0) batch.warnings.push(`No ${kind.label} hosts or VMs found.`);
 }
 
 function add(batch: ImportBatch, row: number, fields: Record<string, unknown>) {

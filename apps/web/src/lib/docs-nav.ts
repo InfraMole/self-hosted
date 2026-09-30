@@ -54,6 +54,11 @@ const NAV: (Titled & { pages: (Titled & { slug: string })[] })[] = [
         es: "nginx, Apache y bases de datos en Linux",
       },
       { slug: "agent/proxmox", title: "Proxmox inventory", es: "Inventario de Proxmox" },
+      {
+        slug: "agent/hypervisors",
+        title: "vCenter, Hyper-V and XCP-ng",
+        es: "vCenter, Hyper-V y XCP-ng",
+      },
       { slug: "agent/manage", title: "Manage and remove", es: "Gestionar y desinstalar" },
     ],
   },

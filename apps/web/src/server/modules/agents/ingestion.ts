@@ -193,6 +193,7 @@ export async function ingestReport(
   });
 
   if (report.inventory) await importInventory(agent, report.inventory);
+  for (const inv of report.hypervisors ?? []) await importHypervisor(agent, report, inv, hostId);
   if (report.workloads && hostId) await importWorkloads(agent, hostId, report);
   // Discover → Suggest (M6): resolve endpoints and create/refresh DETECTED relationships.
   // Only this agent's facts, unless the host is new or its addresses changed:
@@ -350,6 +351,42 @@ async function importWorkloads(agent: Agent, hostId: string, report: ReportV1) {
         error instanceof Error ? error.message : "unknown error",
       );
     }
+  }
+}
+
+const HYPERVISOR_LABELS = { vcenter: "VMware", hyperv: "Hyper-V", xenorchestra: "Xen Orchestra" };
+
+/**
+ * Hypervisor collectors (M24, ADR-035): one reconciled source per platform
+ * and agent; Hyper-V guests hang from the agent's own host. Never fails the
+ * report.
+ */
+async function importHypervisor(
+  agent: Agent,
+  report: ReportV1,
+  inv: NonNullable<ReportV1["hypervisors"]>[number],
+  hostId: string | null,
+) {
+  const data = inv.source === "hyperv" && hostId ? { ...inv, self: { id: hostId } } : inv;
+  try {
+    await runImport(
+      { workspaceId: agent.workspaceId, userId: null },
+      { text: JSON.stringify(data), format: "hypervisor" },
+      {
+        actorType: "AGENT",
+        actorId: agent.id,
+        source: {
+          ref: `collector:${agent.id}:${inv.source}`,
+          label: `${HYPERVISOR_LABELS[inv.source]} via agent on ${report.host.hostname}`,
+          reconcile: true,
+        },
+      },
+    );
+  } catch (error) {
+    console.warn(
+      `[agent ${agent.id}] ${inv.source} inventory not imported:`,
+      error instanceof Error ? error.message : "unknown error",
+    );
   }
 }
 

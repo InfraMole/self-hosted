@@ -30,7 +30,10 @@ export const AGENT_LIMITS = {
  * enroll / report response. An agent only sends a section the server listed,
  * so a newer agent keeps working with an older server (M16).
  */
-export const AGENT_FEATURES = ["workloads", "workloads-linux"] as const;
+export const AGENT_FEATURES = ["workloads", "workloads-linux", "hypervisors"] as const;
+
+/** Hypervisor platforms an agent-side collector can report (M24, ADR-035). */
+export const HYPERVISOR_SOURCES = ["vcenter", "hyperv", "xenorchestra"] as const;
 
 /** System databases per engine: never reported, never imported. */
 export const SYSTEM_DATABASES = {
@@ -216,6 +219,63 @@ export const reportSchemaV1 = z
      * locally, SQL Server database names. A present array is a full snapshot
      * of that kind on this host; an absent one means "not collected".
      */
+    /**
+     * Hypervisor inventories (M24, feature "hypervisors"): hosts and VMs from
+     * vCenter / ESXi, Hyper-V (the agent's own host) or Xen Orchestra, each a
+     * full snapshot of that platform. Names, placement, size and guest IPs
+     * only — never credentials, disks, snapshots or console data.
+     */
+    hypervisors: z
+      .array(
+        z
+          .object({
+            source: z.enum(HYPERVISOR_SOURCES),
+            collectedAt: datetime,
+            hosts: z
+              .array(
+                z
+                  .object({
+                    id: text(128).min(1),
+                    name: text(253).min(1),
+                    cluster: text(128).optional(),
+                    status: text(32).optional(),
+                    version: text(128).optional(),
+                  })
+                  .strict(),
+              )
+              .max(500),
+            vms: z
+              .array(
+                z
+                  .object({
+                    id: text(128).min(1),
+                    name: text(253).min(1),
+                    /** Host id in `hosts`; absent for Hyper-V (the agent's host). */
+                    host: text(128).optional(),
+                    status: text(32).optional(),
+                    cpus: z.number().int().min(0).max(4096).optional(),
+                    memoryMb: z
+                      .number()
+                      .int()
+                      .min(0)
+                      .max(1 << 30)
+                      .optional(),
+                    os: text(128).optional(),
+                    hostname: text(253).optional(),
+                    ips: z
+                      .array(z.union([z.ipv4(), z.ipv6()]))
+                      .max(16)
+                      .optional(),
+                    template: z.boolean().optional(),
+                  })
+                  .strict(),
+              )
+              .max(AGENT_LIMITS.inventoryItems),
+          })
+          .strict(),
+      )
+      .max(HYPERVISOR_SOURCES.length)
+      .optional(),
     workloads: z
       .object({
         collectedAt: datetime,

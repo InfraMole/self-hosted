@@ -132,9 +132,12 @@ export function planImport(
     // agent's SERVER host: same machine, so match it and keep its type.
     let provided = res.provided;
     if (!target && (res.input.type === "VM" || res.input.type === "CONTAINER")) {
-      const hosts = (byNameType.get(`${res.input.name.toLowerCase()}|SERVER`) ?? []).filter(
-        (r) => r.source === "AGENT",
-      );
+      // By VM name, else by the guest's host name (short form: agents report short names).
+      const guestName = res.input.metadata?.hostname?.split(".")[0]?.toLowerCase();
+      const agentHosts = (name?: string) =>
+        (name ? (byNameType.get(`${name}|SERVER`) ?? []) : []).filter((r) => r.source === "AGENT");
+      let hosts = agentHosts(res.input.name.toLowerCase());
+      if (hosts.length === 0) hosts = agentHosts(guestName);
       if (hosts.length === 1) {
         target = hosts[0]!;
         matchedBy = "name";
