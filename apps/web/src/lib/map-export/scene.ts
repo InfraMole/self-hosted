@@ -15,10 +15,15 @@ export interface ExportNodeInput {
   typeLabel: string;
   environment: string | null;
   criticality: string | null;
-  /** Top-left position on the map (after layout / user drags). */
+  /** Top-left position on the map (after layout / user drags), absolute. */
   x: number;
   y: number;
   impact: ExportImpact | null;
+  /** Expanded group (M26): drawn as a box behind what it contains. */
+  group?: boolean;
+  /** Box size for groups (default: nodeWidth × nodeHeight). */
+  width?: number;
+  height?: number;
 }
 
 export interface ExportEdgeInput {
@@ -57,6 +62,7 @@ export const PALETTE = {
   high: "#c2710c",
   impactFill: "#fff7ec",
   rootFill: "#fdeeee",
+  groupFill: "#f6f7f9",
 } as const;
 
 export const ENV_COLORS: Record<string, string> = {
@@ -78,6 +84,8 @@ export interface SceneNode extends ExportNodeInput {
   /** Position inside the scene (header offset and margins applied). */
   sx: number;
   sy: number;
+  width: number;
+  height: number;
   border: string;
   fill: string;
   dash: number[];
@@ -123,22 +131,28 @@ export const EXPORT_NOTE =
 
 export function buildScene(input: ExportInput): Scene {
   const { nodes, nodeWidth: w, nodeHeight: h } = input;
+  const wOf = (n: ExportNodeInput) => n.width ?? w;
+  const hOf = (n: ExportNodeInput) => n.height ?? h;
   const minX = nodes.length ? Math.min(...nodes.map((n) => n.x)) : 0;
   const minY = nodes.length ? Math.min(...nodes.map((n) => n.y)) : 0;
-  const maxX = nodes.length ? Math.max(...nodes.map((n) => n.x + w)) : w;
-  const maxY = nodes.length ? Math.max(...nodes.map((n) => n.y + h)) : h;
+  const maxX = nodes.length ? Math.max(...nodes.map((n) => n.x + wOf(n))) : w;
+  const maxY = nodes.length ? Math.max(...nodes.map((n) => n.y + hOf(n))) : h;
   const contentW = maxX - minX;
   const width = Math.max(MIN_WIDTH, Math.ceil(contentW + 2 * MARGIN));
   const offsetX = MARGIN + (width - 2 * MARGIN - contentW) / 2 - minX;
   const offsetY = HEADER - minY;
   const height = Math.ceil(HEADER + (maxY - minY) + MARGIN + FOOTER);
 
-  const sceneNodes: SceneNode[] = nodes.map((n) => {
+  // Boxes first: they are painted behind what they contain.
+  const ordered = [...nodes].sort((a, b) => Number(!!b.group) - Number(!!a.group));
+  const sceneNodes: SceneNode[] = ordered.map((n) => {
     const impact = n.impact;
     return {
       ...n,
       sx: n.x + offsetX,
       sy: n.y + offsetY,
+      width: wOf(n),
+      height: hOf(n),
       border:
         impact === "root"
           ? PALETTE.root
@@ -159,10 +173,10 @@ export function buildScene(input: ExportInput): Scene {
     const t = at.get(e.target);
     if (!s || !t) continue;
     // Same as the map: an edge to something above leaves from the top.
-    const up = t.sy < s.sy;
+    const up = t.sy + t.height / 2 < s.sy + s.height / 2;
     sceneEdges.push({
-      from: { x: s.sx + w / 2, y: up ? s.sy : s.sy + h },
-      to: { x: t.sx + w / 2, y: up ? t.sy + h : t.sy },
+      from: { x: s.sx + s.width / 2, y: up ? s.sy : s.sy + s.height },
+      to: { x: t.sx + t.width / 2, y: up ? t.sy + t.height : t.sy },
       color: e.onImpactPath
         ? PALETTE.impact
         : e.informational

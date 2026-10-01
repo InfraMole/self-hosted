@@ -245,7 +245,11 @@ regression to the neighbours' mean (`placeRow`); wide layers wrap at
 unconnected resources in a tray. 2,000 nodes in ~35 ms. Above
 `DETAILED_LAYOUT_LIMIT` (300) React Flow renders only the viewport. The
 first view fits everything if readable (zoom ≥ 0.55), else the main group,
-else its top at 0.55. `layout-metrics.ts` measures aspect, crossings,
+else its top at 0.55 (own framing below the toolbar; only when the visible
+set changes). Phase 2 (ADR-040): `groups.ts` — `containment` (single,
+acyclic RUNS_ON / HOSTS placement), `displayGraph` (expanded / collapsed,
+edges re-attached), `nestedLayout` (innermost boxes first, `BOX_SPACING`);
+React Flow parent nodes (`type: "box"`). `layout-metrics.ts` measures aspect, crossings,
 upward edges, overlaps and edge length (`layout-quality.test.ts` on the
 demo).
 

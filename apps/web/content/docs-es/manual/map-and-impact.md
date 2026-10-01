@@ -24,6 +24,15 @@ es la excepción: sube hacia el proxy que tiene delante (el camino que sigue
 una petición). Los grupos de recursos relacionados se dibujan uno al lado
 de otro, y los recursos sin relaciones se reúnen en una pequeña cuadrícula.
 
+**Servidores como cajas**: lo que se ejecuta en un único servidor, VM o
+host — sitios, bases de datos, contenedores, VMs de un hipervisor — se
+dibuja dentro de él, así que la ubicación no necesita flechas. Los mapas
+con más de 25 recursos se abren con las cajas plegadas (un servidor muestra
+**+N**, lo que contiene); pulsa **+N** para abrir una, o **Expand all** /
+**Collapse all**. Las relaciones de lo que hay dentro de una caja plegada se
+dibujan hacia la caja. Un workload que se ejecuta en varios nodos se queda
+fuera. El foco y el impacto siempre lo muestran todo.
+
 **Los mapas grandes** se abren sobre su grupo principal a un tamaño
 legible; usa el minimapa, el botón de encajar o el zoom para ver el resto.
 Haz doble clic en un recurso para centrarte en él, o filtra por tipo o

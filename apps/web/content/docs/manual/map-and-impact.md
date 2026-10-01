@@ -23,6 +23,14 @@ in front (the path a request takes). Separate groups of related resources
 are laid out side by side, and resources without relationships are
 gathered in a small grid.
 
+**Servers as boxes**: what runs on a single server, VM or host — sites,
+databases, containers, VMs on a hypervisor — is drawn inside it, so
+placement needs no arrows. Maps with more than 25 resources open with the
+boxes collapsed (a server shows **+N**, what it contains); click **+N** to
+open one, or **Expand all** / **Collapse all**. Relationships of what is
+inside a collapsed box are drawn to the box. A workload that runs on several
+nodes stays outside. Focus and impact always show everything.
+
 **Large maps** open on their main group at a readable size; use the
 minimap, the fit button or zoom to see the rest. Double-click a resource to
 focus on it, or filter by type or environment.

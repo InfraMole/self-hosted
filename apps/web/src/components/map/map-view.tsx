@@ -2,7 +2,7 @@
 "use client";
 
 import "@xyflow/react/dist/style.css";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Background,
   BackgroundVariant,
@@ -16,7 +16,7 @@ import {
   useStoreApi,
   type Edge,
 } from "@xyflow/react";
-import { Crosshair, Download, Radar, X } from "lucide-react";
+import { Crosshair, Download, Maximize2, Minimize2, Radar, X } from "lucide-react";
 import {
   RELATIONSHIP_TYPE_INFO,
   dependencyDirection,
@@ -33,15 +33,10 @@ import { cn } from "@/lib/utils";
 import { buildScene, exportFileName, type ExportImpact } from "@/lib/map-export/scene";
 import type { MapEdge, MapNode } from "@/server/modules/map/map";
 import { downloadPdf, downloadPng } from "./export-map";
-import {
-  DETAILED_LAYOUT_LIMIT,
-  NODE_HEIGHT,
-  NODE_WIDTH,
-  drawDirection,
-  stackLayout,
-} from "./layout";
+import { DETAILED_LAYOUT_LIMIT, NODE_HEIGHT, NODE_WIDTH, drawDirection } from "./layout";
+import { containment, displayGraph, nestedLayout } from "./groups";
 import { MapInspector } from "./map-inspector";
-import { ResourceNode, type ImpactLevel, type ResourceFlowNode } from "./resource-node";
+import { GroupNode, ResourceNode, type ImpactLevel, type ResourceFlowNode } from "./resource-node";
 
 /** Below this zoom node names are unreadable: large maps open on their main group instead. */
 const READABLE_ZOOM = 0.55;
@@ -61,7 +56,10 @@ const ENV_HEX: Record<string, string> = {
   TEST: "#a48cf5",
   OTHER: "#5a626c",
 };
-const nodeTypes = { resource: ResourceNode };
+const nodeTypes = { resource: ResourceNode, box: GroupNode };
+
+/** Up to this many visible resources, groups open expanded by default (M26). */
+const EXPANDED_BY_DEFAULT = 25;
 
 export interface Focus {
   id: string;
@@ -94,7 +92,7 @@ function MapCanvas({
   initialFocus,
   initialImpact,
 }: Props) {
-  const { fitView, setViewport } = useReactFlow();
+  const { setViewport } = useReactFlow();
   const store = useStoreApi();
   const [typeFilter, setTypeFilter] = useState("");
   const [envFilter, setEnvFilter] = useState("");
@@ -174,82 +172,134 @@ function MapCanvas({
     return candidateEdges.filter((e) => ids.has(e.from) && ids.has(e.to));
   }, [candidateEdges, visibleIds]);
 
-  const layout = useMemo(
-    () =>
-      stackLayout(
-        visibleIds,
-        visibleEdges,
-        new Map(visibleIds.map((id) => [id, byId.get(id)!.type])),
-      ),
-    [visibleIds, visibleEdges, byId],
+  // Groups (M26 phase 2): what runs on / is hosted by one resource is drawn
+  // inside it. Focus and impact always show everything (nothing hidden).
+  const [groupMode, setGroupMode] = useState<"auto" | "expanded" | "collapsed">("auto");
+  const [groupOverrides, setGroupOverrides] = useState<Map<string, boolean>>(new Map());
+  const contained = useMemo(
+    () => containment(visibleIds, visibleEdges),
+    [visibleIds, visibleEdges],
   );
-  const positions = layout.positions;
+  const display = useMemo(() => {
+    const byDefault =
+      !!focus ||
+      !!impactLevels ||
+      groupMode === "expanded" ||
+      (groupMode === "auto" && visibleIds.length <= EXPANDED_BY_DEFAULT);
+    return displayGraph(visibleIds, visibleEdges, contained, (id) =>
+      focus || impactLevels ? true : (groupOverrides.get(id) ?? byDefault),
+    );
+  }, [visibleIds, visibleEdges, contained, focus, impactLevels, groupMode, groupOverrides]);
+  const toggleGroup = useCallback(
+    (id: string) =>
+      setGroupOverrides((current) => new Map(current).set(id, !display.expanded.has(id))),
+    [display],
+  );
+  const layout = useMemo(
+    () => nestedLayout(display, new Map(visibleIds.map((id) => [id, byId.get(id)!.type]))),
+    [display, visibleIds, byId],
+  );
+  const positions = layout.absolute;
+  const sizeOf = useCallback(
+    (id: string) => layout.sizes.get(id) ?? { width: NODE_WIDTH, height: NODE_HEIGHT },
+    [layout],
+  );
 
   // Selected node + its direct neighbours stay bright; everything else dims.
   const highlighted = useMemo(() => {
     // In impact view the root is the subject: selecting it must not dim the affected resources.
     if (!selectedId || selectedId === impactId) return null;
     const set = new Set([selectedId]);
-    for (const e of visibleEdges) {
+    for (const e of display.edges) {
       if (e.from === selectedId) set.add(e.to);
       if (e.to === selectedId) set.add(e.from);
     }
+    // A box stays bright when something inside it is.
+    for (const id of [...set])
+      for (let p = display.parentOf.get(id); p; p = display.parentOf.get(p)) set.add(p);
     return set;
-  }, [selectedId, visibleEdges, impactId]);
+  }, [selectedId, display, impactId]);
 
   const [flowNodes, setFlowNodes, onNodesChange] = useNodesState<ResourceFlowNode>([]);
 
   // Re-layout when the visible graph changes (user-dragged positions are cosmetic).
   useEffect(() => {
     setFlowNodes(
-      visibleIds.map((id) => ({
-        id,
-        type: "resource",
-        position: positions.get(id)!,
-        data: { resource: byId.get(id)!, dimmed: false, isFocus: false, impact: null },
-      })),
+      display.shown.map((id) => {
+        const group = display.expanded.has(id);
+        const size = sizeOf(id);
+        const hasChildren = group || display.hidden.has(id);
+        return {
+          id,
+          type: group ? "box" : "resource",
+          position: layout.positions.get(id)!,
+          ...(display.parentOf.has(id) ? { parentId: display.parentOf.get(id)! } : {}),
+          ...(group ? { width: size.width, height: size.height, zIndex: -1 } : {}),
+          data: {
+            resource: byId.get(id)!,
+            dimmed: false,
+            isFocus: false,
+            impact: null,
+            hidden: display.hidden.get(id),
+            onToggle: hasChildren && !focus && !impactLevels ? toggleGroup : undefined,
+          },
+        };
+      }),
     );
-    // Show everything when it stays readable; otherwise open on the largest
-    // group, and on its top (entry points) when even that is too big (M26).
+  }, [display, layout, sizeOf, byId, focus, impactLevels, toggleGroup, setFlowNodes]);
+
+  // Framing: only when the set of visible resources changes (filters, focus,
+  // impact) — expanding or collapsing a group keeps the current view. Reads
+  // the latest layout through a ref so re-renders cannot cancel it.
+  const latest = useRef({ display, positions, layout, sizeOf });
+  useEffect(() => {
+    latest.current = { display, positions, layout, sizeOf };
+  }, [display, positions, layout, sizeOf]);
+  useEffect(() => {
     let frame = 0;
     let tries = 0;
     const show = () => {
       const { width, height } = store.getState();
       // The canvas may not be measured yet on the first frames.
-      if ((!width || !height) && tries++ < 20) {
+      if ((!width || !height) && tries++ < 60) {
         frame = requestAnimationFrame(show);
         return;
       }
+      const { display, positions, layout, sizeOf } = latest.current;
+      if (!width || !height || display.shown.length === 0) return;
       const box = (ids: readonly string[]) => {
-        const pts = ids.map((id) => positions.get(id)!).filter(Boolean);
-        const x = Math.min(...pts.map((p) => p.x));
-        const y = Math.min(...pts.map((p) => p.y));
-        const w = Math.max(...pts.map((p) => p.x)) + NODE_WIDTH - x;
-        const h = Math.max(...pts.map((p) => p.y)) + NODE_HEIGHT - y;
-        return { x, y, w, h, zoom: Math.min(width / (w * 1.3), height / (h * 1.3)) };
+        const shown = ids.filter((id) => positions.has(id));
+        const x = Math.min(...shown.map((id) => positions.get(id)!.x));
+        const y = Math.min(...shown.map((id) => positions.get(id)!.y));
+        const w = Math.max(...shown.map((id) => positions.get(id)!.x + sizeOf(id).width)) - x;
+        const h = Math.max(...shown.map((id) => positions.get(id)!.y + sizeOf(id).height)) - y;
+        return { x, y, w, h };
       };
-      if (!width || !height || visibleIds.length === 0) return;
-      if (box(visibleIds).zoom >= READABLE_ZOOM) {
-        void fitView({ padding: 0.3, duration: 250, maxZoom: 1.2 });
-        return;
-      }
+      // Show everything when it stays readable; otherwise open on the largest
+      // group, on its top (entry points) when even that is too tall. The
+      // toolbar covers the top ~110 px.
+      const TOP = 112;
+      const fit = (b: ReturnType<typeof box>) =>
+        Math.min(1.2, (width - 48) / b.w, (height - TOP - 24) / b.h);
+      const frameBox = (b: ReturnType<typeof box>, zoom: number) => {
+        const fitsHeight = b.h * zoom <= height - TOP - 24;
+        void setViewport(
+          {
+            zoom,
+            x: width / 2 - (b.x + b.w / 2) * zoom,
+            y: fitsHeight ? TOP + (height - TOP - b.h * zoom) / 2 - b.y * zoom : TOP - b.y * zoom,
+          },
+          { duration: 250 },
+        );
+      };
+      const all = box(display.shown);
+      if (fit(all) >= READABLE_ZOOM) return frameBox(all, fit(all));
       const main = box(layout.primary);
-      if (main.zoom >= READABLE_ZOOM) {
-        void fitView({ nodes: layout.primary.map((id) => ({ id })), padding: 0.3, duration: 250 });
-        return;
-      }
-      void setViewport(
-        {
-          zoom: READABLE_ZOOM,
-          x: width / 2 - (main.x + main.w / 2) * READABLE_ZOOM,
-          y: 48 - main.y * READABLE_ZOOM,
-        },
-        { duration: 250 },
-      );
+      frameBox(main, Math.max(READABLE_ZOOM, fit(main)));
     };
     frame = requestAnimationFrame(show);
     return () => cancelAnimationFrame(frame);
-  }, [visibleIds, positions, layout, byId, setFlowNodes, fitView, setViewport, store]);
+  }, [visibleIds, store, setViewport]);
 
   // Selection / focus styling without touching positions.
   useEffect(() => {
@@ -265,11 +315,11 @@ function MapCanvas({
         },
       })),
     );
-  }, [highlighted, selectedId, focus, impactLevels, setFlowNodes, visibleIds]);
+  }, [highlighted, selectedId, focus, impactLevels, setFlowNodes, visibleIds, display]);
 
   const flowEdges: Edge[] = useMemo(
     () =>
-      visibleEdges.map((e) => {
+      display.edges.map((e) => {
         const confidence = edgeConfidence(e.status, e.origin)!;
         const informational = dependencyDirection(e) === null;
         const { source, target } = drawDirection(e);
@@ -287,7 +337,8 @@ function MapCanvas({
               : COLORS.edge;
         // Leave and enter on the facing sides: an edge to something above
         // (exposed through, monitored by…) goes out the top and in the bottom.
-        const up = (positions.get(target)?.y ?? 0) < (positions.get(source)?.y ?? 0);
+        const centreY = (id: string) => (positions.get(id)?.y ?? 0) + sizeOf(id).height / 2;
+        const up = centreY(target) < centreY(source);
         return {
           id: e.id,
           source,
@@ -310,7 +361,7 @@ function MapCanvas({
           },
         };
       }),
-    [visibleEdges, selectedId, highlighted, impactEdgeIds, impactLevels, positions],
+    [display, selectedId, highlighted, impactEdgeIds, impactLevels, positions, sizeOf],
   );
 
   // Keep ?focus= / ?impact= in the URL so a view can be shared.
@@ -371,7 +422,16 @@ function MapCanvas({
         if (!showUnconfirmed) subtitle += " · confirmed relationships only";
       }
       subtitle += ` · ${visibleIds.length} resources, ${visibleEdges.length} relationships`;
-      const position = new Map(flowNodes.map((n) => [n.id, n.position]));
+      // Absolute positions: dragged top-level nodes keep their place; nested
+      // ones follow their box.
+      const dragged = new Map(flowNodes.map((n) => [n.id, n.position]));
+      const absolute = new Map<string, { x: number; y: number }>();
+      for (const id of display.shown) {
+        const own = dragged.get(id) ?? layout.positions.get(id)!;
+        const parent = display.parentOf.get(id);
+        const base = parent ? absolute.get(parent)! : { x: 0, y: 0 };
+        absolute.set(id, { x: base.x + own.x, y: base.y + own.y });
+      }
       const scene = buildScene({
         title: `${workspaceName} — ${view}`,
         subtitle,
@@ -379,9 +439,10 @@ function MapCanvas({
         impactMode: !!impactLevels,
         nodeWidth: NODE_WIDTH,
         nodeHeight: NODE_HEIGHT,
-        nodes: visibleIds.map((id) => {
+        nodes: display.shown.map((id) => {
           const r = byId.get(id)!;
-          const p = position.get(id) ?? positions.get(id)!;
+          const p = absolute.get(id)!;
+          const group = display.expanded.has(id);
           return {
             id,
             name: r.name,
@@ -396,9 +457,10 @@ function MapCanvas({
             x: p.x,
             y: p.y,
             impact: (impactLevels?.get(id) ?? null) as ExportImpact | null,
+            ...(group ? { group, width: sizeOf(id).width, height: sizeOf(id).height } : {}),
           };
         }),
-        edges: visibleEdges.map((e) => {
+        edges: display.edges.map((e) => {
           const { source, target } = drawDirection(e);
           return {
             source,
@@ -431,7 +493,9 @@ function MapCanvas({
       visibleIds,
       visibleEdges,
       flowNodes,
-      positions,
+      display,
+      layout,
+      sizeOf,
       workspaceName,
       impactLevels,
       byId,
@@ -574,6 +638,29 @@ function MapCanvas({
             </div>
           )}
 
+          {(contained.children.size > 0 || display.expanded.size > 0) &&
+            !focus &&
+            !impactLevels && (
+              <button
+                type="button"
+                className="border-border bg-surface/95 text-muted hover:text-foreground pointer-events-auto inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs backdrop-blur"
+                onClick={() => {
+                  setGroupOverrides(new Map());
+                  setGroupMode(display.expanded.size > 0 ? "collapsed" : "expanded");
+                }}
+                title="Servers, hypervisors and hosts as boxes with what runs on them"
+              >
+                {display.expanded.size > 0 ? (
+                  <>
+                    <Minimize2 className="size-3.5" /> Collapse all
+                  </>
+                ) : (
+                  <>
+                    <Maximize2 className="size-3.5" /> Expand all
+                  </>
+                )}
+              </button>
+            )}
           <span className="text-subtle pointer-events-auto ml-auto font-mono text-[11px]">
             {visibleIds.length} resources · {visibleEdges.length} relationships
           </span>

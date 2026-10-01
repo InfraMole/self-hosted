@@ -96,8 +96,17 @@ export function paintScene(scene: Scene, fonts: Fonts = FALLBACK): HTMLCanvasEle
   }
 
   for (const n of scene.nodes) {
-    const w = 188;
-    const h = 40;
+    const w = n.width;
+    const h = n.group ? 40 : n.height; // a group's header row
+    if (n.group) {
+      // The box around what runs on it, then its header like a node.
+      roundRect(ctx, n.sx, n.sy, n.width, n.height, 8);
+      ctx.fillStyle = PALETTE.groupFill;
+      ctx.fill();
+      ctx.strokeStyle = n.border;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
     roundRect(ctx, n.sx, n.sy, w, h, 6);
     ctx.fillStyle = n.fill;
     ctx.fill();

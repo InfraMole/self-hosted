@@ -7,9 +7,10 @@
  * ("what does this need?") — except "exposed through", drawn from below up
  * to the proxy that fronts it (the path a request takes).
  *
- * Connected groups are laid out separately and packed to a screen-like
- * shape; resources without relationships go to a tray. Linear-ish in nodes
- * + edges: 2,000 servers lay out in well under a second.
+ * Connected groups are laid out separately and packed; resources without
+ * relationships go to a tray. Nodes may have their own size (expanded
+ * groups, phase 2). Linear-ish in nodes + edges: 2,000 servers lay out in
+ * well under a second.
  */
 import { dependencyDirection, type GraphEdge } from "@depmap/graph";
 import type { ResourceType } from "@/generated/prisma/enums";
@@ -20,6 +21,11 @@ export const NODE_HEIGHT = 40;
 export interface Point {
   x: number;
   y: number;
+}
+
+export interface Size {
+  width: number;
+  height: number;
 }
 
 /** Draw direction for an edge: dependent → dependency, or stored direction for informational edges. */
@@ -68,12 +74,15 @@ const GAP_Y = 72;
 const ROW_GAP = 18;
 const COMPONENT_GAP = 140;
 const TRAY_COLUMNS = 6;
-const SPACING = NODE_WIDTH + GAP_X;
+const NODE: Size = { width: NODE_WIDTH, height: NODE_HEIGHT };
 
 export interface MapLayout {
+  /** Top-left of each node. */
   positions: Map<string, Point>;
   /** Node ids of the largest connected group: where a large map opens. */
   primary: string[];
+  /** Bounding box of the whole layout (from 0,0). */
+  size: Size;
 }
 
 /** Top-left positions for each node id. */
@@ -92,11 +101,30 @@ function layering(edge: GraphEdge): [above: string, below: string] | null {
   return dir ? [dir.dependent, dir.dependency] : null;
 }
 
+export interface Spacing {
+  gapX: number;
+  gapY: number;
+  rowGap: number;
+  componentGap: number;
+}
+
+export const MAP_SPACING: Spacing = {
+  gapX: GAP_X,
+  gapY: GAP_Y,
+  rowGap: ROW_GAP,
+  componentGap: COMPONENT_GAP,
+};
+/** Inside a group box: tighter, so boxes stay small. */
+export const BOX_SPACING: Spacing = { gapX: 20, gapY: 36, rowGap: 14, componentGap: 28 };
+
 export function stackLayout(
   nodeIds: readonly string[],
   edges: readonly GraphEdge[],
   types?: ReadonlyMap<string, ResourceType>,
+  sizes?: ReadonlyMap<string, Size>,
+  spacing: Spacing = MAP_SPACING,
 ): MapLayout {
+  const sizeOf = (id: string) => sizes?.get(id) ?? NODE;
   const ids = new Set(nodeIds);
   const visible = edges.filter((e) => ids.has(e.from) && ids.has(e.to) && e.from !== e.to);
 
@@ -129,34 +157,43 @@ export function stackLayout(
     const own = [...new Set(c.flatMap((id) => edgesByNode.get(id) ?? []))].filter(
       (e) => set.has(e.from) && set.has(e.to),
     );
-    return layoutComponent(c, own, types);
+    return layoutComponent(c, own, sizeOf, types, spacing);
   });
 
-  // One vertical scale for every group: a layer is as tall as its tallest
-  // occurrence, so the same layer is on the same row across groups.
-  const rowsPerLayer = new Map<number, number>();
+  // One vertical scale for every group: a row of a layer is as tall as its
+  // tallest occurrence, so the same layer is on the same row across groups.
+  const rowHeights = new Map<number, number[]>();
   for (const c of laid)
-    for (const [layer, rows] of c.rowsPerLayer)
-      rowsPerLayer.set(layer, Math.max(rowsPerLayer.get(layer) ?? 0, rows));
-  const layerY = new Map<number, number>();
+    for (const [layer, heights] of c.rowHeights) {
+      const cur = rowHeights.get(layer) ?? [];
+      heights.forEach((h, i) => (cur[i] = Math.max(cur[i] ?? 0, h)));
+      rowHeights.set(layer, cur);
+    }
+  const rowY = new Map<string, number>(); // "layer|row" → y
   let y = 0;
-  for (const layer of [...rowsPerLayer.keys()].sort((a, b) => a - b)) {
-    layerY.set(layer, y);
-    const rows = rowsPerLayer.get(layer)!;
-    y += rows * NODE_HEIGHT + (rows - 1) * ROW_GAP + GAP_Y;
+  for (const layer of [...rowHeights.keys()].sort((a, b) => a - b)) {
+    const heights = rowHeights.get(layer)!;
+    heights.forEach((h, i) => {
+      rowY.set(`${layer}|${i}`, y);
+      y += h + (i < heights.length - 1 ? spacing.rowGap : spacing.gapY);
+    });
   }
   const blocks: Block[] = laid.map((c) => {
     const positions = new Map<string, Point>();
-    for (const [id, { x, layer, row }] of c.nodes)
-      positions.set(id, { x, y: layerY.get(layer)! + row * (NODE_HEIGHT + ROW_GAP) });
-    return normalise(positions, false);
+    for (const [id, { cx, layer, row }] of c.nodes)
+      positions.set(id, { x: cx - sizeOf(id).width / 2, y: rowY.get(`${layer}|${row}`)! });
+    return normalise(positions, sizeOf, false);
   });
-  if (loners.length) blocks.push(trayBlock(loners, types));
+  if (loners.length) blocks.push(trayBlock(loners, sizeOf, types, spacing));
 
-  return {
-    positions: pack(blocks),
-    primary: components[0] ?? loners,
-  };
+  const positions = pack(blocks, spacing);
+  let width = 0;
+  let height = 0;
+  for (const [id, p] of positions) {
+    width = Math.max(width, p.x + sizeOf(id).width);
+    height = Math.max(height, p.y + sizeOf(id).height);
+  }
+  return { positions, primary: components[0] ?? loners, size: { width, height } };
 }
 
 interface Block {
@@ -166,14 +203,18 @@ interface Block {
 }
 
 interface LaidComponent {
-  nodes: Map<string, { x: number; layer: number; row: number }>;
-  rowsPerLayer: Map<number, number>;
+  /** Horizontal centre, layer and row within the layer. */
+  nodes: Map<string, { cx: number; layer: number; row: number }>;
+  /** Per layer, the height of each of its rows. */
+  rowHeights: Map<number, number[]>;
 }
 
 function layoutComponent(
   nodeIds: string[],
   edges: GraphEdge[],
-  types?: ReadonlyMap<string, ResourceType>,
+  sizeOf: (id: string) => Size,
+  types: ReadonlyMap<string, ResourceType> | undefined,
+  spacing: Spacing,
 ): LaidComponent {
   const floor = (id: string) => (types ? TYPE_LAYER[types.get(id) ?? "OTHER"] : 0);
 
@@ -222,9 +263,6 @@ function layoutComponent(
     }
   }
 
-  // Pull nodes without anything below them down next to what they serve?
-  // No: a node with nothing above sits on its type's layer (stable reading).
-  // Compress empty layers.
   const used = [...new Set(layer.values())].sort((a, b) => a - b);
   const index = new Map(used.map((l, i) => [l, i]));
   const layers: string[][] = used.map(() => []);
@@ -282,38 +320,62 @@ function layoutComponent(
       rows.push({ ids: l.slice(s, s + MAX_ROW), layer: used[li]!, row: s / MAX_ROW });
   });
 
-  // Horizontal placement: each node as close as possible to the mean of its
-  // neighbours, keeping the row order and spacing (isotonic regression).
-  const x = new Map<string, number>();
-  for (const r of rows) r.ids.forEach((id, i) => x.set(id, (i - (r.ids.length - 1) / 2) * SPACING));
+  // Horizontal placement: each node's centre as close as possible to the mean
+  // of its neighbours' centres, keeping row order and spacing.
+  const cx = new Map<string, number>();
+  for (const r of rows) {
+    const widths = r.ids.map((id) => sizeOf(id).width);
+    const total = widths.reduce((a, w) => a + w, 0) + spacing.gapX * (widths.length - 1);
+    let x = -total / 2;
+    r.ids.forEach((id, i) => {
+      cx.set(id, x + widths[i]! / 2);
+      x += widths[i]! + spacing.gapX;
+    });
+  }
   for (let pass = 0; pass < 10; pass++) {
     const sequence = pass % 2 === 0 ? rows : [...rows].reverse();
     for (const r of sequence) {
       const desired = r.ids.map((id) => {
         const ns = adjacency.get(id)!;
-        return ns.length ? ns.reduce((a, n) => a + x.get(n)!, 0) / ns.length : x.get(id)!;
+        return ns.length ? ns.reduce((a, n) => a + cx.get(n)!, 0) / ns.length : cx.get(id)!;
       });
-      placeRow(desired).forEach((v, i) => x.set(r.ids[i]!, v));
+      placeRow(
+        desired,
+        r.ids.map((id) => sizeOf(id).width),
+        spacing.gapX,
+      ).forEach((v, i) => cx.set(r.ids[i]!, v));
     }
   }
 
-  const nodes = new Map<string, { x: number; layer: number; row: number }>();
-  const rowsPerLayer = new Map<number, number>();
+  const nodes = new Map<string, { cx: number; layer: number; row: number }>();
+  const rowHeights = new Map<number, number[]>();
   for (const r of rows) {
-    rowsPerLayer.set(r.layer, Math.max(rowsPerLayer.get(r.layer) ?? 0, r.row + 1));
-    for (const id of r.ids) nodes.set(id, { x: x.get(id)!, layer: r.layer, row: r.row });
+    const heights = rowHeights.get(r.layer) ?? [];
+    heights[r.row] = Math.max(heights[r.row] ?? 0, ...r.ids.map((id) => sizeOf(id).height));
+    rowHeights.set(r.layer, heights);
+    for (const id of r.ids) nodes.set(id, { cx: cx.get(id)!, layer: r.layer, row: r.row });
   }
-  return { nodes, rowsPerLayer };
+  return { nodes, rowHeights };
 }
 
 /**
- * Closest positions to `desired` with increasing order and SPACING between
- * neighbours: pool-adjacent-violators on y_i = x_i − i·SPACING.
+ * Centres closest to `desired`, keeping the order and a gap between
+ * neighbours of the given widths (default: plain nodes):
+ * pool-adjacent-violators on y_i = c_i − offset_i.
  */
-export function placeRow(desired: readonly number[]): number[] {
+export function placeRow(
+  desired: readonly number[],
+  widths?: readonly number[],
+  gap = GAP_X,
+): number[] {
+  const w = (i: number) => widths?.[i] ?? NODE_WIDTH;
+  const offsets: number[] = [];
+  desired.forEach((_, i) =>
+    offsets.push(i === 0 ? 0 : offsets[i - 1]! + (w(i - 1) + w(i)) / 2 + gap),
+  );
   const blocks: { sum: number; count: number }[] = [];
   desired.forEach((d, i) => {
-    blocks.push({ sum: d - i * SPACING, count: 1 });
+    blocks.push({ sum: d - offsets[i]!, count: 1 });
     while (blocks.length > 1) {
       const b = blocks[blocks.length - 1]!;
       const a = blocks[blocks.length - 2]!;
@@ -323,39 +385,53 @@ export function placeRow(desired: readonly number[]): number[] {
   });
   const out: number[] = [];
   for (const b of blocks)
-    for (let k = 0; k < b.count; k++) out.push(b.sum / b.count + out.length * SPACING);
+    for (let k = 0; k < b.count; k++) out.push(b.sum / b.count + offsets[out.length]!);
   return out;
 }
 
 /** Resources without relationships: a compact grid, by type then name. */
-function trayBlock(ids: string[], types?: ReadonlyMap<string, ResourceType>): Block {
+function trayBlock(
+  ids: string[],
+  sizeOf: (id: string) => Size,
+  types: ReadonlyMap<string, ResourceType> | undefined,
+  spacing: Spacing,
+): Block {
   const sorted = [...ids].sort(
     (a, b) =>
       (types ? TYPE_LAYER[types.get(a) ?? "OTHER"] - TYPE_LAYER[types.get(b) ?? "OTHER"] : 0) ||
       a.localeCompare(b),
   );
   const columns = Math.min(TRAY_COLUMNS, sorted.length);
+  // Rows of `columns` items, each as wide as itself (boxes are wider than nodes).
   const positions = new Map<string, Point>();
-  sorted.forEach((id, i) =>
-    positions.set(id, {
-      x: (i % columns) * SPACING,
-      y: Math.floor(i / columns) * (NODE_HEIGHT + ROW_GAP),
-    }),
-  );
-  return normalise(positions);
+  let y = 0;
+  for (let start = 0; start < sorted.length; start += columns) {
+    const row = sorted.slice(start, start + columns);
+    let x = 0;
+    for (const id of row) {
+      positions.set(id, { x, y });
+      x += sizeOf(id).width + spacing.gapX;
+    }
+    y += Math.max(...row.map((id) => sizeOf(id).height)) + spacing.rowGap;
+  }
+  return normalise(positions, sizeOf);
 }
 
 /** Shift to the origin; `vertically: false` keeps the shared layer rows. */
-function normalise(positions: Map<string, Point>, vertically = true): Block {
-  const pts = [...positions.values()];
-  const minX = Math.min(...pts.map((p) => p.x));
-  const minY = vertically ? Math.min(...pts.map((p) => p.y)) : 0;
+function normalise(
+  positions: Map<string, Point>,
+  sizeOf: (id: string) => Size,
+  vertically = true,
+): Block {
+  const entries = [...positions.entries()];
+  const minX = Math.min(...entries.map(([, p]) => p.x));
+  const minY = vertically ? Math.min(...entries.map(([, p]) => p.y)) : 0;
   const out = new Map<string, Point>();
-  for (const [id, p] of positions) out.set(id, { x: p.x - minX, y: p.y - minY });
+  for (const [id, p] of entries) out.set(id, { x: p.x - minX, y: p.y - minY });
   return {
     positions: out,
-    width: Math.max(...pts.map((p) => p.x)) - minX + NODE_WIDTH,
-    height: Math.max(...pts.map((p) => p.y)) - minY + NODE_HEIGHT,
+    width: Math.max(...entries.map(([id, p]) => p.x + sizeOf(id).width)) - minX,
+    height: Math.max(...entries.map(([id, p]) => p.y + sizeOf(id).height)) - minY,
   };
 }
 
@@ -365,11 +441,12 @@ function normalise(positions: Map<string, Point>, vertically = true): Block {
  * otherwise (many similar groups) shelves aiming at a screen-like shape.
  * The tray of unconnected resources goes last.
  */
-function pack(blocks: Block[]): Map<string, Point> {
+function pack(blocks: Block[], spacing: Spacing): Map<string, Point> {
+  const COMPONENT_GAP = spacing.componentGap;
   const out = new Map<string, Point>();
   if (!blocks.length) return out;
   const place = (b: Block, x: number, y: number) => {
-    for (const [id, p] of b.positions) out.set(id, { x: p.x + x + 16, y: p.y + y + 16 });
+    for (const [id, p] of b.positions) out.set(id, { x: p.x + x, y: p.y + y });
   };
   const area = (b: Block) => (b.width + COMPONENT_GAP) * (b.height + COMPONENT_GAP);
   const total = blocks.reduce((a, b) => a + area(b), 0);
