@@ -9,6 +9,7 @@ import type {
   ResourceStatus,
   ResourceType,
 } from "@/generated/prisma/enums";
+import { resolveTech, type ResourceTech } from "@/lib/tech";
 import type { WorkspaceContext } from "@/server/authz";
 import { tenantDb } from "@/server/db";
 import { resourceMetadataSchema } from "@/server/modules/resources/schemas";
@@ -21,6 +22,8 @@ export interface MapNode {
   criticality: Criticality | null;
   status: ResourceStatus;
   ipAddresses: string[];
+  /** What it is / where it runs, from its tags and OS (lib/tech.ts). */
+  tech: ResourceTech;
 }
 
 export interface MapEdge {
@@ -55,6 +58,7 @@ export async function getWorkspaceGraph(ctx: WorkspaceContext): Promise<Workspac
         criticality: true,
         status: true,
         metadata: true,
+        tags: true,
       },
       // No cap (M15): a truncated graph would silently hide dependencies from
       // the map and from impact. Load-tested at 2,000 servers (tests/load).
@@ -74,9 +78,13 @@ export async function getWorkspaceGraph(ctx: WorkspaceContext): Promise<Workspac
     }),
   ]);
 
-  const nodes = resources.map(({ metadata, ...r }) => {
+  const nodes = resources.map(({ metadata, tags, ...r }) => {
     const parsed = resourceMetadataSchema.safeParse(metadata);
-    return { ...r, ipAddresses: parsed.success ? (parsed.data.ipAddresses ?? []) : [] };
+    return {
+      ...r,
+      ipAddresses: parsed.success ? (parsed.data.ipAddresses ?? []) : [],
+      tech: resolveTech(tags, parsed.success ? parsed.data.os : null),
+    };
   });
   const ids = new Set(nodes.map((n) => n.id));
   const edges = relationships

@@ -18,7 +18,7 @@ const en = {
   eyebrow: "live demo",
   title: "Explore InfraMole with example infrastructure",
   intro:
-    "A fictional company with web servers, SQL Server, Active Directory, a Proxmox host and a few cloud services. Read-only, no sign-up — it is rebuilt every day.",
+    "A fictional company with Windows and Linux servers, IIS and SQL Server, Docker containers behind Traefik, a Kubernetes cluster, VMware, Hyper-V and Proxmox hosts, and servers in several clouds. Read-only, no sign-up — it is rebuilt every day.",
   tour: [
     {
       title: "Map",
@@ -52,7 +52,7 @@ const es: typeof en = {
   eyebrow: "demo en vivo",
   title: "Explora InfraMole con una infraestructura de ejemplo",
   intro:
-    "Una empresa ficticia con servidores web, SQL Server, Active Directory, un host Proxmox y algunos servicios en la nube. Solo lectura y sin registro — se reconstruye cada día.",
+    "Una empresa ficticia con servidores Windows y Linux, IIS y SQL Server, contenedores Docker detrás de Traefik, un clúster de Kubernetes, hosts VMware, Hyper-V y Proxmox, y servidores en varias nubes. Solo lectura y sin registro — se reconstruye cada día.",
   tour: [
     {
       title: "Map",

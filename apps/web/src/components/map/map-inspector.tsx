@@ -67,7 +67,7 @@ export function MapInspector({
     >
       <div className="border-border flex items-start gap-3 border-b px-4 py-3">
         <div className="border-border-strong bg-surface-2 flex size-8 shrink-0 items-center justify-center rounded-md border">
-          <TypeIcon type={r.type} className="text-foreground" />
+          <TypeIcon type={r.type} tech={r.tech} className="text-foreground" />
         </div>
         <div className="min-w-0 flex-1">
           <p className="truncate font-mono text-sm font-medium">{r.name}</p>

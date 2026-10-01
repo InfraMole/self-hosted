@@ -16,6 +16,7 @@ import { listSources } from "@/server/modules/resources/sources";
 import { markStaleHosts } from "@/server/modules/discovery/staleness";
 import { requireWorkspace } from "@/server/tenancy";
 import { saveResourceAction } from "../resources/actions";
+import { resolveTech } from "@/lib/tech";
 import {
   archiveResourcesAction,
   deleteResourcesAction,
@@ -128,6 +129,7 @@ export default async function LibraryPage({
                   ips: r.metadata.ipAddresses ?? [],
                   updatedAt: r.updatedAt,
                   sourceLabel: r.sourceLabel,
+                  tech: resolveTech(r.tags, r.metadata.os),
                 }))}
               />
             )}

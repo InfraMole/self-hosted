@@ -55,7 +55,7 @@ function ResourceNodeImpl({ data, selected }: NodeProps<ResourceFlowNode>) {
         />
       )}
       <Handle type="target" position={Position.Top} isConnectable={false} className="!opacity-0" />
-      <TypeIcon type={r.type} className="size-3.5" />
+      <TypeIcon type={r.type} tech={r.tech} className="size-3.5" />
       <span className="min-w-0 flex-1 truncate font-mono text-xs">{r.name}</span>
       {r.environment && (
         <span

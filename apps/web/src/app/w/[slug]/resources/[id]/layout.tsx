@@ -3,7 +3,13 @@ import Link from "next/link";
 import { ChevronRight, Network, Pencil, Radar } from "lucide-react";
 import { toFormValues } from "@/components/resources/form-values";
 import { DeleteResourceButton } from "@/components/resources/delete-resource-button";
-import { EnvironmentLabel, StatusBadge, TypeIcon } from "@/components/resources/resource-badges";
+import {
+  EnvironmentLabel,
+  StatusBadge,
+  TechLabel,
+  TypeIcon,
+} from "@/components/resources/resource-badges";
+import { resolveTech } from "@/lib/tech";
 import { ResourceSheet } from "@/components/resources/resource-sheet";
 import { ResourceTabs } from "@/components/resources/resource-tabs";
 import { Button } from "@/components/ui/button";
@@ -41,6 +47,7 @@ export default async function ResourceLayout({
               <div className="text-muted mt-0.5 flex items-center gap-3 text-xs">
                 <EnvironmentLabel environment={resource.environment} />
                 <StatusBadge status={resource.status} />
+                <TechLabel tech={resolveTech(resource.tags, resource.metadata.os)} />
               </div>
             </div>
           </div>

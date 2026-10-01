@@ -7,7 +7,7 @@
 import dagre from "@dagrejs/dagre";
 import { dependencyDirection, type GraphEdge } from "@depmap/graph";
 
-export const NODE_WIDTH = 188;
+export const NODE_WIDTH = 212;
 export const NODE_HEIGHT = 40;
 
 export interface Point {
