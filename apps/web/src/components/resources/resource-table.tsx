@@ -168,7 +168,7 @@ export function ResourceTable({
                     className="group-hover:text-foreground flex h-10 items-center gap-2.5 font-mono text-[13px]"
                     title={r.sourceLabel ? `Created by ${r.sourceLabel}` : undefined}
                   >
-                    <span className="flex w-16 shrink-0 items-center">
+                    <span className="flex w-11 shrink-0 items-center">
                       <TypeIcon type={r.type} tech={r.tech} />
                     </span>
                     <span className="truncate">{r.name}</span>

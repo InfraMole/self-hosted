@@ -7,29 +7,39 @@ import type {
 } from "@/generated/prisma/enums";
 import { Badge } from "@/components/ui/badge";
 import { CRITICALITIES, ENVIRONMENTS, RESOURCE_TYPES, STATUSES } from "@/lib/resource-presentation";
-import { TECHS, type ResourceTech, type TechCategory, type TechKey } from "@/lib/tech";
+import { TECHS, type ResourceTech, type TechKey } from "@/lib/tech";
+import { TECH_LOGOS } from "@/lib/tech-logos";
 import { cn } from "@/lib/utils";
 
-const CATEGORY_CHIP: Record<TechCategory, string> = {
-  database: "bg-info/20 text-info ring-info/40",
-  web: "bg-accent/20 text-accent ring-accent/40",
-  app: "bg-success/20 text-success ring-success/40",
-  platform: "bg-violet/20 text-violet ring-violet/40",
-  cloud: "bg-warning/20 text-warning ring-warning/40",
-  os: "bg-surface-2 text-muted ring-border-strong",
-};
-
-/** A technology as a text monogram in our colours (never a third-party logo, ADR-037). */
+/**
+ * A technology: its single-colour logo when Simple Icons publishes one, else a
+ * neutral text monogram (ADR-038). `small`: the "where it runs" companion.
+ */
 export function TechChip({ tech, small }: { tech: TechKey; small?: boolean }) {
   const t = TECHS[tech];
+  const logo = TECH_LOGOS[tech];
+  if (logo)
+    return (
+      <svg
+        viewBox="0 0 24 24"
+        role="img"
+        aria-label={t.label}
+        className={cn(
+          "shrink-0 fill-current",
+          small ? "text-subtle size-3" : "text-foreground/85 size-4",
+        )}
+      >
+        <title>{t.label}</title>
+        <path d={logo} />
+      </svg>
+    );
   return (
     <span
       title={t.label}
       aria-label={t.label}
       className={cn(
-        "inline-flex shrink-0 items-center justify-center rounded font-mono leading-none font-bold tracking-tight ring-1 ring-inset",
-        small ? "h-4 min-w-6 px-1 text-[9px] opacity-75" : "h-[18px] min-w-7 px-1 text-[10px]",
-        CATEGORY_CHIP[t.category],
+        "border-border-strong inline-flex shrink-0 items-center justify-center rounded-sm border font-mono leading-none font-semibold tracking-tight",
+        small ? "text-subtle h-3.5 px-0.5 text-[8px]" : "text-muted h-4 min-w-4 px-0.5 text-[9px]",
       )}
     >
       {t.mono}

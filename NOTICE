@@ -209,3 +209,9 @@ Container images additionally include, as separate programs: Node.js
 (Apache-2.0 and LGPL-3.0-or-later, dynamically linked). The Docker Compose
 stack uses the official PostgreSQL (PostgreSQL License), Caddy (Apache-2.0)
 and Alpine Linux images, which are not part of this repository.
+
+Technology logos shown in the application (apps/web/src/lib/tech-logos.ts)
+are single-colour drawings from Simple Icons (https://simpleicons.org,
+CC0-1.0). The products and logos are trademarks of their respective owners,
+used only to identify the technology a user runs; no affiliation or
+endorsement is implied.

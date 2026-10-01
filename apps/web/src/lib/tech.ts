@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /**
  * What a resource is and where it runs, from its tags (set by the agent,
- * collectors and integrations) and OS. Shown as text monograms in our own
- * colours — never third-party logos: product names are used only to
- * identify the technology (docs/DECISIONS.md, ADR-037). Client-safe, pure.
+ * collectors and integrations) and OS. Shown as a single-colour logo when
+ * Simple Icons publishes one (lib/tech-logos.ts), else as a text monogram
+ * (docs/DECISIONS.md, ADR-038). Client-safe, pure.
  */
 
 export type TechCategory = "database" | "web" | "app" | "platform" | "cloud" | "os";
