@@ -12,21 +12,21 @@ Ambos necesitan el agente **0.2.0** o posterior y un servidor InfraMole
 
 ## Qué se envía
 
-| Carga de trabajo | Se envía                                                                  | Nunca se lee                                                                         |
-| ---------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| Sitios de IIS    | Nombre del sitio; enlaces: protocolo (http/https), puerto, nombre de host | Rutas físicas, grupos de aplicaciones, identidades, contraseñas o claves guardadas   |
-| SQL Server       | Nombres de las bases de datos de cada instancia local (sin las de sistema) | Tablas, datos, inicios de sesión, tamaños ni nada más                               |
+| Carga de trabajo | Se envía                                                                                                                        | Nunca se lee                                                                       |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| Sitios de IIS    | Nombre del sitio; enlaces: protocolo (http/https), puerto, nombre de host; destinos de proxy de ARR / URL Rewrite (host:puerto) | Rutas físicas, grupos de aplicaciones, identidades, contraseñas o claves guardadas |
+| SQL Server       | Nombres de las bases de datos de cada instancia local (sin las de sistema)                                                      | Tablas, datos, inicios de sesión, tamaños ni nada más                              |
 
 El agente los recoge una vez por hora. Ejecuta `inframole-agent dry-run`
 para ver exactamente qué se enviaría.
 
 ## Cómo aparecen
 
-| En el servidor     | En InfraMole                                                               |
-| ------------------ | -------------------------------------------------------------------------- |
-| Sitio de IIS       | `Portal (WEB01)` — aplicación, etiqueta `iis`, se ejecuta en WEB01          |
-| Base de datos      | `Customers (SQL01)` — base de datos, etiqueta `sql-server`, se ejecuta en SQL01 |
-| Instancia con nombre | `Sales (SQL01\REPORTING)`                                                |
+| En el servidor       | En InfraMole                                                                    |
+| -------------------- | ------------------------------------------------------------------------------- |
+| Sitio de IIS         | `Portal (WEB01)` — aplicación, etiqueta `iis`, se ejecuta en WEB01              |
+| Base de datos        | `Customers (SQL01)` — base de datos, etiqueta `sql-server`, se ejecuta en SQL01 |
+| Instancia con nombre | `Sales (SQL01\REPORTING)`                                                       |
 
 Empiezan como **Discovered**. Un sitio o una base de datos que desaparece
 pasa a **Stale** — no se borra nada. Puedes renombrarlos, añadir notas o
@@ -38,6 +38,18 @@ propio puerto 8443), la sugerencia apunta a ese sitio en lugar de al
 servidor. Las conexiones a SQL Server siguen apuntando al servidor: una
 conexión TCP no dice qué base de datos usa. Añade tú la relación _uses
 database_ con la base de datos correcta.
+
+## Reglas de proxy inverso (ARR)
+
+Cuando IIS reenvía peticiones con **Application Request Routing** / URL
+Rewrite (reglas de tipo _Rewrite_ hacia otro servidor, o una granja web), el
+agente envía los destinos — solo host y puerto — desde
+`applicationHost.config` y el `web.config` de cada sitio. Solo se decodifican
+esas reglas: las cadenas de conexión y los ajustes de `web.config` nunca se
+leen. InfraMole sugiere "el sitio depende de X" para los destinos que puede
+emparejar (consulta
+[Proxies inversos](/es/docs/agent/linux-workloads#proxies-inversos)).
+Necesita el agente **0.6.0** y el servidor **0.13.0**.
 
 ## Activar SQL Server
 

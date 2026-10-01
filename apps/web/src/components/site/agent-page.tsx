@@ -56,6 +56,14 @@ const copy = {
         data: "Linux: nginx and Apache site names and ports; only if you turn them on, PostgreSQL and MySQL / MariaDB database names — hourly",
         why: "The same, for Linux servers.",
       },
+      {
+        data: "Reverse-proxy targets of those sites (nginx, Apache, HAProxy, IIS ARR): host and port only — hourly",
+        why: "Suggest which application each site forwards to.",
+      },
+      {
+        data: "Linux with Docker: container names, images, state, published ports and Compose project / service / depends_on — hourly",
+        why: "Show what runs in containers (databases, proxies, apps) and how they depend on each other.",
+      },
     ],
     neverTitle: "Never collected",
     never: [
@@ -89,6 +97,10 @@ const copy = {
       {
         strong: "Optional Proxmox inventory.",
         rest: "Only if you enable it on the host, with a read-only token that never leaves the machine: node, VM and container names, ids, status and memory size. Nothing else from the API is kept.",
+      },
+      {
+        strong: "Containers, hypervisors and Kubernetes.",
+        rest: "Docker is read from the container list only — never inspected, so environment variables are never read. vCenter, Hyper-V, Xen Orchestra and Kubernetes collectors are off until you enable them on the host, with read-only accounts whose credentials never leave the machine; they send names, placement, size and IPs, never secrets, config maps or environment variables.",
       },
       {
         strong: "Verifiable.",
@@ -154,6 +166,14 @@ const copy = {
         data: "Linux: nombres y puertos de los sitios de nginx y Apache; solo si lo activas, nombres de las bases de datos de PostgreSQL y MySQL / MariaDB — cada hora",
         why: "Lo mismo, en servidores Linux.",
       },
+      {
+        data: "Destinos de proxy inverso de esos sitios (nginx, Apache, HAProxy, ARR de IIS): solo host y puerto — cada hora",
+        why: "Sugerir a qué aplicación reenvía cada sitio.",
+      },
+      {
+        data: "Linux con Docker: nombres de contenedores, imágenes, estado, puertos publicados y proyecto / servicio / depends_on de Compose — cada hora",
+        why: "Mostrar qué se ejecuta en contenedores (bases de datos, proxies, aplicaciones) y cómo dependen entre sí.",
+      },
     ],
     neverTitle: "Nunca se recoge",
     never: [
@@ -187,6 +207,10 @@ const copy = {
       {
         strong: "Inventario de Proxmox opcional.",
         rest: "Solo si lo activas en el equipo, con un token de solo lectura que nunca sale de la máquina: nombres de nodos, máquinas virtuales y contenedores, identificadores, estado y memoria. No se guarda nada más de la API.",
+      },
+      {
+        strong: "Contenedores, hipervisores y Kubernetes.",
+        rest: "Docker se lee solo de la lista de contenedores — nunca se inspeccionan, así que las variables de entorno nunca se leen. Los colectores de vCenter, Hyper-V, Xen Orchestra y Kubernetes están desactivados hasta que los actives en el equipo, con cuentas de solo lectura cuyas credenciales nunca salen de la máquina; envían nombres, ubicación, tamaño e IP, nunca secretos, config maps ni variables de entorno.",
       },
       {
         strong: "Verificable.",

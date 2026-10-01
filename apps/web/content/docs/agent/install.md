@@ -22,13 +22,17 @@ send. Nothing leaves the machine and nothing is installed:
 
 :::tabs
 @tab Windows
+
 ```powershell
 .\inframole-agent.exe dry-run
 ```
+
 @tab Linux
+
 ```sh
 ./inframole-agent dry-run
 ```
+
 :::
 
 ### Download, verify and install
@@ -83,13 +87,17 @@ shell history and process list.
 
 :::tabs
 @tab Windows
+
 ```powershell
 & "$env:ProgramFiles\InfraMole\inframole-agent.exe" status
 ```
+
 @tab Linux
+
 ```sh
 sudo inframole-agent status
 ```
+
 :::
 
 Within a minute the server appears in **Settings › Agents** and in the
@@ -135,6 +143,7 @@ Restart-Service inframole-agent
 
 If the service does not pick it up, restart Windows once.
 @tab Linux
+
 ```sh
 sudo systemctl edit inframole-agent
 # add:
@@ -142,4 +151,5 @@ sudo systemctl edit inframole-agent
 # Environment=HTTPS_PROXY=http://proxy.example.com:3128
 sudo systemctl restart inframole-agent
 ```
+
 :::

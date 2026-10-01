@@ -1,8 +1,9 @@
-# nginx, Apache and databases on Linux
+# nginx, Apache, Docker and databases on Linux
 
 On Linux servers the agent can report what runs inside them: **nginx and
 Apache sites** (on by default) and **PostgreSQL and MySQL / MariaDB
-databases** (off until you turn them on). They appear in the Library as
+databases** (off until you turn them on), plus **HAProxy** and **Docker
+containers** (on by default). They appear in the Library as
 applications and databases that **run on** the server, like IIS and SQL
 Server on Windows ([IIS and SQL Server](/docs/agent/windows-workloads)).
 
@@ -11,12 +12,14 @@ later. An older server does not receive them.
 
 ## What is reported
 
-| Workload           | Reported                                                                                     | Never read                                                        |
-| ------------------ | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| nginx sites        | `server_name` and `listen` of each `server` block (from `/etc/nginx/nginx.conf` and includes) | Certificates, keys, locations, upstreams, anything else           |
-| Apache sites       | `ServerName`, `ServerAlias`, the ports of each `<VirtualHost>` and whether it uses TLS        | Certificate and key paths, rewrite rules, anything else           |
-| PostgreSQL         | Database names of each local cluster (system databases excluded)                             | Tables, data, roles, sizes                                        |
-| MySQL / MariaDB    | Database names (system databases excluded)                                                   | Tables, data, users, sizes                                        |
+| Workload        | Reported                                                                                  | Never read                                   |
+| --------------- | ----------------------------------------------------------------------------------------- | -------------------------------------------- |
+| nginx sites     | `server_name` and `listen` of each `server` block; `*_pass` targets (host:port)           | Certificates, keys, headers, anything else   |
+| Apache sites    | `ServerName`, `ServerAlias`, ports, TLS; `ProxyPass` / balancer targets (host:port)       | Certificate and key paths, anything else     |
+| HAProxy         | Each `frontend` / `listen`: bind ports and its backends' servers (host:port)              | Certificates, stats credentials, ACLs        |
+| PostgreSQL      | Database names of each local cluster (system databases excluded)                          | Tables, data, roles, sizes                   |
+| MySQL / MariaDB | Database names (system databases excluded)                                                | Tables, data, users, sizes                   |
+| Docker          | Containers: name, image, state, published ports, Compose project / service / `depends_on` | Environment variables, volumes, other labels |
 
 A site that redirects HTTP to HTTPS (two `server` blocks with the same
 name) is one site with both ports. Collected once an hour; run
@@ -83,6 +86,39 @@ sudo systemctl restart inframole-agent
 ```
 
 :::
+
+## Reverse proxies
+
+nginx `proxy_pass` (and `fastcgi_pass`, `grpc_pass`… with their `upstream`
+blocks), Apache `ProxyPass`, balancers and proxied `RewriteRule [P]`, and
+HAProxy backends tell InfraMole **where each site forwards requests** — host
+and port only. InfraMole then **suggests** "site depends on X":
+
+- `127.0.0.1:3000` → whatever on the same server publishes port 3000 (a
+  Docker container, for example);
+- an IP → the server or VM that owns it;
+- a name → the resource with that name or host name.
+
+Targets it cannot match are skipped. Review the suggestions like any
+other. Needs agent **0.6.0** and server **0.13.0**.
+
+## Docker containers
+
+When Docker runs on the server, the agent reads the **container list**
+from the local Docker socket (on by default; `"docker": false` in
+`collectors.workloads` turns it off). It never inspects containers, so
+**environment variables are never read**, and labels are reduced to the
+Compose project / service / `depends_on` and the host names of Traefik or
+Caddy routes.
+
+- Each container becomes a resource that runs on the server: **database**
+  for database images (PostgreSQL, MySQL, MariaDB, SQL Server, MongoDB,
+  Redis…), **container** for the rest, with its image version and published
+  ports. Compose services keep their identity when containers are recreated.
+- Compose `depends_on` → suggested _depends on_.
+- A Traefik / Caddy route ``Host(`shop.example.com`)`` → the domain
+  _depends on_ the container, which is _exposed through_ the proxy.
+- Connections to a published port are suggested to that container.
 
 ## How they appear
 

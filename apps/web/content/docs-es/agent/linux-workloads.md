@@ -1,8 +1,9 @@
-# nginx, Apache y bases de datos en Linux
+# nginx, Apache, Docker y bases de datos en Linux
 
 En servidores Linux el agente puede informar de lo que se ejecuta dentro:
 los **sitios de nginx y Apache** (activado por defecto) y las **bases de
-datos de PostgreSQL y MySQL / MariaDB** (desactivado hasta que lo actives).
+datos de PostgreSQL y MySQL / MariaDB** (desactivado hasta que lo actives),
+además de **HAProxy** y los **contenedores Docker** (activados por defecto).
 Aparecen en la Library como aplicaciones y bases de datos que **se ejecutan
 en** el servidor, igual que IIS y SQL Server en Windows
 ([IIS y SQL Server](/es/docs/agent/windows-workloads)).
@@ -12,12 +13,14 @@ o posterior. Un servidor anterior no los recibe.
 
 ## Qué se envía
 
-| Carga de trabajo | Se envía                                                                                                  | Nunca se lee                                                  |
-| ---------------- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| Sitios de nginx  | `server_name` y `listen` de cada bloque `server` (de `/etc/nginx/nginx.conf` y sus includes)              | Certificados, claves, locations, upstreams ni nada más        |
-| Sitios de Apache | `ServerName`, `ServerAlias`, los puertos de cada `<VirtualHost>` y si usa TLS                             | Rutas de certificados y claves, reglas de reescritura ni nada más |
-| PostgreSQL       | Nombres de las bases de datos de cada clúster local (sin las de sistema)                                  | Tablas, datos, roles ni tamaños                               |
-| MySQL / MariaDB  | Nombres de las bases de datos (sin las de sistema)                                                        | Tablas, datos, usuarios ni tamaños                            |
+| Carga de trabajo | Se envía                                                                                                | Nunca se lee                                     |
+| ---------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| Sitios de nginx  | `server_name` y `listen` de cada bloque `server`; destinos de `*_pass` (host:puerto)                    | Certificados, claves, cabeceras ni nada más      |
+| Sitios de Apache | `ServerName`, `ServerAlias`, puertos, TLS; destinos de `ProxyPass` / balanceadores (host:puerto)        | Rutas de certificados y claves ni nada más       |
+| HAProxy          | Cada `frontend` / `listen`: puertos y servidores de sus backends (host:puerto)                          | Certificados, credenciales de stats, ACLs        |
+| PostgreSQL       | Nombres de las bases de datos de cada clúster local (sin las de sistema)                                | Tablas, datos, roles ni tamaños                  |
+| MySQL / MariaDB  | Nombres de las bases de datos (sin las de sistema)                                                      | Tablas, datos, usuarios ni tamaños               |
+| Docker           | Contenedores: nombre, imagen, estado, puertos publicados, proyecto / servicio / `depends_on` de Compose | Variables de entorno, volúmenes, otras etiquetas |
 
 Un sitio que redirige de HTTP a HTTPS (dos bloques `server` con el mismo
 nombre) es un único sitio con ambos puertos. Se recogen una vez por hora;
@@ -84,6 +87,40 @@ sudo systemctl restart inframole-agent
 ```
 
 :::
+
+## Proxies inversos
+
+`proxy_pass` de nginx (y `fastcgi_pass`, `grpc_pass`… con sus bloques
+`upstream`), `ProxyPass`, balanceadores y `RewriteRule [P]` de Apache, y los
+backends de HAProxy le dicen a InfraMole **a dónde reenvía cada sitio** —
+solo host y puerto. InfraMole **sugiere** entonces "el sitio depende de X":
+
+- `127.0.0.1:3000` → lo que en el mismo servidor publica el puerto 3000 (un
+  contenedor Docker, por ejemplo);
+- una IP → el servidor o la VM que la tiene;
+- un nombre → el recurso con ese nombre o nombre de equipo.
+
+Los destinos que no se pueden emparejar se omiten. Revisa las sugerencias
+como cualquier otra. Necesita el agente **0.6.0** y el servidor **0.13.0**.
+
+## Contenedores Docker
+
+Si Docker corre en el servidor, el agente lee la **lista de contenedores**
+del socket local de Docker (activado por defecto; `"docker": false` en
+`collectors.workloads` lo desactiva). Nunca inspecciona contenedores, así
+que **las variables de entorno nunca se leen**, y de las etiquetas solo se
+quedan el proyecto / servicio / `depends_on` de Compose y los nombres de
+host de las rutas de Traefik o Caddy.
+
+- Cada contenedor es un recurso que se ejecuta en el servidor: **base de
+  datos** para imágenes de bases de datos (PostgreSQL, MySQL, MariaDB, SQL
+  Server, MongoDB, Redis…), **contenedor** para el resto, con la versión de
+  la imagen y los puertos publicados. Los servicios de Compose conservan su
+  identidad cuando se recrean los contenedores.
+- `depends_on` de Compose → _depends on_ sugerido.
+- Una ruta de Traefik / Caddy ``Host(`shop.example.com`)`` → el dominio
+  _depends on_ el contenedor, que queda _exposed through_ el proxy.
+- Las conexiones a un puerto publicado se sugieren hacia ese contenedor.
 
 ## Cómo aparecen
 

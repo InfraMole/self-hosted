@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { describe, expect, it } from "vitest";
 import { parseImport } from "./parse";
+import { classifyImage } from "./parse-platforms";
 import { planImport } from "./plan";
 
 // Trimmed real-world shapes of each CLI's JSON output.
@@ -329,5 +330,31 @@ describe("linux workloads (M20)", () => {
     expect(batch.relationships.every((r) => r.type === "RUNS_ON" && r.to === "id:host-lin01")).toBe(
       true,
     );
+  });
+});
+
+describe("classifyImage (M25)", () => {
+  it("recognises what runs inside common images", () => {
+    const cases: [string, string | null, string][] = [
+      ["postgres:16-alpine", "postgresql", "DATABASE"],
+      ["docker.io/library/postgres", "postgresql", "DATABASE"],
+      ["postgis/postgis:16-3.4", "postgresql", "DATABASE"],
+      ["mcr.microsoft.com/mssql/server:2022-latest", "sql-server", "DATABASE"],
+      ["sqlserver", "sql-server", "DATABASE"],
+      ["mariadb:11", "mariadb", "DATABASE"],
+      ["redis:7-alpine", "redis", "DATABASE"],
+      ["mongo:7", "mongodb", "DATABASE"],
+      ["traefik:v3.1", "traefik", "CONTAINER"],
+      ["nginx:1.27-alpine", "nginx", "CONTAINER"],
+      ["ghcr.io/acme/shop:1.4.2", null, "CONTAINER"],
+      ["mcr.microsoft.com/mssql-tools", null, "CONTAINER"],
+    ];
+    for (const [image, tech, type] of cases)
+      expect([image, classifyImage(image).tech, classifyImage(image).type]).toEqual([
+        image,
+        tech,
+        type,
+      ]);
+    expect(classifyImage("traefik:v3").proxy).toBe("traefik");
   });
 });

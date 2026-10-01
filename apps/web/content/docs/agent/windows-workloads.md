@@ -11,21 +11,21 @@ later. An older server simply does not receive them.
 
 ## What is reported
 
-| Workload     | Reported                                                     | Never read                                                                  |
-| ------------ | ------------------------------------------------------------ | --------------------------------------------------------------------------- |
-| IIS sites    | Site name; bindings: protocol (http/https), port, host name | Physical paths, application pools, identities, any stored password or key |
-| SQL Server   | Database names per local instance (system databases excluded) | Tables, data, logins, sizes, anything else                                  |
+| Workload   | Reported                                                                                                 | Never read                                                                |
+| ---------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| IIS sites  | Site name; bindings: protocol (http/https), port, host name; ARR / URL Rewrite proxy targets (host:port) | Physical paths, application pools, identities, any stored password or key |
+| SQL Server | Database names per local instance (system databases excluded)                                            | Tables, data, logins, sizes, anything else                                |
 
 The agent collects them once an hour. Run
 `inframole-agent dry-run` to see exactly what would be sent.
 
 ## How they appear
 
-| On the server | In InfraMole                                              |
-| ------------- | --------------------------------------------------------- |
-| IIS site      | `Portal (WEB01)` — application, tag `iis`, runs on WEB01   |
-| Database      | `Customers (SQL01)` — database, tag `sql-server`, runs on SQL01 |
-| Named instance | `Sales (SQL01\REPORTING)`                                |
+| On the server  | In InfraMole                                                    |
+| -------------- | --------------------------------------------------------------- |
+| IIS site       | `Portal (WEB01)` — application, tag `iis`, runs on WEB01        |
+| Database       | `Customers (SQL01)` — database, tag `sql-server`, runs on SQL01 |
+| Named instance | `Sales (SQL01\REPORTING)`                                       |
 
 They start as **Discovered**. A site or database that disappears becomes
 **Stale** — nothing is deleted. You can rename them, add notes or change
@@ -37,6 +37,17 @@ suggestion points to that site instead of the server. SQL Server
 connections keep pointing to the server: a TCP connection does not say which
 database it uses. Add a _uses database_ relationship to the right database
 yourself.
+
+## Reverse proxy rules (ARR)
+
+When IIS forwards requests with **Application Request Routing** / URL
+Rewrite (rules of type _Rewrite_ to another server, or a web farm), the
+agent reports the targets — host and port only — from
+`applicationHost.config` and each site's `web.config`. Only those rules
+are decoded: connection strings and app settings in `web.config` are never
+read. InfraMole suggests "site depends on X" for targets it can match (see
+[Reverse proxies](/docs/agent/linux-workloads#reverse-proxies)). Needs
+agent **0.6.0** and server **0.13.0**.
 
 ## Turn SQL Server on
 

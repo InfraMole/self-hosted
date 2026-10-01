@@ -50,10 +50,11 @@ const NAV: (Titled & { pages: (Titled & { slug: string })[] })[] = [
       { slug: "agent/windows-workloads", title: "IIS and SQL Server", es: "IIS y SQL Server" },
       {
         slug: "agent/linux-workloads",
-        title: "nginx, Apache and databases on Linux",
-        es: "nginx, Apache y bases de datos en Linux",
+        title: "nginx, Apache, Docker and databases on Linux",
+        es: "nginx, Apache, Docker y bases de datos en Linux",
       },
       { slug: "agent/proxmox", title: "Proxmox inventory", es: "Inventario de Proxmox" },
+      { slug: "agent/kubernetes", title: "Kubernetes", es: "Kubernetes" },
       {
         slug: "agent/hypervisors",
         title: "vCenter, Hyper-V and XCP-ng",

@@ -29,6 +29,7 @@ El fichero contiene una línea: `USER@REALM!TOKENID=SECRET`.
 
 :::tabs
 @tab Linux
+
 ```sh
 echo 'inframole@pve!inventory=<secreto>' | sudo tee /etc/inframole/proxmox.token > /dev/null
 sudo chmod 600 /etc/inframole/proxmox.token
@@ -38,6 +39,7 @@ sudo scp root@pve01:/etc/pve/pve-root-ca.pem /etc/inframole/pve-ca.pem
 
 El agente rechaza un fichero de token que puedan leer otros usuarios.
 @tab Windows
+
 ```powershell
 Set-Content C:\ProgramData\InfraMole\proxmox.token 'inframole@pve!inventory=<secreto>'
 icacls C:\ProgramData\InfraMole\proxmox.token /inheritance:r /grant:r SYSTEM:F Administrators:F

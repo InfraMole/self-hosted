@@ -6,15 +6,15 @@ your InfraMole server every five minutes. It is strictly **read-only**.
 
 ## What it reports
 
-| Data | Used for |
-| --- | --- |
-| Hostname, FQDN, OS, kernel, architecture, boot time | Identifying the host |
-| Network interfaces (name, MAC, IP addresses) | Matching connections from other hosts |
-| Running services (name, state, start type) | Showing what runs on the host |
-| Listening TCP ports + owning process name / path | Knowing what the host offers |
-| Established TCP connections, **aggregated** per peer, port and process | Suggesting dependencies |
-| Windows: IIS site names and bindings; SQL Server database names if enabled | Showing what runs on the server ([IIS and SQL Server](/docs/agent/windows-workloads)) |
-| Linux: nginx / Apache site names and ports; PostgreSQL / MySQL database names if enabled | Same ([nginx, Apache and databases](/docs/agent/linux-workloads)) |
+| Data                                                                                     | Used for                                                                              |
+| ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Hostname, FQDN, OS, kernel, architecture, boot time                                      | Identifying the host                                                                  |
+| Network interfaces (name, MAC, IP addresses)                                             | Matching connections from other hosts                                                 |
+| Running services (name, state, start type)                                               | Showing what runs on the host                                                         |
+| Listening TCP ports + owning process name / path                                         | Knowing what the host offers                                                          |
+| Established TCP connections, **aggregated** per peer, port and process                   | Suggesting dependencies                                                               |
+| Windows: IIS site names and bindings; SQL Server database names if enabled               | Showing what runs on the server ([IIS and SQL Server](/docs/agent/windows-workloads)) |
+| Linux: nginx / Apache site names and ports; PostgreSQL / MySQL database names if enabled | Same ([nginx, Apache and databases](/docs/agent/linux-workloads))                     |
 
 Connections are sampled every 30 seconds and summarised; loopback,
 link-local and multicast traffic is ignored. The full list, with a real

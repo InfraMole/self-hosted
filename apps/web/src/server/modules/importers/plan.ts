@@ -182,12 +182,55 @@ export function planImport(
     }
   }
   const byId = new Map(existing.map((r) => [r.id, r]));
+  // M25: what runs on each resource (for "endpoint:" references).
+  const children = new Map<string, ExistingResource[]>();
+  for (const rel of existingRelationships) {
+    const child = rel.type === "RUNS_ON" ? byId.get(rel.from) : undefined;
+    if (child) children.set(rel.to, [...(children.get(rel.to) ?? []), child]);
+  }
+  /**
+   * "endpoint:<hostId>|<host>|<port>": a reverse-proxy target seen from host
+   * <hostId>. Loopback → that host; an IP → its single non-DOMAIN owner; a
+   * name → the single resource with that name / host name. Then, if exactly
+   * one workload on it publishes the port, that workload.
+   */
+  const resolveEndpoint = (ref: string): { id: string; label: string } | string => {
+    const [hostId = "", target = "", portText = ""] = ref.slice("endpoint:".length).split("|");
+    const port = Number(portText);
+    const t = target.toLowerCase();
+    let owners: ExistingResource[] = [];
+    if (t === "localhost" || t === "::1" || t.startsWith("127.") || t === "0.0.0.0") {
+      const self = byId.get(hostId);
+      owners = self ? [self] : [];
+    } else if (/^[\d.]+$/.test(t) || t.includes(":")) {
+      owners = byIp.get(t) ?? [];
+    } else {
+      const short = t.split(".")[0]!;
+      owners = existing.filter((r) => {
+        if (r.type === "DOMAIN") return false;
+        const names = [r.name, r.metadata.hostname, r.metadata.fqdn]
+          .filter((n): n is string => !!n)
+          .map((n) => n.toLowerCase());
+        return names.includes(t) || (!t.includes(".") ? false : names.includes(short));
+      });
+    }
+    if (owners.length !== 1) return `No single resource for ${target}:${port}.`;
+    const owner = owners[0]!;
+    const onPort = (children.get(owner.id) ?? []).filter((c) =>
+      (c.metadata.ports ?? []).includes(port),
+    );
+    if (onPort.length === 1) return { id: onPort[0]!.id, label: onPort[0]!.name };
+    if (owner.id === hostId)
+      return `${target}:${port} is on the same server and no workload there publishes port ${port}.`;
+    return { id: owner.id, label: owner.name };
+  };
   const resolve = (ref: string): { id?: string; externalId?: string; label: string } | string => {
     // "id:<resourceId>": an existing resource of this workspace (agent workloads → their host).
     if (ref.startsWith("id:")) {
       const target = byId.get(ref.slice(3));
       return target ? { id: target.id, label: target.name } : `Unknown resource "${ref}".`;
     }
+    if (ref.startsWith("endpoint:")) return resolveEndpoint(ref);
     if (ref.startsWith("ip:")) {
       const owners = byIp.get(ref.slice(3).toLowerCase()) ?? [];
       return owners.length === 1
@@ -223,7 +266,8 @@ export function planImport(
     if (seenRels.has(key)) continue;
     seenRels.add(key);
     if ((from.id ?? from.externalId) === (to.id ?? to.externalId)) {
-      errors.push({ row: rel.row, message: "A resource cannot relate to itself." });
+      if (rel.optional) warnings.push(`Row ${rel.row}: ${to.label} points to itself. Skipped.`);
+      else errors.push({ row: rel.row, message: "A resource cannot relate to itself." });
       continue;
     }
     relationships.push({

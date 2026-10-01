@@ -15,7 +15,7 @@ import type { ImportBatch, ImportFormat, RowError } from "./parse";
 import { buildResourceRow } from "./parse";
 
 export type PlatformFormat =
-  "proxmox" | "azure" | "aws" | "cloudflare" | "workloads" | "cloud" | "hypervisor";
+  "proxmox" | "azure" | "aws" | "cloudflare" | "workloads" | "cloud" | "hypervisor" | "kubernetes";
 
 /** Detects a platform export inside already-parsed JSON (null = generic JSON). */
 export function detectPlatform(data: unknown): PlatformFormat | null {
@@ -57,13 +57,19 @@ export function parsePlatform(format: PlatformFormat, data: unknown): ImportBatc
   else if (format === "cloudflare") cloudflare(batch, data);
   else if (format === "cloud") cloud(batch, data);
   else if (format === "hypervisor") hypervisor(batch, data);
+  else if (format === "kubernetes") kubernetes(batch, data);
   else aws(batch, data);
   return batch;
 }
 
 // ───────────────────────── Workloads (M16 Windows, M20 Linux) ─────────────────────────
 
-type SiteInput = { name: string; bindings: { protocol: string; port: number; host?: string }[] };
+type SiteInput = {
+  name: string;
+  bindings: { protocol: string; port: number; host?: string }[];
+  /** Reverse-proxy targets (M25). */
+  upstreams?: { host: string; port: number }[];
+};
 type DatabaseInput = { instance: string; name: string };
 
 /** What ingestion passes for one agent host (built from a validated report). */
@@ -71,16 +77,31 @@ export interface WorkloadsInput {
   host: { id: string; name: string };
   iisSites?: SiteInput[];
   nginxSites?: SiteInput[];
+  haproxySites?: SiteInput[];
   apacheSites?: SiteInput[];
   sqlDatabases?: DatabaseInput[];
   postgresDatabases?: DatabaseInput[];
   mysqlDatabases?: DatabaseInput[];
+  /** Docker (M25). */
+  containers?: ContainerInput[];
+}
+
+export interface ContainerInput {
+  name: string;
+  image: string;
+  state?: string;
+  ports: { port: number; targetPort: number; protocol: string }[];
+  project?: string;
+  service?: string;
+  dependsOn?: string[];
+  hosts?: string[];
 }
 
 const SITE_KINDS = [
   { field: "iisSites", key: "iis", tag: "iis", label: "IIS site" },
   { field: "nginxSites", key: "nginx", tag: "nginx", label: "nginx site" },
   { field: "apacheSites", key: "apache", tag: "apache", label: "Apache site" },
+  { field: "haproxySites", key: "haproxy", tag: "haproxy", label: "HAProxy frontend" },
 ] as const;
 
 const DATABASE_KINDS = [
@@ -164,7 +185,21 @@ function workloads(batch: ImportBatch, data: unknown) {
         ports,
         tags: [kind.tag],
       });
-      if (r) runsOn(key, `${kind.label} (reported by the agent)`);
+      if (!r) continue;
+      runsOn(key, `${kind.label} (reported by the agent)`);
+      // M25: a proxied target is configuration, but matching it to a
+      // resource is an inference → suggestion; unresolvable → warning.
+      for (const u of site.upstreams ?? []) {
+        batch.relationships.push({
+          row,
+          from: key,
+          to: `endpoint:${host.id}|${u.host}|${u.port}`,
+          type: "DEPENDS_ON",
+          note: `Reverse proxy to ${u.host}:${u.port} (${kind.label.toLowerCase()} configuration)`,
+          suggested: true,
+          optional: true,
+        });
+      }
     }
   }
 
@@ -185,6 +220,171 @@ function workloads(batch: ImportBatch, data: unknown) {
       });
       if (r) runsOn(key, `${kind.label} (reported by the agent)`);
     }
+  }
+  containersOf(batch, input, hostRef, () => ++row);
+}
+
+/** What a container runs, from its image name (repository, without registry or tag). */
+export function classifyImage(image: string): {
+  tech: string | null;
+  label: string;
+  type: "DATABASE" | "CONTAINER";
+  proxy?: "traefik" | "caddy" | "nginx" | "haproxy";
+} {
+  const repo = image
+    .split("@")[0]!
+    .replace(/:[^/:]+$/, "")
+    .toLowerCase();
+  const name = repo.split("/").pop()!;
+  const db = (tech: string, label: string) => ({ tech, label, type: "DATABASE" as const });
+  const app = (tech: string, label: string, proxy?: "traefik" | "caddy" | "nginx" | "haproxy") => ({
+    tech,
+    label,
+    type: "CONTAINER" as const,
+    ...(proxy ? { proxy } : {}),
+  });
+  if (/^(postgres|postgis|timescaledb)/.test(name) || repo.includes("postgis/"))
+    return db("postgresql", "PostgreSQL");
+  if (repo.includes("mssql/server") || ["mssql", "sqlserver", "sql-server"].includes(name))
+    return db("sql-server", "SQL Server");
+  if (name === "mysql" || name === "percona-server") return db("mysql", "MySQL");
+  if (name === "mariadb") return db("mariadb", "MariaDB");
+  if (name.startsWith("mongo")) return db("mongodb", "MongoDB");
+  if (name === "redis" || name === "valkey" || name === "keydb") return db("redis", "Redis");
+  if (name === "elasticsearch" || name === "opensearch")
+    return db(name, name === "opensearch" ? "OpenSearch" : "Elasticsearch");
+  if (
+    name === "influxdb" ||
+    name === "clickhouse-server" ||
+    name === "cassandra" ||
+    name === "couchdb"
+  )
+    return db(name.replace("-server", ""), name);
+  if (name === "traefik") return app("traefik", "Traefik", "traefik");
+  if (name === "caddy" || name === "caddy-docker-proxy") return app("caddy", "Caddy", "caddy");
+  if (
+    name === "nginx" ||
+    name === "nginx-proxy" ||
+    name === "nginx-proxy-manager" ||
+    name === "openresty"
+  )
+    return app("nginx", "nginx", "nginx");
+  if (name === "haproxy") return app("haproxy", "HAProxy", "haproxy");
+  if (name === "httpd" || name === "apache") return app("apache", "Apache");
+  if (name === "rabbitmq") return app("rabbitmq", "RabbitMQ");
+  if (name === "kafka" || repo.includes("cp-kafka")) return app("kafka", "Kafka");
+  return { tech: null, label: "container", type: "CONTAINER" };
+}
+
+/**
+ * Docker containers (M25): DATABASE for database engines, CONTAINER for the
+ * rest, each RUNS_ON the host (CONFIRMED). Compose depends_on → DEPENDS_ON
+ * suggestions (a declaration, not observed traffic). A host name routed by
+ * a Traefik / Caddy container → DOMAIN that DEPENDS_ON the container, which
+ * is EXPOSED_THROUGH the proxy (both read from the proxy's configuration).
+ * Keys use the Compose project/service when present: recreated containers
+ * keep their identity.
+ */
+function containersOf(
+  batch: ImportBatch,
+  input: WorkloadsInput,
+  hostRef: string,
+  nextRow: () => number,
+) {
+  const host = input.host;
+  const list = input.containers ?? [];
+  const keyOf = (c: ContainerInput) =>
+    `${host.id}/docker/${(c.project && c.service ? `${c.project}/${c.service}` : c.name).toLowerCase()}`;
+  const byService = new Map<string, string>();
+  for (const c of list)
+    if (c.project && c.service) byService.set(`${c.project}/${c.service}`.toLowerCase(), keyOf(c));
+  const proxies = list.filter(
+    (c) => classifyImage(c.image).proxy === "traefik" || classifyImage(c.image).proxy === "caddy",
+  );
+  const proxyKey = proxies.length === 1 ? keyOf(proxies[0]!) : null;
+
+  const seen = new Set<string>();
+  for (const c of list) {
+    const key = keyOf(c);
+    if (seen.has(key)) continue; // scaled services: one resource per service
+    seen.add(key);
+    const row = nextRow();
+    // An untagged image ("sha256:…"): the service / container name is the best hint.
+    const kind = c.image.startsWith("sha256:")
+      ? classifyImage(c.service ?? c.name)
+      : classifyImage(c.image);
+    const tag = c.image.split("@")[0]!.match(/:([^/:]+)$/)?.[1];
+    const r = add(batch, row, {
+      id: key,
+      name: `${c.project && c.service ? `${c.project}-${c.service}` : c.name} (${host.name})`,
+      type: kind.type,
+      description: [
+        `${kind.label === "container" ? "Docker container" : `${kind.label} in Docker`} on ${host.name}`,
+        c.image,
+        c.state,
+      ]
+        .filter(Boolean)
+        .join(" · "),
+      version: tag && tag !== "latest" ? tag : undefined,
+      ports: [...new Set(c.ports.filter((p) => p.protocol === "tcp").map((p) => p.port))].sort(
+        (a, b) => a - b,
+      ),
+      tags: [
+        "docker",
+        ...(kind.tech ? [kind.tech] : []),
+        ...(c.project ? [`compose:${c.project.toLowerCase()}`] : []),
+      ],
+    });
+    if (!r) continue;
+    batch.relationships.push({
+      row,
+      from: key,
+      to: hostRef,
+      type: "RUNS_ON",
+      note: "Docker container (reported by the agent)",
+      suggested: false,
+    });
+    for (const dep of c.dependsOn ?? []) {
+      const target = c.project ? byService.get(`${c.project}/${dep}`.toLowerCase()) : undefined;
+      if (target && target !== key)
+        batch.relationships.push({
+          row,
+          from: key,
+          to: target,
+          type: "DEPENDS_ON",
+          note: `Compose depends_on: ${dep}`,
+          suggested: true,
+        });
+    }
+    for (const name of [...new Set((c.hosts ?? []).map((h) => h.toLowerCase()))]) {
+      const domainKey = `dns/${name}`;
+      if (!batch.resources.some((x) => x.key === domainKey)) {
+        add(batch, row, {
+          id: domainKey,
+          name,
+          type: "DOMAIN",
+          description: "Routed by a reverse proxy in Docker",
+          tags: ["docker"],
+        });
+      }
+      batch.relationships.push({
+        row,
+        from: domainKey,
+        to: key,
+        type: "DEPENDS_ON",
+        note: "Reverse proxy route (container labels)",
+        suggested: false,
+      });
+    }
+    if (c.hosts?.length && proxyKey && proxyKey !== key)
+      batch.relationships.push({
+        row,
+        from: key,
+        to: proxyKey,
+        type: "EXPOSED_THROUGH",
+        note: "Reverse proxy route (container labels)",
+        suggested: false,
+      });
   }
 }
 
@@ -547,6 +747,123 @@ function hypervisor(batch: ImportBatch, data: unknown) {
       });
   }
   if (row === 0) batch.warnings.push(`No ${kind.label} hosts or VMs found.`);
+}
+
+// ───────────────────────── Kubernetes (M25) ─────────────────────────
+
+/** What ingestion passes for one cluster (agent-side collector). */
+export interface KubernetesInput {
+  cluster: string;
+  nodes: { name: string; ips: string[]; version?: string; os?: string }[];
+  workloads: {
+    namespace: string;
+    name: string;
+    kind: "Deployment" | "StatefulSet" | "DaemonSet";
+    images: string[];
+    replicas?: number;
+    ready?: number;
+    nodes: string[];
+    services: { name: string; type: string; ports: number[]; externalIps?: string[] }[];
+    hosts?: string[];
+  }[];
+}
+
+/**
+ * Nodes → SERVER (a node running the agent is the same machine: matched by
+ * name), workloads → APPLICATION or DATABASE (from the image), each RUNS_ON
+ * the nodes where its pods run now (CONFIRMED: the API says so). Ingress
+ * host names → DOMAIN that DEPENDS_ON the workload. LoadBalancer IPs belong
+ * to the workload, so connections to them resolve to it.
+ */
+function kubernetes(batch: ImportBatch, data: unknown) {
+  const input = (data ?? {}) as Partial<KubernetesInput>;
+  const cluster = input.cluster?.trim();
+  if (!cluster) {
+    batch.errors.push({ row: 0, message: "Kubernetes inventory without a cluster name." });
+    return;
+  }
+  const c = cluster.toLowerCase();
+  const clusterTag = cleanTag(`k8s:${cluster}`);
+  let row = 0;
+  const nodeKeys = new Map<string, string>();
+  for (const n of input.nodes ?? []) {
+    row++;
+    const key = `${c}/node/${n.name.toLowerCase()}`;
+    const r = add(batch, row, {
+      id: key,
+      name: n.name,
+      type: "SERVER",
+      description: ["Kubernetes node", `cluster ${cluster}`, n.version].filter(Boolean).join(" · "),
+      os: n.os,
+      hostname: n.name,
+      ips: n.ips,
+      tags: ["kubernetes", clusterTag],
+    });
+    if (r) nodeKeys.set(n.name, key);
+  }
+  for (const w of input.workloads ?? []) {
+    row++;
+    const key = `${c}/${w.namespace}/${w.kind}/${w.name}`.toLowerCase();
+    const kind = classifyImage(w.images[0] ?? "");
+    const ports = [...new Set(w.services.flatMap((s) => s.ports))].sort((a, b) => a - b);
+    const r = add(batch, row, {
+      id: key,
+      name: `${w.namespace}/${w.name}`,
+      type: kind.type === "DATABASE" ? "DATABASE" : "APPLICATION",
+      description: [
+        `Kubernetes ${w.kind} in ${cluster}`,
+        w.images.join(", "),
+        w.replicas !== undefined && `${w.ready ?? 0}/${w.replicas} ready`,
+        w.services.length &&
+          `services ${w.services.map((s) => `${s.name} (${s.type})`).join(", ")}`,
+      ]
+        .filter(Boolean)
+        .join(" · "),
+      version: w.images[0]?.split("@")[0]!.match(/:([^/:]+)$/)?.[1],
+      ips: [...new Set(w.services.flatMap((s) => s.externalIps ?? []))],
+      ports,
+      fqdn: w.hosts?.[0],
+      tags: [
+        "kubernetes",
+        clusterTag,
+        cleanTag(`ns:${w.namespace}`),
+        ...(kind.tech ? [kind.tech] : []),
+      ],
+    });
+    if (!r) continue;
+    for (const node of new Set(w.nodes)) {
+      const nodeKey = nodeKeys.get(node);
+      if (nodeKey)
+        batch.relationships.push({
+          row,
+          from: key,
+          to: nodeKey,
+          type: "RUNS_ON",
+          note: "Pods scheduled on this node (Kubernetes API)",
+          suggested: false,
+        });
+    }
+    for (const name of [...new Set((w.hosts ?? []).map((h) => h.toLowerCase()))]) {
+      const domainKey = `dns/${name}`;
+      if (!batch.resources.some((x) => x.key === domainKey))
+        add(batch, row, {
+          id: domainKey,
+          name,
+          type: "DOMAIN",
+          description: `Kubernetes Ingress in ${cluster}`,
+          tags: ["kubernetes", clusterTag],
+        });
+      batch.relationships.push({
+        row,
+        from: domainKey,
+        to: key,
+        type: "DEPENDS_ON",
+        note: "Ingress rule (Kubernetes API)",
+        suggested: false,
+      });
+    }
+  }
+  if (row === 0) batch.warnings.push(`No nodes or workloads found in cluster ${cluster}.`);
 }
 
 function add(batch: ImportBatch, row: number, fields: Record<string, unknown>) {

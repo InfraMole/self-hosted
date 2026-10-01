@@ -194,6 +194,7 @@ export async function ingestReport(
 
   if (report.inventory) await importInventory(agent, report.inventory);
   for (const inv of report.hypervisors ?? []) await importHypervisor(agent, report, inv, hostId);
+  if (report.kubernetes) await importKubernetes(agent, report, report.kubernetes);
   if (report.workloads && hostId) await importWorkloads(agent, hostId, report);
   // Discover → Suggest (M6): resolve endpoints and create/refresh DETECTED relationships.
   // Only this agent's facts, unless the host is new or its addresses changed:
@@ -306,8 +307,14 @@ async function importWorkloads(agent: Agent, hostId: string, report: ReportV1) {
   const w = report.workloads!;
   const host = { id: hostId, name: report.host.hostname };
   const kinds = [
+    { kind: "docker", label: "Docker", data: w.containers && { host, containers: w.containers } },
     { kind: "iis", label: "IIS", data: w.iisSites && { host, iisSites: w.iisSites } },
     { kind: "nginx", label: "nginx", data: w.nginxSites && { host, nginxSites: w.nginxSites } },
+    {
+      kind: "haproxy",
+      label: "HAProxy",
+      data: w.haproxySites && { host, haproxySites: w.haproxySites },
+    },
     {
       kind: "apache",
       label: "Apache",
@@ -385,6 +392,34 @@ async function importHypervisor(
   } catch (error) {
     console.warn(
       `[agent ${agent.id}] ${inv.source} inventory not imported:`,
+      error instanceof Error ? error.message : "unknown error",
+    );
+  }
+}
+
+/** Kubernetes (M25): one reconciled source per agent and cluster. Never fails the report. */
+async function importKubernetes(
+  agent: Agent,
+  report: ReportV1,
+  k8s: NonNullable<ReportV1["kubernetes"]>,
+) {
+  try {
+    await runImport(
+      { workspaceId: agent.workspaceId, userId: null },
+      { text: JSON.stringify(k8s), format: "kubernetes" },
+      {
+        actorType: "AGENT",
+        actorId: agent.id,
+        source: {
+          ref: `collector:${agent.id}:kubernetes:${k8s.cluster.toLowerCase()}`,
+          label: `Kubernetes ${k8s.cluster} via agent on ${report.host.hostname}`,
+          reconcile: true,
+        },
+      },
+    );
+  } catch (error) {
+    console.warn(
+      `[agent ${agent.id}] kubernetes inventory not imported:`,
       error instanceof Error ? error.message : "unknown error",
     );
   }

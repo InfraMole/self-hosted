@@ -30,7 +30,14 @@ export const AGENT_LIMITS = {
  * enroll / report response. An agent only sends a section the server listed,
  * so a newer agent keeps working with an older server (M16).
  */
-export const AGENT_FEATURES = ["workloads", "workloads-linux", "hypervisors"] as const;
+export const AGENT_FEATURES = [
+  "workloads",
+  "workloads-linux",
+  "hypervisors",
+  "containers",
+  "proxies",
+  "kubernetes",
+] as const;
 
 /** Hypervisor platforms an agent-side collector can report (M24, ADR-035). */
 export const HYPERVISOR_SOURCES = ["vcenter", "hyperv", "xenorchestra"] as const;
@@ -90,6 +97,14 @@ const webSites = z
               .strict(),
           )
           .max(AGENT_LIMITS.bindingsPerSite),
+        /**
+         * Reverse-proxy targets (M25, feature "proxies"): proxy_pass, ProxyPass,
+         * HAProxy servers, IIS ARR rewrites — host and port only.
+         */
+        upstreams: z
+          .array(z.object({ host: text(253).min(1), port: port.min(1) }).strict())
+          .max(32)
+          .optional(),
       })
       .strict(),
   )
@@ -107,6 +122,41 @@ const databases = z
       .strict(),
   )
   .max(AGENT_LIMITS.sqlDatabases);
+
+/**
+ * Docker containers on the host (M25, feature "containers"): from the
+ * Engine's container list only — never `inspect` (it carries environment
+ * variables). Labels are reduced by the agent to the Compose project /
+ * service / depends_on and the host names of Traefik / Caddy routes.
+ */
+const containers = z
+  .array(
+    z
+      .object({
+        name: text(256).min(1),
+        image: text(512).min(1),
+        state: text(32).optional(),
+        /** Ports published on the host. */
+        ports: z
+          .array(
+            z
+              .object({
+                port: port.min(1),
+                targetPort: port.min(1),
+                protocol: z.enum(["tcp", "udp", "sctp"]),
+              })
+              .strict(),
+          )
+          .max(64),
+        project: text(128).optional(),
+        service: text(128).optional(),
+        dependsOn: z.array(text(128).min(1)).max(32).optional(),
+        /** Host names this container is routed for by a reverse proxy (Traefik / Caddy labels). */
+        hosts: z.array(text(253).min(1)).max(32).optional(),
+      })
+      .strict(),
+  )
+  .max(500);
 
 export const reportSchemaV1 = z
   .object({
@@ -276,6 +326,63 @@ export const reportSchemaV1 = z
       )
       .max(HYPERVISOR_SOURCES.length)
       .optional(),
+    /**
+     * Kubernetes (M25, feature "kubernetes"): nodes and workloads of one
+     * cluster, read with a get/list-only service account. Per workload only
+     * its images, where its pods run, its services' ports / external IPs and
+     * the host names of Ingresses routing to it — never labels, env, secrets
+     * or config maps (the agent discards everything else).
+     */
+    kubernetes: z
+      .object({
+        cluster: text(128).min(1),
+        collectedAt: datetime,
+        nodes: z
+          .array(
+            z
+              .object({
+                name: text(253).min(1),
+                ips: z.array(z.union([z.ipv4(), z.ipv6()])).max(8),
+                version: text(64).optional(),
+                os: text(128).optional(),
+              })
+              .strict(),
+          )
+          .max(500),
+        workloads: z
+          .array(
+            z
+              .object({
+                namespace: text(253).min(1),
+                name: text(253).min(1),
+                kind: z.enum(["Deployment", "StatefulSet", "DaemonSet"]),
+                images: z.array(text(512).min(1)).max(16),
+                replicas: z.number().int().min(0).max(100000).optional(),
+                ready: z.number().int().min(0).max(100000).optional(),
+                nodes: z.array(text(253).min(1)).max(500),
+                services: z
+                  .array(
+                    z
+                      .object({
+                        name: text(253).min(1),
+                        type: text(32),
+                        ports: z.array(port.min(1)).max(32),
+                        externalIps: z
+                          .array(z.union([z.ipv4(), z.ipv6()]))
+                          .max(8)
+                          .optional(),
+                      })
+                      .strict(),
+                  )
+                  .max(16),
+                hosts: z.array(text(253).min(1)).max(32).optional(),
+              })
+              .strict(),
+          )
+          .max(AGENT_LIMITS.inventoryItems),
+      })
+      .strict()
+      .optional(),
     workloads: z
       .object({
         collectedAt: datetime,
@@ -287,6 +394,10 @@ export const reportSchemaV1 = z
         apacheSites: webSites.optional(),
         postgresDatabases: databases.optional(),
         mysqlDatabases: databases.optional(),
+        /** HAProxy frontend / listen sections (feature "proxies", M25). */
+        haproxySites: webSites.optional(),
+        /** Docker (feature "containers", M25). */
+        containers: containers.optional(),
       })
       .strict()
       .optional(),

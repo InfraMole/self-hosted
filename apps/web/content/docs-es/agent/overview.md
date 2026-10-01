@@ -7,15 +7,15 @@ lectura**.
 
 ## Qué envía
 
-| Dato | Para qué |
-| --- | --- |
-| Nombre del equipo, FQDN, sistema operativo, kernel, arquitectura, hora de arranque | Identificar el equipo |
-| Interfaces de red (nombre, MAC, direcciones IP) | Relacionar las conexiones de otros equipos |
-| Servicios en ejecución (nombre, estado, tipo de inicio) | Mostrar qué se ejecuta en el equipo |
-| Puertos TCP en escucha + nombre / ruta del proceso propietario | Saber qué ofrece el equipo |
-| Conexiones TCP establecidas, **agregadas** por destino, puerto y proceso | Sugerir dependencias |
-| Windows: nombres y enlaces de los sitios de IIS; nombres de las bases de datos de SQL Server si se activa | Mostrar qué se ejecuta en el servidor ([IIS y SQL Server](/es/docs/agent/windows-workloads)) |
-| Linux: nombres y puertos de los sitios de nginx / Apache; nombres de las bases de datos de PostgreSQL / MySQL si se activa | Lo mismo ([nginx, Apache y bases de datos](/es/docs/agent/linux-workloads)) |
+| Dato                                                                                                                       | Para qué                                                                                     |
+| -------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Nombre del equipo, FQDN, sistema operativo, kernel, arquitectura, hora de arranque                                         | Identificar el equipo                                                                        |
+| Interfaces de red (nombre, MAC, direcciones IP)                                                                            | Relacionar las conexiones de otros equipos                                                   |
+| Servicios en ejecución (nombre, estado, tipo de inicio)                                                                    | Mostrar qué se ejecuta en el equipo                                                          |
+| Puertos TCP en escucha + nombre / ruta del proceso propietario                                                             | Saber qué ofrece el equipo                                                                   |
+| Conexiones TCP establecidas, **agregadas** por destino, puerto y proceso                                                   | Sugerir dependencias                                                                         |
+| Windows: nombres y enlaces de los sitios de IIS; nombres de las bases de datos de SQL Server si se activa                  | Mostrar qué se ejecuta en el servidor ([IIS y SQL Server](/es/docs/agent/windows-workloads)) |
+| Linux: nombres y puertos de los sitios de nginx / Apache; nombres de las bases de datos de PostgreSQL / MySQL si se activa | Lo mismo ([nginx, Apache y bases de datos](/es/docs/agent/linux-workloads))                  |
 
 Las conexiones se muestrean cada 30 segundos y se resumen; se ignora el
 tráfico loopback, link-local y multicast. La lista completa, con un informe

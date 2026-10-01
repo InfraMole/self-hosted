@@ -23,7 +23,8 @@ export type ImportFormat =
   | "cloudflare"
   | "workloads"
   | "cloud"
-  | "hypervisor";
+  | "hypervisor"
+  | "kubernetes";
 
 export const IMPORT_LIMITS = { bytes: 1024 * 1024, resources: 2000, relationships: 5000 } as const;
 
@@ -101,7 +102,8 @@ export function parseImport(
     format === "cloudflare" ||
     format === "workloads" ||
     format === "cloud" ||
-    format === "hypervisor"
+    format === "hypervisor" ||
+    format === "kubernetes"
       ? parseJsonOrPlatform(text, format)
       : format === "csv"
         ? parseCsvImport(text)

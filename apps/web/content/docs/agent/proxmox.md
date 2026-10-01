@@ -28,6 +28,7 @@ The file holds one line: `USER@REALM!TOKENID=SECRET`.
 
 :::tabs
 @tab Linux
+
 ```sh
 echo 'inframole@pve!inventory=<secret>' | sudo tee /etc/inframole/proxmox.token > /dev/null
 sudo chmod 600 /etc/inframole/proxmox.token
@@ -37,6 +38,7 @@ sudo scp root@pve01:/etc/pve/pve-root-ca.pem /etc/inframole/pve-ca.pem
 
 The agent refuses a token file that other users can read.
 @tab Windows
+
 ```powershell
 Set-Content C:\ProgramData\InfraMole\proxmox.token 'inframole@pve!inventory=<secret>'
 icacls C:\ProgramData\InfraMole\proxmox.token /inheritance:r /grant:r SYSTEM:F Administrators:F
@@ -81,7 +83,7 @@ restart the service (`sudo systemctl restart inframole-agent` or
 :::
 
 In InfraMole the nodes, VMs and containers appear as **Discovered**, with
-confirmed *hosts* relationships from each node to its guests. A guest that
+confirmed _hosts_ relationships from each node to its guests. A guest that
 runs its own agent is matched to that host by name.
 
 When a VM disappears from Proxmox it becomes **Stale** after the next

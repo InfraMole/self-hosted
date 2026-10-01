@@ -4,15 +4,19 @@
 
 :::tabs
 @tab Windows
+
 ```powershell
 & "$env:ProgramFiles\InfraMole\inframole-agent.exe" status
 Get-Service inframole-agent
 ```
+
 @tab Linux
+
 ```sh
 sudo inframole-agent status
 systemctl status inframole-agent
 ```
+
 :::
 
 `status` muestra el servidor, el id del agente y si el servicio está en
@@ -29,10 +33,13 @@ Visor de eventos › **Registros de Windows › Aplicación**, origen
 ```powershell
 Get-WinEvent -FilterHashtable @{ LogName = "Application"; ProviderName = "inframole-agent" } -MaxEvents 20
 ```
+
 @tab Linux
+
 ```sh
 journalctl -u inframole-agent -n 50 --no-pager
 ```
+
 :::
 
 ## Ejecutar una vez en primer plano
@@ -41,17 +48,21 @@ journalctl -u inframole-agent -n 50 --no-pager
 
 :::tabs
 @tab Windows
+
 ```powershell
 Stop-Service inframole-agent
 & "$env:ProgramFiles\InfraMole\inframole-agent.exe" run --once --config C:\ProgramData\InfraMole\agent.json
 Start-Service inframole-agent
 ```
+
 @tab Linux
+
 ```sh
 sudo systemctl stop inframole-agent
 sudo inframole-agent run --once
 sudo systemctl start inframole-agent
 ```
+
 :::
 
 ## Actualizaciones
@@ -77,15 +88,19 @@ Para actualizar ahora (o solo comprobarlo), como administrador / root:
 
 :::tabs
 @tab Windows
+
 ```powershell
 & "$env:ProgramFiles\InfraMole\inframole-agent.exe" update --check
 & "$env:ProgramFiles\InfraMole\inframole-agent.exe" update
 ```
+
 @tab Linux
+
 ```sh
 sudo inframole-agent update --check
 sudo inframole-agent update
 ```
+
 :::
 
 Los agentes anteriores a la 0.4.0 se actualizan ejecutando de nuevo el
@@ -117,11 +132,14 @@ En PowerShell como administrador:
 & "$env:ProgramFiles\InfraMole\inframole-agent.exe" uninstall
 Remove-Item -Recurse "$env:ProgramFiles\InfraMole"
 ```
+
 @tab Linux
+
 ```sh
 sudo inframole-agent uninstall
 sudo rm /usr/local/bin/inframole-agent
 ```
+
 :::
 
 `uninstall` detiene y elimina el servicio y borra su configuración
