@@ -54,7 +54,21 @@ function ResourceNodeImpl({ data, selected }: NodeProps<ResourceFlowNode>) {
           aria-hidden
         />
       )}
-      <Handle type="target" position={Position.Top} isConnectable={false} className="!opacity-0" />
+      {/* Both sides can send and receive: edges leave and enter on the facing sides. */}
+      <Handle
+        id="top-in"
+        type="target"
+        position={Position.Top}
+        isConnectable={false}
+        className="!opacity-0"
+      />
+      <Handle
+        id="top-out"
+        type="source"
+        position={Position.Top}
+        isConnectable={false}
+        className="!opacity-0"
+      />
       <TypeIcon type={r.type} tech={r.tech} className="size-3.5" />
       <span className="min-w-0 flex-1 truncate font-mono text-xs">{r.name}</span>
       {r.environment && (
@@ -64,6 +78,14 @@ function ResourceNodeImpl({ data, selected }: NodeProps<ResourceFlowNode>) {
         />
       )}
       <Handle
+        id="bottom-in"
+        type="target"
+        position={Position.Bottom}
+        isConnectable={false}
+        className="!opacity-0"
+      />
+      <Handle
+        id="bottom-out"
         type="source"
         position={Position.Bottom}
         isConnectable={false}

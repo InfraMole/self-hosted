@@ -158,9 +158,11 @@ export function buildScene(input: ExportInput): Scene {
     const s = at.get(e.source);
     const t = at.get(e.target);
     if (!s || !t) continue;
+    // Same as the map: an edge to something above leaves from the top.
+    const up = t.sy < s.sy;
     sceneEdges.push({
-      from: { x: s.sx + w / 2, y: s.sy + h },
-      to: { x: t.sx + w / 2, y: t.sy },
+      from: { x: s.sx + w / 2, y: up ? s.sy : s.sy + h },
+      to: { x: t.sx + w / 2, y: up ? t.sy + h : t.sy },
       color: e.onImpactPath
         ? PALETTE.impact
         : e.informational

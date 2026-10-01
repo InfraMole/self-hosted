@@ -14,10 +14,18 @@ they need, and arrows point at what is needed.
 - **Inspector**: the side panel shows the selected resource or relationship,
   with links to its page.
 
-**Large maps**: above 300 visible resources the map uses a faster,
-simplified layout (dependents still above what they need, wide rows
-wrapped) and says so. Double-click a resource to focus on it, or filter by
-type or environment, for the detailed layout.
+**How it is laid out**: the map reads like a stack, top to bottom —
+entry points (CDN, domains, load balancers), applications, services,
+databases and storage, VMs and containers, and servers at the bottom. A
+resource is never above what depends on it, so arrows point down to what
+something needs; _exposed through_ is the exception, drawn up to the proxy
+in front (the path a request takes). Separate groups of related resources
+are laid out side by side, and resources without relationships are
+gathered in a small grid.
+
+**Large maps** open on their main group at a readable size; use the
+minimap, the fit button or zoom to see the rest. Double-click a resource to
+focus on it, or filter by type or environment.
 
 Line styles follow the [certainty encoding](/docs/manual/relationships#how-certain-is-it):
 solid for confirmed, dashed for detected, dotted for inferred.

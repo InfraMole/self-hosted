@@ -13,6 +13,7 @@ import {
   ReactFlowProvider,
   useNodesState,
   useReactFlow,
+  useStoreApi,
   type Edge,
 } from "@xyflow/react";
 import { Crosshair, Download, Radar, X } from "lucide-react";
@@ -37,10 +38,13 @@ import {
   NODE_HEIGHT,
   NODE_WIDTH,
   drawDirection,
-  layoutGraph,
+  stackLayout,
 } from "./layout";
 import { MapInspector } from "./map-inspector";
 import { ResourceNode, type ImpactLevel, type ResourceFlowNode } from "./resource-node";
+
+/** Below this zoom node names are unreadable: large maps open on their main group instead. */
+const READABLE_ZOOM = 0.55;
 
 /** Literal colours: SVG markers cannot use CSS variables reliably. Dark theme (docs/UI.md). */
 const COLORS = {
@@ -90,7 +94,8 @@ function MapCanvas({
   initialFocus,
   initialImpact,
 }: Props) {
-  const { fitView } = useReactFlow();
+  const { fitView, setViewport } = useReactFlow();
+  const store = useStoreApi();
   const [typeFilter, setTypeFilter] = useState("");
   const [envFilter, setEnvFilter] = useState("");
   const [showUnconfirmed, setShowUnconfirmed] = useState(false);
@@ -169,10 +174,16 @@ function MapCanvas({
     return candidateEdges.filter((e) => ids.has(e.from) && ids.has(e.to));
   }, [candidateEdges, visibleIds]);
 
-  const positions = useMemo(
-    () => layoutGraph(visibleIds, visibleEdges),
-    [visibleIds, visibleEdges],
+  const layout = useMemo(
+    () =>
+      stackLayout(
+        visibleIds,
+        visibleEdges,
+        new Map(visibleIds.map((id) => [id, byId.get(id)!.type])),
+      ),
+    [visibleIds, visibleEdges, byId],
   );
+  const positions = layout.positions;
 
   // Selected node + its direct neighbours stay bright; everything else dims.
   const highlighted = useMemo(() => {
@@ -198,9 +209,47 @@ function MapCanvas({
         data: { resource: byId.get(id)!, dimmed: false, isFocus: false, impact: null },
       })),
     );
-    const frame = requestAnimationFrame(() => fitView({ padding: 0.3, duration: 250 }));
+    // Show everything when it stays readable; otherwise open on the largest
+    // group, and on its top (entry points) when even that is too big (M26).
+    let frame = 0;
+    let tries = 0;
+    const show = () => {
+      const { width, height } = store.getState();
+      // The canvas may not be measured yet on the first frames.
+      if ((!width || !height) && tries++ < 20) {
+        frame = requestAnimationFrame(show);
+        return;
+      }
+      const box = (ids: readonly string[]) => {
+        const pts = ids.map((id) => positions.get(id)!).filter(Boolean);
+        const x = Math.min(...pts.map((p) => p.x));
+        const y = Math.min(...pts.map((p) => p.y));
+        const w = Math.max(...pts.map((p) => p.x)) + NODE_WIDTH - x;
+        const h = Math.max(...pts.map((p) => p.y)) + NODE_HEIGHT - y;
+        return { x, y, w, h, zoom: Math.min(width / (w * 1.3), height / (h * 1.3)) };
+      };
+      if (!width || !height || visibleIds.length === 0) return;
+      if (box(visibleIds).zoom >= READABLE_ZOOM) {
+        void fitView({ padding: 0.3, duration: 250, maxZoom: 1.2 });
+        return;
+      }
+      const main = box(layout.primary);
+      if (main.zoom >= READABLE_ZOOM) {
+        void fitView({ nodes: layout.primary.map((id) => ({ id })), padding: 0.3, duration: 250 });
+        return;
+      }
+      void setViewport(
+        {
+          zoom: READABLE_ZOOM,
+          x: width / 2 - (main.x + main.w / 2) * READABLE_ZOOM,
+          y: 48 - main.y * READABLE_ZOOM,
+        },
+        { duration: 250 },
+      );
+    };
+    frame = requestAnimationFrame(show);
     return () => cancelAnimationFrame(frame);
-  }, [visibleIds, positions, byId, setFlowNodes, fitView]);
+  }, [visibleIds, positions, layout, byId, setFlowNodes, fitView, setViewport, store]);
 
   // Selection / focus styling without touching positions.
   useEffect(() => {
@@ -236,10 +285,15 @@ function MapCanvas({
             : informational
               ? COLORS.informational
               : COLORS.edge;
+        // Leave and enter on the facing sides: an edge to something above
+        // (exposed through, monitored by…) goes out the top and in the bottom.
+        const up = (positions.get(target)?.y ?? 0) < (positions.get(source)?.y ?? 0);
         return {
           id: e.id,
           source,
           target,
+          sourceHandle: up ? "top-out" : "bottom-out",
+          targetHandle: up ? "bottom-in" : "top-in",
           label: connected ? phrase : undefined,
           labelStyle: { fill: COLORS.label, fontSize: 11 },
           labelBgPadding: [6, 3] as [number, number],
@@ -256,7 +310,7 @@ function MapCanvas({
           },
         };
       }),
-    [visibleEdges, selectedId, highlighted, impactEdgeIds, impactLevels],
+    [visibleEdges, selectedId, highlighted, impactEdgeIds, impactLevels, positions],
   );
 
   // Keep ?focus= / ?impact= in the URL so a view can be shared.
@@ -404,7 +458,6 @@ function MapCanvas({
           maxZoom={2}
           // Large maps (M15): skip rendering nodes and edges outside the viewport.
           onlyRenderVisibleElements={visibleIds.length > DETAILED_LAYOUT_LIMIT}
-          fitView
         >
           <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#1d232a" />
           <Controls showInteractive={false} position="bottom-right" />
@@ -525,15 +578,6 @@ function MapCanvas({
             {visibleIds.length} resources · {visibleEdges.length} relationships
           </span>
           <ExportMenu onExport={exportView} />
-          {visibleIds.length > DETAILED_LAYOUT_LIMIT && (
-            <p
-              role="note"
-              className="border-border bg-surface/95 text-muted pointer-events-auto basis-full rounded-lg border px-2.5 py-1.5 text-xs backdrop-blur sm:basis-auto"
-            >
-              Large map: simplified layout. Double-click a resource to focus on it, or filter by
-              type or environment, for a detailed view.
-            </p>
-          )}
         </div>
 
         <Legend />

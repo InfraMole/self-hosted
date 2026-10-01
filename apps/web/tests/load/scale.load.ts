@@ -189,6 +189,7 @@ describe.each(SIZES)("%i servers", (n) => {
       layoutGraph(
         graph.nodes.map((node) => node.id),
         graph.edges,
+        new Map(graph.nodes.map((node) => [node.id, node.type])),
       ),
     );
     row["layout ms"] = layoutMs;

@@ -15,11 +15,19 @@ colocados automáticamente: los recursos que dependen de otros quedan
 - **Inspector**: el panel lateral muestra el recurso o la relación
   seleccionados, con enlaces a su página.
 
-**Mapas grandes**: con más de 300 recursos visibles, el mapa usa una
-disposición más rápida y simplificada (los dependientes siguen encima de lo
-que necesitan y las filas anchas se reparten en varias) y lo indica. Haz
-doble clic en un recurso para centrarte en él, o filtra por tipo o entorno,
-para ver la disposición detallada.
+**Cómo se ordena**: el mapa se lee como una pila, de arriba abajo —
+puntos de entrada (CDN, dominios, balanceadores), aplicaciones, servicios,
+bases de datos y almacenamiento, VMs y contenedores, y los servidores
+abajo. Un recurso nunca está por encima de lo que depende de él, así que
+las flechas apuntan hacia abajo, a lo que algo necesita; _exposed through_
+es la excepción: sube hacia el proxy que tiene delante (el camino que sigue
+una petición). Los grupos de recursos relacionados se dibujan uno al lado
+de otro, y los recursos sin relaciones se reúnen en una pequeña cuadrícula.
+
+**Los mapas grandes** se abren sobre su grupo principal a un tamaño
+legible; usa el minimapa, el botón de encajar o el zoom para ver el resto.
+Haz doble clic en un recurso para centrarte en él, o filtra por tipo o
+entorno.
 
 El estilo de las líneas sigue la
 [representación de la certeza](/es/docs/manual/relationships#cuanta-certeza-hay):

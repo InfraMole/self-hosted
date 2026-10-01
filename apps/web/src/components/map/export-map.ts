@@ -73,8 +73,9 @@ export function paintScene(scene: Scene, fonts: Fonts = FALLBACK): HTMLCanvasEle
   // Edges first, nodes on top.
   for (const e of scene.edges) {
     const dy = Math.max(40, Math.abs(e.to.y - e.from.y));
-    const c1 = { x: e.from.x, y: e.from.y + dy / 2 };
-    const c2 = { x: e.to.x, y: e.to.y - dy / 2 };
+    const dir = e.to.y >= e.from.y ? 1 : -1; // edges to something above curve upwards
+    const c1 = { x: e.from.x, y: e.from.y + (dir * dy) / 2 };
+    const c2 = { x: e.to.x, y: e.to.y - (dir * dy) / 2 };
     ctx.strokeStyle = e.color;
     ctx.lineWidth = e.width;
     ctx.setLineDash(e.dash);

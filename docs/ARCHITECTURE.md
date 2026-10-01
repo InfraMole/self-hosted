@@ -234,14 +234,20 @@ non-archived resources and non-ignored relationships of the workspace
 and from impact). The client (`components/map/map-view.tsx`) filters (type,
 environment, "Unconfirmed" toggle — off by default —, "Informational" toggle),
 computes the focus subgraph with `neighbourhood()` (depth 1/2/3/all,
-direction both / depends on / used by), lays it out with dagre
-(`components/map/layout.ts`, dependents above dependencies) and renders it
-with React Flow. Above `DETAILED_LAYOUT_LIMIT` (300) visible nodes dagre is
-too slow for a browser (load test: 22 s at 1,000 nodes), so `layeredLayout`
-(linear: longest-path layers, cycle breaking, two barycenter sweeps) is used,
-React Flow renders only what is in the viewport, and the map says "Large map:
-simplified layout". Wide layers (a hub's dependents) wrap into rows of
-`MAX_ROW` in both layouts.
+direction both / depends on / used by), lays it out with `stackLayout`
+(`components/map/layout.ts`, M26, ADR-039) and renders it with React Flow.
+`stackLayout` (no library): connected groups apart; per group, layers =
+max(type layer `TYPE_LAYER`, one below everything above it) with cycles
+broken by DFS and `EXPOSED_THROUGH` reversed (proxy above); rows aligned
+across groups; 8 barycentre sweeps over all neighbours; x by isotonic
+regression to the neighbours' mean (`placeRow`); wide layers wrap at
+`MAX_ROW`; groups packed (main group + columns to its right, or shelves);
+unconnected resources in a tray. 2,000 nodes in ~35 ms. Above
+`DETAILED_LAYOUT_LIMIT` (300) React Flow renders only the viewport. The
+first view fits everything if readable (zoom ≥ 0.55), else the main group,
+else its top at 0.55. `layout-metrics.ts` measures aspect, crossings,
+upward edges, overlaps and edge length (`layout-quality.test.ts` on the
+demo).
 
 **Export (M17, ADR-029)**: `lib/map-export/scene.ts` (pure) turns the
 visible nodes (current positions), edges and view state into a scene;
