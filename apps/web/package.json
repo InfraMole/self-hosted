@@ -18,7 +18,8 @@
     "db:app-role": "node scripts/set-app-role-password.mjs",
     "db:studio": "prisma studio",
     "postinstall": "prisma generate",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "db:seed:scale": "tsx prisma/seed-scale.ts"
   },
   "dependencies": {
     "@aws-sdk/client-ec2": "^3.1141.0",

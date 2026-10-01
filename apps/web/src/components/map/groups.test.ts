@@ -2,7 +2,7 @@
 import type { GraphEdge } from "@depmap/graph";
 import { describe, expect, it } from "vitest";
 import { RELATIONSHIPS, RESOURCES } from "@/server/modules/demo/example-data";
-import { containment, displayGraph, nestedLayout } from "./groups";
+import { containment, displayGraph, hubs, nestedLayout } from "./groups";
 
 const e = (id: string, from: string, type: GraphEdge["type"], to: string): GraphEdge => ({
   id,
@@ -101,5 +101,26 @@ describe("nestedLayout on the demo", () => {
     const topLevel = g.shown.filter((id) => !g.parentOf.has(id));
     console.log("demo top-level", topLevel.length, "of", demoIds.length);
     expect(topLevel.length).toBeLessThan(demoIds.length * 0.7);
+  });
+});
+
+describe("large maps (M26 scale test)", () => {
+  it("lines re-attached to boxes are marked derived (they never set layers)", () => {
+    const ids = ["a1", "a2", "vm1", "vm2"];
+    const edges = [
+      e("1", "a1", "RUNS_ON", "vm1"),
+      e("2", "a2", "RUNS_ON", "vm2"),
+      e("3", "a1", "CALLS", "a2"),
+    ];
+    const g = displayGraph(ids, edges, containment(ids, edges), () => false);
+    expect(g.edges).toEqual([expect.objectContaining({ from: "vm1", to: "vm2", derived: true })]);
+  });
+
+  it("finds hubs: what a large part of the map points to", () => {
+    const shown = Array.from({ length: 100 }, (_, i) => `n${i}`);
+    const edges = shown.slice(1, 40).map((id) => ({ from: id, to: "n0" }));
+    edges.push({ from: "n1", to: "n2" });
+    expect(hubs(shown, edges)).toEqual(new Map([["n0", 39]]));
+    expect(hubs(shown.slice(0, 10), edges.slice(0, 5))).toEqual(new Map()); // small maps: none
   });
 });

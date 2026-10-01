@@ -37,6 +37,12 @@ misma caja plegada no se dibujan: la caja las cuenta junto a **+N**, y al
 seleccionarla se listan lo que contiene y esas relaciones. Un workload que se ejecuta en varios nodos se queda
 fuera. El foco y el impacto siempre lo muestran todo.
 
+En mapas grandes, algo a lo que apuntan muchos recursos (Active Directory,
+monitorización) muestra cuántas líneas llegan a él en lugar de dibujarlas
+todas: selecciónalo, o uno de los recursos que lo usan, para ver esas
+líneas. Las líneas entre cajas plegadas se dibujan tenues hasta que
+seleccionas uno de sus extremos.
+
 **Los mapas grandes** se abren sobre su grupo principal a un tamaño
 legible; usa el minimapa, el botón de encajar o el zoom para ver el resto.
 Haz doble clic en un recurso para centrarte en él, o filtra por tipo o

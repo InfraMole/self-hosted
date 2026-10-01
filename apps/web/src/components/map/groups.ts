@@ -10,7 +10,15 @@
  */
 import type { GraphEdge } from "@depmap/graph";
 import type { ResourceType } from "@/generated/prisma/enums";
-import { BOX_SPACING, NODE_HEIGHT, NODE_WIDTH, stackLayout, type Point, type Size } from "./layout";
+import {
+  BOX_SPACING,
+  NODE_HEIGHT,
+  NODE_WIDTH,
+  stackLayout,
+  type LayoutEdge,
+  type Point,
+  type Size,
+} from "./layout";
 
 /** Placement edges: [child, parent] when the edge puts one resource inside another. */
 export function placement(edge: GraphEdge): [child: string, parent: string] | null {
@@ -125,13 +133,32 @@ export function displayGraph<E extends GraphEdge>(
     const key = `${from}|${to}|${e.type}`;
     let d = drawn.get(key);
     if (!d) {
-      d = from === e.from && to === e.to ? e : { ...e, from, to };
+      d = from === e.from && to === e.to ? e : { ...e, from, to, derived: true };
       drawn.set(key, d);
       out.push(d);
     }
     represents.set(d.id, [...(represents.get(d.id) ?? []), e]);
   }
   return { shown, parentOf, expanded, hidden, edges: out, represents, inside };
+}
+
+/**
+ * Hubs (M26): resources that a large part of the map points to (Active
+ * Directory, a shared NAS, monitoring). Their incoming lines are drawn only
+ * when they or one of their users is selected; the node shows the count.
+ * Returns hub id → number of incoming lines.
+ */
+export function hubs(
+  shown: readonly string[],
+  edges: readonly { from: string; to: string }[],
+  { min = 12, share = 0.12 } = {},
+): Map<string, number> {
+  const incoming = new Map<string, number>();
+  for (const e of edges) incoming.set(e.to, (incoming.get(e.to) ?? 0) + 1);
+  const threshold = Math.max(min, Math.ceil(shown.length * share));
+  const out = new Map<string, number>();
+  for (const [id, n] of incoming) if (n >= threshold) out.set(id, n);
+  return out;
 }
 
 /** Box chrome around an expanded group's content. */
@@ -185,7 +212,7 @@ export function nestedLayout(
         height: GROUP_HEADER + inner.size.height + GROUP_PADDING,
       });
     }
-    const lifted: GraphEdge[] = [];
+    const lifted: LayoutEdge[] = [];
     const seen = new Set<string>();
     for (const e of g.edges) {
       const from = atLevel(e.from, parent);
@@ -194,7 +221,12 @@ export function nestedLayout(
       const key = `${from}|${to}|${e.type}`;
       if (seen.has(key)) continue;
       seen.add(key);
-      lifted.push({ ...e, from, to });
+      lifted.push({
+        ...e,
+        from,
+        to,
+        derived: (e as { derived?: boolean }).derived || from !== e.from || to !== e.to,
+      });
     }
     // Inside a box: compact — order only by the dependencies between its
     // contents (no type layers), tighter spacing.

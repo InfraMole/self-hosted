@@ -95,7 +95,15 @@ export function layoutGraph(
 }
 
 /** "above" must be drawn on a higher layer than "below", or null (no layering). */
-function layering(edge: GraphEdge): [above: string, below: string] | null {
+/**
+ * An edge attached to a group box on behalf of what it contains (`derived`)
+ * still orders nodes left to right but never sets layers: hundreds of
+ * app-to-app calls would otherwise chain the hosts into one tall column.
+ */
+export type LayoutEdge = GraphEdge & { derived?: boolean };
+
+function layering(edge: LayoutEdge): [above: string, below: string] | null {
+  if (edge.derived) return null;
   if (UPWARD_EDGE_TYPES.has(edge.type)) return [edge.to, edge.from];
   const dir = dependencyDirection(edge);
   return dir ? [dir.dependent, dir.dependency] : null;

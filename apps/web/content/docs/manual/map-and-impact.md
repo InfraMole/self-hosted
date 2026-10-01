@@ -36,6 +36,11 @@ counts them next to **+N**, and selecting it lists what it contains and
 those relationships. A workload that runs on several
 nodes stays outside. Focus and impact always show everything.
 
+On large maps, something that many resources point to (Active Directory,
+monitoring) shows how many lines point to it instead of drawing them all:
+select it, or one of the resources that use it, to see those lines. Lines
+between collapsed boxes are drawn faint until you select one of their ends.
+
 **Large maps** open on their main group at a readable size; use the
 minimap, the fit button or zoom to see the rest. Double-click a resource to
 focus on it, or filter by type or environment.

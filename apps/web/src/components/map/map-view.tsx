@@ -34,7 +34,7 @@ import { buildScene, exportFileName, type ExportImpact } from "@/lib/map-export/
 import type { MapEdge, MapNode } from "@/server/modules/map/map";
 import { downloadPdf, downloadPng } from "./export-map";
 import { DETAILED_LAYOUT_LIMIT, NODE_HEIGHT, NODE_WIDTH, drawDirection } from "./layout";
-import { containment, displayGraph, nestedLayout } from "./groups";
+import { containment, displayGraph, hubs, nestedLayout } from "./groups";
 import { MapInspector } from "./map-inspector";
 import { GroupNode, ResourceNode, type ImpactLevel, type ResourceFlowNode } from "./resource-node";
 
@@ -241,6 +241,12 @@ function MapCanvas({
       setGroupOverrides((current) => new Map(current).set(id, !display.expanded.has(id))),
     [display],
   );
+  // Lines drawn into a hub, by its stored "to" end (who points at whom).
+  const hubCounts = useMemo(
+    () => (impactLevels || focus ? new Map<string, number>() : hubs(display.shown, display.edges)),
+    [display, impactLevels, focus],
+  );
+
   const layout = useMemo(
     () => nestedLayout(display, new Map(visibleIds.map((id) => [id, byId.get(id)!.type]))),
     [display, visibleIds, byId],
@@ -287,6 +293,7 @@ function MapCanvas({
             isFocus: false,
             impact: null,
             hidden: display.hidden.get(id),
+            hubOf: hubCounts.get(id),
             insideRelationships: display.hidden.has(id)
               ? (display.inside.get(id) ?? []).map(describe)
               : undefined,
@@ -295,7 +302,18 @@ function MapCanvas({
         };
       }),
     );
-  }, [display, layout, sizeOf, byId, focus, impactLevels, toggleGroup, describe, setFlowNodes]);
+  }, [
+    display,
+    layout,
+    sizeOf,
+    byId,
+    focus,
+    impactLevels,
+    toggleGroup,
+    describe,
+    hubCounts,
+    setFlowNodes,
+  ]);
 
   // Framing: only when the set of visible resources changes (filters, focus,
   // impact) — expanding or collapsing a group keeps the current view. Reads
@@ -392,6 +410,8 @@ function MapCanvas({
           id: e.id,
           source,
           target,
+          // Into a hub: only while it or the other end is selected.
+          hidden: hubCounts.has(e.to) && !connected,
           sourceHandle: up ? "top-out" : "bottom-out",
           targetHandle: up ? "bottom-in" : "top-in",
           // A line attached to a collapsed box says what it stands for.
@@ -411,11 +431,30 @@ function MapCanvas({
             // Same encoding as ConfidenceBadge: solid / dashed / dotted.
             strokeDasharray:
               confidence === "detected" ? "6 4" : confidence === "inferred" ? "1.5 4" : undefined,
-            opacity: highlighted && !connected ? 0.2 : impactLevels && !onImpactPath ? 0.35 : 1,
+            // Lines between two collapsed boxes stand for what they contain:
+            // faint until one end is selected (they are many on large maps).
+            opacity:
+              highlighted && !connected
+                ? 0.2
+                : impactLevels && !onImpactPath
+                  ? 0.35
+                  : (e as { derived?: boolean }).derived && !connected
+                    ? 0.3
+                    : 1,
           },
         };
       }),
-    [display, selectedId, highlighted, impactEdgeIds, impactLevels, positions, sizeOf, standsFor],
+    [
+      display,
+      selectedId,
+      highlighted,
+      impactEdgeIds,
+      impactLevels,
+      positions,
+      sizeOf,
+      standsFor,
+      hubCounts,
+    ],
   );
 
   // Keep ?focus= / ?impact= in the URL so a view can be shared.

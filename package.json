@@ -24,6 +24,7 @@
     "db:studio": "pnpm --filter @depmap/web db:studio",
     "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
     "db:seed": "pnpm --filter @depmap/web db:seed",
+    "db:seed:scale": "pnpm --filter @depmap/web db:seed:scale",
     "db:app-role": "pnpm --filter @depmap/web db:app-role"
   },
   "devDependencies": {

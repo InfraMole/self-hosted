@@ -3,7 +3,7 @@
 
 import { memo } from "react";
 import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
-import { Link2, Minus, Plus } from "lucide-react";
+import { ArrowDownToDot, Link2, Minus, Plus } from "lucide-react";
 import type { Confidence } from "@depmap/graph";
 import { TypeIcon } from "@/components/resources/resource-badges";
 import { ENVIRONMENTS } from "@/lib/resource-presentation";
@@ -20,6 +20,8 @@ export interface ResourceNodeData extends Record<string, unknown> {
   impact: ImpactLevel | null;
   /** Collapsed group: how many resources it contains (M26). */
   hidden?: number;
+  /** Hub: how many lines point to it (drawn only when selected, M26). */
+  hubOf?: number;
   /** Collapsed group: relationships between resources inside it (not drawn). */
   insideRelationships?: string[];
   /** Expand / collapse this group. */
@@ -100,6 +102,15 @@ function Header({ id, data }: { id: string; data: ResourceNodeData }) {
           className={cn("size-1.5 shrink-0 rounded-full", ENVIRONMENTS[r.environment].dot)}
           title={ENVIRONMENTS[r.environment].label}
         />
+      )}
+      {data.hubOf !== undefined && (
+        <span
+          className="text-subtle inline-flex shrink-0 items-center gap-0.5 font-mono text-[10px]"
+          title={`${data.hubOf} relationships point here — select it (or one of them) to draw them`}
+        >
+          <ArrowDownToDot className="size-3" />
+          {data.hubOf}
+        </span>
       )}
       {data.onToggle && (
         <button
