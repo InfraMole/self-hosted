@@ -190,6 +190,52 @@ function MapCanvas({
       focus || impactLevels ? true : (groupOverrides.get(id) ?? byDefault),
     );
   }, [visibleIds, visibleEdges, contained, focus, impactLevels, groupMode, groupOverrides]);
+  /** "Billing uses database CustomersDB" — names, never ids. */
+  const describe = useCallback(
+    (e: MapEdge) =>
+      `${byId.get(e.from)?.name ?? "?"} ${RELATIONSHIP_TYPE_INFO[e.type].label} ${byId.get(e.to)?.name ?? "?"}`,
+    [byId],
+  );
+  /** For a line that stands for other relationships (collapsed box ends, merged lines). */
+  const standsFor = useCallback(
+    (e: MapEdge) => {
+      const originals = display.represents.get(e.id) ?? [];
+      if (originals.length === 1 && originals[0]!.from === e.from && originals[0]!.to === e.to)
+        return undefined;
+      const text = originals.slice(0, 2).map(describe).join(" · ");
+      return originals.length > 2 ? `${text} · +${originals.length - 2} more` : text;
+    },
+    [display, describe],
+  );
+  const descendants = useCallback(
+    (id: string): string[] => {
+      const out: string[] = [];
+      const stack = [...(contained.children.get(id) ?? [])];
+      while (stack.length) {
+        const ch = stack.shift()!;
+        out.push(ch);
+        stack.unshift(...(contained.children.get(ch) ?? []));
+      }
+      return out;
+    },
+    [contained],
+  );
+  /** Select a resource; if it is inside collapsed boxes, open them. */
+  const selectAndReveal = useCallback(
+    (id: string) => {
+      const ancestors: string[] = [];
+      for (let p = contained.parentOf.get(id); p; p = contained.parentOf.get(p)) ancestors.push(p);
+      const closed = ancestors.filter((a) => !display.expanded.has(a));
+      if (closed.length)
+        setGroupOverrides((current) => {
+          const next = new Map(current);
+          for (const a of closed) next.set(a, true);
+          return next;
+        });
+      setSelectedId(id);
+    },
+    [contained, display],
+  );
   const toggleGroup = useCallback(
     (id: string) =>
       setGroupOverrides((current) => new Map(current).set(id, !display.expanded.has(id))),
@@ -241,12 +287,15 @@ function MapCanvas({
             isFocus: false,
             impact: null,
             hidden: display.hidden.get(id),
+            insideRelationships: display.hidden.has(id)
+              ? (display.inside.get(id) ?? []).map(describe)
+              : undefined,
             onToggle: hasChildren && !focus && !impactLevels ? toggleGroup : undefined,
           },
         };
       }),
     );
-  }, [display, layout, sizeOf, byId, focus, impactLevels, toggleGroup, setFlowNodes]);
+  }, [display, layout, sizeOf, byId, focus, impactLevels, toggleGroup, describe, setFlowNodes]);
 
   // Framing: only when the set of visible resources changes (filters, focus,
   // impact) — expanding or collapsing a group keeps the current view. Reads
@@ -345,7 +394,12 @@ function MapCanvas({
           target,
           sourceHandle: up ? "top-out" : "bottom-out",
           targetHandle: up ? "bottom-in" : "top-in",
-          label: connected ? phrase : undefined,
+          // A line attached to a collapsed box says what it stands for.
+          label: connected
+            ? (standsFor(e) ?? phrase)
+            : (display.represents.get(e.id)?.length ?? 1) > 1
+              ? `×${display.represents.get(e.id)!.length}`
+              : undefined,
           labelStyle: { fill: COLORS.label, fontSize: 11 },
           labelBgPadding: [6, 3] as [number, number],
           labelBgBorderRadius: 4,
@@ -361,7 +415,7 @@ function MapCanvas({
           },
         };
       }),
-    [display, selectedId, highlighted, impactEdgeIds, impactLevels, positions, sizeOf],
+    [display, selectedId, highlighted, impactEdgeIds, impactLevels, positions, sizeOf, standsFor],
   );
 
   // Keep ?focus= / ?impact= in the URL so a view can be shared.
@@ -387,6 +441,14 @@ function MapCanvas({
   }, []);
 
   const selected = selectedId ? byId.get(selectedId) : undefined;
+  // A collapsed box selected: what it contains and the relationships inside.
+  const selectedInside =
+    selectedId && display.hidden.has(selectedId)
+      ? {
+          resources: descendants(selectedId).map((id) => byId.get(id)!),
+          relationships: (display.inside.get(selectedId) ?? []).map(describe),
+        }
+      : undefined;
   const focusNode = focus ? byId.get(focus.id) : undefined;
   const impactRoot = impactResult ? byId.get(impactResult.rootId) : undefined;
 
@@ -687,7 +749,8 @@ function MapCanvas({
                 }
               : undefined
           }
-          onSelect={setSelectedId}
+          onSelect={selectAndReveal}
+          inside={selectedInside}
           onFocus={focusOn}
           onImpact={showImpact}
           onClose={() => setSelectedId(null)}

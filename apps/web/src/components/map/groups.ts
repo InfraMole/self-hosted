@@ -64,6 +64,13 @@ export interface DisplayGraph<E extends GraphEdge = GraphEdge> {
   hidden: Map<string, number>;
   /** Edges between shown nodes (hidden endpoints replaced by their collapsed group), deduplicated. */
   edges: E[];
+  /**
+   * For every drawn edge (by id): the original relationships it stands for —
+   * more than one, or with other ends, when it attaches to a collapsed box.
+   */
+  represents: Map<string, E[]>;
+  /** Collapsed group → relationships hidden inside it (placement excluded). */
+  inside: Map<string, E[]>;
 }
 
 export function displayGraph<E extends GraphEdge>(
@@ -99,21 +106,32 @@ export function displayGraph<E extends GraphEdge>(
   };
   for (const id of ids) if (!c.parentOf.has(id)) visit(id, null);
 
-  const seen = new Set<string>();
+  const drawn = new Map<string, E>(); // "from|to|type" → drawn edge
   const out: E[] = [];
+  const represents = new Map<string, E[]>();
+  const inside = new Map<string, E[]>();
   for (const e of edges) {
     const from = rep.get(e.from);
     const to = rep.get(e.to);
-    if (!from || !to || from === to) continue;
-    // Placement inside an expanded box is shown by the box itself.
+    if (!from || !to) continue;
+    // Placement is shown by containment (a box, or a collapsed box's +N).
     const p = placement(e);
-    if (p && parentOf.get(p[0]) === p[1]) continue;
+    if (p && c.parentOf.get(p[0]) === p[1] && (from === to || parentOf.get(p[0]) === p[1]))
+      continue;
+    if (from === to) {
+      inside.set(from, [...(inside.get(from) ?? []), e]);
+      continue;
+    }
     const key = `${from}|${to}|${e.type}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(from === e.from && to === e.to ? e : { ...e, from, to });
+    let d = drawn.get(key);
+    if (!d) {
+      d = from === e.from && to === e.to ? e : { ...e, from, to };
+      drawn.set(key, d);
+      out.push(d);
+    }
+    represents.set(d.id, [...(represents.get(d.id) ?? []), e]);
   }
-  return { shown, parentOf, expanded, hidden, edges: out };
+  return { shown, parentOf, expanded, hidden, edges: out, represents, inside };
 }
 
 /** Box chrome around an expanded group's content. */

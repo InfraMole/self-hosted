@@ -3,7 +3,7 @@
 
 import { memo } from "react";
 import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
-import { Minus, Plus } from "lucide-react";
+import { Link2, Minus, Plus } from "lucide-react";
 import type { Confidence } from "@depmap/graph";
 import { TypeIcon } from "@/components/resources/resource-badges";
 import { ENVIRONMENTS } from "@/lib/resource-presentation";
@@ -20,6 +20,8 @@ export interface ResourceNodeData extends Record<string, unknown> {
   impact: ImpactLevel | null;
   /** Collapsed group: how many resources it contains (M26). */
   hidden?: number;
+  /** Collapsed group: relationships between resources inside it (not drawn). */
+  insideRelationships?: string[];
   /** Expand / collapse this group. */
   onToggle?: (id: string) => void;
 }
@@ -109,11 +111,26 @@ function Header({ id, data }: { id: string; data: ResourceNodeData }) {
             data.onToggle!(id);
           }}
           onDoubleClick={(event) => event.stopPropagation()}
-          title={expanded ? "Collapse what runs on it" : "Show what runs on it"}
+          title={
+            expanded
+              ? "Collapse what runs on it"
+              : [
+                  `${data.hidden} resource${data.hidden === 1 ? "" : "s"} inside — click to show`,
+                  ...(data.insideRelationships?.length
+                    ? ["Relationships inside:", ...data.insideRelationships]
+                    : []),
+                ].join("\n")
+          }
           aria-label={expanded ? `Collapse ${r.name}` : `Expand ${r.name}`}
         >
           {expanded ? <Minus className="size-3" /> : <Plus className="size-3" />}
           {!expanded && data.hidden}
+          {!expanded && !!data.insideRelationships?.length && (
+            <span className="text-subtle inline-flex items-center gap-0.5 pl-0.5">
+              <Link2 className="size-2.5" />
+              {data.insideRelationships.length}
+            </span>
+          )}
         </button>
       )}
     </>

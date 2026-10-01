@@ -28,7 +28,12 @@ databases, containers, VMs on a hypervisor — is drawn inside it, so
 placement needs no arrows. Maps with more than 25 resources open with the
 boxes collapsed (a server shows **+N**, what it contains); click **+N** to
 open one, or **Expand all** / **Collapse all**. Relationships of what is
-inside a collapsed box are drawn to the box. A workload that runs on several
+inside a collapsed box are drawn to the box, and say what they stand for
+when you select either end (for example "Billing uses database
+CustomersDB"); a line that stands for several shows **×2**. Relationships
+between two things inside the same collapsed box are not drawn: the box
+counts them next to **+N**, and selecting it lists what it contains and
+those relationships. A workload that runs on several
 nodes stays outside. Focus and impact always show everything.
 
 **Large maps** open on their main group at a readable size; use the

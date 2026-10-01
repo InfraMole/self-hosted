@@ -30,7 +30,11 @@ dibuja dentro de él, así que la ubicación no necesita flechas. Los mapas
 con más de 25 recursos se abren con las cajas plegadas (un servidor muestra
 **+N**, lo que contiene); pulsa **+N** para abrir una, o **Expand all** /
 **Collapse all**. Las relaciones de lo que hay dentro de una caja plegada se
-dibujan hacia la caja. Un workload que se ejecuta en varios nodos se queda
+dibujan hacia la caja, y dicen qué representan al seleccionar cualquiera de
+sus extremos (por ejemplo "Billing uses database CustomersDB"); una línea
+que representa varias muestra **×2**. Las relaciones entre dos cosas de la
+misma caja plegada no se dibujan: la caja las cuenta junto a **+N**, y al
+seleccionarla se listan lo que contiene y esas relaciones. Un workload que se ejecuta en varios nodos se queda
 fuera. El foco y el impacto siempre lo muestran todo.
 
 **Los mapas grandes** se abren sobre su grupo principal a un tamaño

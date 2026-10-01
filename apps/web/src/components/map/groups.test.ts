@@ -62,6 +62,9 @@ describe("displayGraph", () => {
     expect(g.shown.sort()).toEqual(["dbsrv", "srv"]);
     expect(g.hidden.get("srv")).toBe(2);
     expect(g.edges.map((x) => [x.from, x.type, x.to])).toEqual([["srv", "USES_DATABASE", "dbsrv"]]);
+    // What the box-to-box line stands for, and what hides inside a box.
+    expect(g.represents.get(g.edges[0]!.id)!.map((x) => x.id)).toEqual(["2"]);
+    expect(g.inside.get("srv")!.map((x) => x.id)).toEqual(["1"]); // web calls api, both on srv
   });
 });
 

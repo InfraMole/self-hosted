@@ -27,6 +27,8 @@ interface Props {
   onFocus: (id: string) => void;
   onImpact: (id: string) => void;
   onClose: () => void;
+  /** Collapsed box: what it contains and the relationships inside it. */
+  inside?: { resources: MapNode[]; relationships: string[] };
 }
 
 const SECTIONS: { bucket: Bucket; title: string }[] = [
@@ -47,6 +49,7 @@ export function MapInspector({
   onFocus,
   onImpact,
   onClose,
+  inside,
 }: Props) {
   const rows: Record<
     Bucket,
@@ -166,6 +169,41 @@ export function MapInspector({
             )}
           </section>
         ))}
+        {inside && (
+          <section>
+            <h3 className="text-subtle mb-1.5 text-[11px] font-medium tracking-wider uppercase">
+              Inside (collapsed) <span className="font-mono">{inside.resources.length}</span>
+            </h3>
+            <ul className="space-y-0.5">
+              {inside.resources.map((child) => (
+                <li key={child.id}>
+                  <button
+                    type="button"
+                    onClick={() => onSelect(child.id)}
+                    className="hover:bg-surface-2 flex w-full items-center gap-2 rounded px-1.5 py-1 text-left"
+                  >
+                    <TypeIcon type={child.type} tech={child.tech} className="size-3.5" />
+                    <span className="min-w-0 flex-1 truncate font-mono text-xs">{child.name}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+            {inside.relationships.length > 0 && (
+              <>
+                <p className="text-subtle mt-2 mb-1 text-[11px]">
+                  Relationships between them (not drawn while collapsed):
+                </p>
+                <ul className="text-muted space-y-0.5 text-xs">
+                  {inside.relationships.map((text) => (
+                    <li key={text} className="px-1.5">
+                      {text}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </section>
+        )}
       </div>
     </aside>
   );
