@@ -32,6 +32,7 @@ export async function exportWorkspace(ctx: WorkspaceContext) {
     changes,
     audit,
     discoveryRules,
+    savedViews,
   ] = await Promise.all([
     db.workspace.findUniqueOrThrow({
       where: { id: ctx.workspaceId },
@@ -94,6 +95,12 @@ export async function exportWorkspace(ctx: WorkspaceContext) {
         resource: { select: { name: true } },
       },
     }),
+    // Saved map views (M26 phase 3): their state refers to resources by id.
+    db.savedView.findMany({
+      where,
+      orderBy: { name: "asc" },
+      select: { name: true, state: true, createdAt: true, updatedAt: true },
+    }),
   ]);
 
   const toImportRow = (r: (typeof resources)[number]) => {
@@ -152,6 +159,7 @@ export async function exportWorkspace(ctx: WorkspaceContext) {
       ...r,
       resource: resource?.name ?? null,
     })),
+    savedViews,
     changes,
     audit,
   };

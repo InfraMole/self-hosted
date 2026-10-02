@@ -6,21 +6,26 @@ import { EmptyState } from "@/components/empty-state";
 import { MapView } from "@/components/map/map-view";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
+import { hasRole } from "@/server/authz";
 import { getWorkspaceGraph } from "@/server/modules/map/map";
+import { listSavedViews } from "@/server/modules/map/views";
 import { requireWorkspace } from "@/server/tenancy";
+import { deleteViewAction, saveViewAction } from "./actions";
 
 export const metadata: Metadata = { title: "Map" };
 
 export default async function MapPage({ params, searchParams }: PageProps<"/w/[slug]/map">) {
   const { slug } = await params;
   const ctx = await requireWorkspace(slug);
-  const { focus, impact } = await searchParams;
-  const graph = await getWorkspaceGraph(ctx);
+  const { focus, impact, view } = await searchParams;
+  const [graph, views] = await Promise.all([getWorkspaceGraph(ctx), listSavedViews(ctx)]);
+  // ?view= opens a saved view of this workspace; it wins over ?focus= / ?impact=.
+  const initialViewId = typeof view === "string" && views.some((v) => v.id === view) ? view : null;
   // Only accept focus/impact ids that belong to this workspace graph.
   const inGraph = (v: unknown): v is string =>
     typeof v === "string" && graph.nodes.some((n) => n.id === v);
-  const initialImpact = inGraph(impact) ? impact : null;
-  const initialFocus = !initialImpact && inGraph(focus) ? focus : null;
+  const initialImpact = !initialViewId && inGraph(impact) ? impact : null;
+  const initialFocus = !initialViewId && !initialImpact && inGraph(focus) ? focus : null;
 
   return (
     <>
@@ -49,6 +54,11 @@ export default async function MapPage({ params, searchParams }: PageProps<"/w/[s
             edges={graph.edges}
             initialFocus={initialFocus}
             initialImpact={initialImpact}
+            views={views}
+            initialViewId={initialViewId}
+            canEditViews={hasRole(ctx.role, "MEMBER")}
+            saveView={saveViewAction.bind(null, ctx.workspaceSlug)}
+            deleteView={deleteViewAction.bind(null, ctx.workspaceSlug)}
           />
         </div>
       )}

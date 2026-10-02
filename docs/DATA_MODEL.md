@@ -212,6 +212,17 @@ deleted (change event DELETED, "Suggestion removed by an exclusion rule").
 MEMBER+ create / delete (audited `discovery.rule_created` /
 `discovery.rule_deleted`); at most 100 per workspace.
 
+### SavedView ✅ M26 phase 3 (ADR-041)
+
+`id, workspaceId, name (unique per workspace, ≤ 80), state (JSON), createdById?,
+createdAt, updatedAt`. `state` is validated by
+`lib/map-view-state.ts#savedViewStateSchema`: `type?, environment?,
+showUnconfirmed, showInformational, focus? {id, depth, direction}, impact?,
+groupMode (auto | expanded | collapsed), groups {resourceId: expanded},
+pinned {resourceId: {x, y, parent}}` — resource ids only, bounded (5,000
+entries each). RLS like every tenant table. Everyone reads; MEMBER+ create,
+overwrite, delete; at most 50 per workspace. Not change-tracked (presentation).
+
 ### RelationshipEvidence ✅ M6 (see §5)
 
 Why a detected relationship exists: `relationshipId, kind (TCP_CONNECTION,

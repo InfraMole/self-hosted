@@ -45,8 +45,23 @@ seleccionas uno de sus extremos.
 
 **Los mapas grandes** se abren sobre su grupo principal a un tamaño
 legible; usa el minimapa, el botón de encajar o el zoom para ver el resto.
-Haz doble clic en un recurso para centrarte en él, o filtra por tipo o
-entorno.
+Al alejar el zoom, los recursos muestran solo un icono y un nombre más
+grandes, y más lejos solo su icono, para que la forma del mapa siga siendo
+legible. Haz doble clic en un recurso para centrarte en él, o filtra por
+tipo o entorno.
+
+### Mover cosas y guardar vistas
+
+Arrastra un recurso para ponerlo donde lo esperas: se queda ahí (dentro de
+su caja si está en una) hasta que pulses **Reset positions**. Las vistas de
+foco e impacto siempre se colocan solas.
+
+**Views** guarda lo que estás viendo —filtros, foco o impacto, cajas
+abiertas y cerradas, y las posiciones que has fijado— con un nombre, para
+todo el workspace. Elige una vista en el mismo menú o comparte el enlace
+(termina en `?view=…`). Si cambias una vista, el menú indica _modified_ y
+ofrece **Save changes**. Los miembros y superiores pueden guardar y borrar
+vistas; los lectores pueden abrirlas.
 
 El estilo de las líneas sigue la
 [representación de la certeza](/es/docs/manual/relationships#cuanta-certeza-hay):

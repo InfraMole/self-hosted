@@ -110,6 +110,7 @@ model Workspace {
   connectionFacts  ConnectionFact[]
   evidence         RelationshipEvidence[]
   discoveryRules   DiscoveryRule[]
+  savedViews       SavedView[]
   integrations     Integration[]
   invitations      Invitation[]
   auditEvents      AuditEvent[]
@@ -610,6 +611,25 @@ model DiscoveryRule {
 
   @@index([workspaceId])
   @@map("discovery_rule")
+}
+
+/// Saved map views (M26 phase 3, ADR-041): a named set of filters, focus or
+/// impact, open / closed boxes and pinned positions, shared with everyone in
+/// the workspace. Presentation only — never infrastructure data.
+model SavedView {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  name        String
+  /// Validated by savedViewStateSchema (lib/map-view-state.ts); holds
+  /// resource ids, never names or other resource data.
+  state       Json
+  createdById String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([workspaceId, name])
+  @@map("saved_view")
 }
 
 // ───────────────────────────── Integrations (M8b, ADR-018 D) ─────────────────────────────

@@ -2,7 +2,7 @@
 import type { GraphEdge } from "@depmap/graph";
 import { describe, expect, it } from "vitest";
 import { RELATIONSHIPS, RESOURCES } from "@/server/modules/demo/example-data";
-import { containment, displayGraph, hubs, nestedLayout } from "./groups";
+import { containment, displayGraph, hubs, nestedLayout, withPins } from "./groups";
 
 const e = (id: string, from: string, type: GraphEdge["type"], to: string): GraphEdge => ({
   id,
@@ -122,5 +122,36 @@ describe("large maps (M26 scale test)", () => {
     edges.push({ from: "n1", to: "n2" });
     expect(hubs(shown, edges)).toEqual(new Map([["n0", 39]]));
     expect(hubs(shown.slice(0, 10), edges.slice(0, 5))).toEqual(new Map()); // small maps: none
+  });
+});
+
+describe("withPins", () => {
+  const ids = ["web", "api", "srv", "db"];
+  const edges = [
+    e("1", "web", "RUNS_ON", "srv"),
+    e("2", "api", "RUNS_ON", "srv"),
+    e("3", "api", "USES_DATABASE", "db"),
+  ];
+  const g = displayGraph(ids, edges, containment(ids, edges), () => true);
+  const auto = nestedLayout(g, new Map());
+
+  it("moves pinned resources, keeps everything else in its automatic place", () => {
+    const l = withPins(auto, g, { db: { x: 900, y: 40, parent: null } });
+    expect(l.positions.get("db")).toEqual({ x: 900, y: 40 });
+    expect(l.positions.get("srv")).toEqual(auto.positions.get("srv"));
+    // Children follow their box.
+    const moved = withPins(auto, g, { srv: { x: 500, y: 500, parent: null } });
+    expect(moved.absolute.get("web")!.x - 500).toBe(auto.positions.get("web")!.x);
+  });
+
+  it("a pin applies only in the box it was made in, and stays inside it", () => {
+    expect(withPins(auto, g, { web: { x: 5, y: 5, parent: null } }).positions.get("web")).toEqual(
+      auto.positions.get("web"),
+    );
+    const inside = withPins(auto, g, { web: { x: 10_000, y: -50, parent: "srv" } });
+    const box = auto.sizes.get("srv")!;
+    const p = inside.positions.get("web")!;
+    expect(p.x + auto.sizes.get("web")!.width).toBeLessThanOrEqual(box.width);
+    expect(p.y).toBeGreaterThan(0);
   });
 });

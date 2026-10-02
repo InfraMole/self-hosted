@@ -249,3 +249,48 @@ export function nestedLayout(
   }
   return { positions, absolute, sizes, primary: top.primary };
 }
+
+export interface Pin {
+  x: number;
+  y: number;
+  /** Box it was placed in (positions inside a box are relative to it). */
+  parent: string | null;
+}
+
+/**
+ * Pinned positions (M26 phase 3, ADR-041) over the automatic layout. A pin
+ * applies only while the resource is drawn in the same box it was pinned in,
+ * and is kept inside that box. Everything else keeps its automatic place.
+ */
+export function withPins(
+  layout: NestedLayout,
+  g: Pick<DisplayGraph<GraphEdge>, "shown" | "parentOf">,
+  pins: Readonly<Record<string, Pin>>,
+): NestedLayout {
+  if (Object.keys(pins).length === 0) return layout;
+  const positions = new Map(layout.positions);
+  for (const id of g.shown) {
+    const pin = pins[id];
+    const parent = g.parentOf.get(id) ?? null;
+    if (!pin || pin.parent !== parent) continue;
+    if (!parent) {
+      positions.set(id, { x: pin.x, y: pin.y });
+      continue;
+    }
+    const box = layout.sizes.get(parent)!;
+    const own = layout.sizes.get(id)!;
+    const clamp = (v: number, min: number, max: number) => Math.min(Math.max(v, min), max);
+    positions.set(id, {
+      x: clamp(pin.x, 0, Math.max(0, box.width - own.width)),
+      y: clamp(pin.y, GROUP_HEADER, Math.max(GROUP_HEADER, box.height - own.height)),
+    });
+  }
+  const absolute = new Map<string, Point>();
+  for (const id of g.shown) {
+    const p = positions.get(id)!;
+    const parent = g.parentOf.get(id);
+    const base = parent ? absolute.get(parent)! : { x: 0, y: 0 };
+    absolute.set(id, { x: base.x + p.x, y: base.y + p.y });
+  }
+  return { ...layout, positions, absolute };
+}

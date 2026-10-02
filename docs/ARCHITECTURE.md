@@ -228,6 +228,13 @@ maxDepth)`, over `getWorkspaceGraph` (archived resources and ignored
 
 ### 6.4 Map
 
+Saved views (M26 phase 3, ADR-041): `server/modules/map/views.ts`
+(`listSavedViews`, `saveView`, `deleteSavedView`), server actions in
+`app/w/[slug]/map/actions.ts`, state schema in `lib/map-view-state.ts`
+(client-safe), menu `components/map/views-menu.tsx`; `?view=<id>` opens one.
+Pinned positions: `groups.ts#withPins` over `nestedLayout`. Semantic zoom:
+`resource-node.tsx#detailAt`.
+
 ✅ M3. `server/modules/map/map.ts#getWorkspaceGraph(ctx)` returns all
 non-archived resources and non-ignored relationships of the workspace
 (no cap since M15: a truncated graph silently hid dependencies from the map

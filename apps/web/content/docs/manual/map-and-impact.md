@@ -42,8 +42,23 @@ select it, or one of the resources that use it, to see those lines. Lines
 between collapsed boxes are drawn faint until you select one of their ends.
 
 **Large maps** open on their main group at a readable size; use the
-minimap, the fit button or zoom to see the rest. Double-click a resource to
-focus on it, or filter by type or environment.
+minimap, the fit button or zoom to see the rest. Zoomed out, resources show
+a larger icon and name only, and further out just their icon, so the shape
+of the map stays readable. Double-click a resource to focus on it, or filter
+by type or environment.
+
+### Move things and save views
+
+Drag a resource to put it where you expect it: it stays there (inside its
+box if it is in one) until you click **Reset positions**. Focus and impact
+views always lay themselves out.
+
+**Views** saves what you are looking at — filters, focus or impact, open
+and closed boxes, and the positions you set — under a name, for everyone in
+the workspace. Pick a view from the same menu, or share the link (it ends
+in `?view=…`). When you change a view, the menu says _modified_ and offers
+**Save changes**. Members and above can save and delete views; viewers can
+open them.
 
 Line styles follow the [certainty encoding](/docs/manual/relationships#how-certain-is-it):
 solid for confirmed, dashed for detected, dotted for inferred.

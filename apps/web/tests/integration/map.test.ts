@@ -1,7 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
-import type { WorkspaceContext } from "@/server/authz";
+import { ForbiddenError, type WorkspaceContext } from "@/server/authz";
 import { getWorkspaceGraph } from "@/server/modules/map/map";
+import {
+  SavedViewError,
+  deleteSavedView,
+  listSavedViews,
+  saveView,
+} from "@/server/modules/map/views";
 import { createRelationship } from "@/server/modules/relationships/relationships";
 import { createResource } from "@/server/modules/resources/resources";
 import {
@@ -55,5 +61,64 @@ describe("getWorkspaceGraph", () => {
     expect(graph.nodes.some((n) => n.id === other.id)).toBe(false);
 
     expect((await getWorkspaceGraph(globex)).nodes.map((n) => n.name)).toEqual(["Globex server"]);
+  });
+});
+
+describe("saved views (M26 phase 3)", () => {
+  const state = (pinned = {}) => ({
+    type: "SERVER",
+    focus: null,
+    groupMode: "collapsed",
+    pinned,
+  });
+
+  it("are shared within the workspace and isolated from others", async () => {
+    const acme = await ownerContext("Acme");
+    const globex = await ownerContext("Globex");
+    const { id } = await saveView(acme, {
+      name: "Servers",
+      state: state({ abc: { x: 10, y: 20, parent: null } }),
+    });
+    const [view] = await listSavedViews(acme);
+    expect(view).toMatchObject({ id, name: "Servers" });
+    // Defaults filled in by the schema.
+    expect(view!.state).toMatchObject({ showInformational: true, impact: null, groups: {} });
+    expect(view!.state.pinned).toEqual({ abc: { x: 10, y: 20, parent: null } });
+    expect(await listSavedViews(globex)).toEqual([]);
+    // Another workspace can neither overwrite nor delete it.
+    await expect(saveView(globex, { id, name: "Hijack", state: state() })).rejects.toThrow(
+      SavedViewError,
+    );
+    await expect(deleteSavedView(globex, id)).rejects.toThrow(SavedViewError);
+    expect((await listSavedViews(acme))[0]!.name).toBe("Servers");
+  });
+
+  it("names are unique per workspace; overwrite and delete", async () => {
+    const acme = await ownerContext("Acme");
+    const { id } = await saveView(acme, { name: "Servers", state: state() });
+    await expect(saveView(acme, { name: "Servers", state: state() })).rejects.toThrow(
+      /already exists/,
+    );
+    await saveView(acme, { id, name: "All servers", state: { ...state(), groupMode: "auto" } });
+    expect((await listSavedViews(acme))[0]).toMatchObject({
+      name: "All servers",
+      state: { groupMode: "auto" },
+    });
+    await deleteSavedView(acme, id);
+    expect(await listSavedViews(acme)).toEqual([]);
+  });
+
+  it("viewers can open views but not save them; bad input is refused", async () => {
+    const acme = await ownerContext("Acme");
+    await saveView(acme, { name: "Servers", state: state() });
+    const viewer = { ...acme, role: "VIEWER" as const };
+    expect(await listSavedViews(viewer)).toHaveLength(1);
+    await expect(saveView(viewer, { name: "Mine", state: state() })).rejects.toThrow(
+      ForbiddenError,
+    );
+    await expect(
+      saveView(acme, { name: "Bad", state: { ...state(), pinned: { "x y": { x: 1, y: 1 } } } }),
+    ).rejects.toThrow();
+    await expect(saveView(acme, { name: " ", state: state() })).rejects.toThrow();
   });
 });

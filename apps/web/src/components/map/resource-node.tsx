@@ -2,7 +2,7 @@
 "use client";
 
 import { memo } from "react";
-import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
+import { Handle, Position, useStore, type Node, type NodeProps } from "@xyflow/react";
 import { ArrowDownToDot, Link2, Minus, Plus } from "lucide-react";
 import type { Confidence } from "@depmap/graph";
 import { TypeIcon } from "@/components/resources/resource-badges";
@@ -12,6 +12,20 @@ import type { MapNode } from "@/server/modules/map/map";
 import { NODE_HEIGHT, NODE_WIDTH } from "./layout";
 
 export type ImpactLevel = "root" | Confidence;
+
+/**
+ * Semantic zoom (M26 phase 3, ADR-041). Below DETAIL_ZOOM a 12 px name is
+ * unreadable: nodes show a larger icon and name, nothing else. Below
+ * OVERVIEW_ZOOM even that is unreadable: nodes become blocks and only boxes
+ * keep a name, drawn at a constant on-screen size, as landmarks.
+ */
+export const DETAIL_ZOOM = 0.5;
+export const OVERVIEW_ZOOM = 0.22;
+export type Detail = "full" | "simple" | "overview";
+export const detailAt = (zoom: number): Detail =>
+  zoom >= DETAIL_ZOOM ? "full" : zoom >= OVERVIEW_ZOOM ? "simple" : "overview";
+/** Re-renders a node only when the detail level changes, not on every zoom step. */
+const useDetail = () => useStore((s) => detailAt(s.transform[2]));
 
 export interface ResourceNodeData extends Record<string, unknown> {
   resource: MapNode;
@@ -90,9 +104,21 @@ function borderClass(data: ResourceNodeData, selected: boolean | undefined) {
 }
 
 /** Name row shared by plain nodes and group headers. */
-function Header({ id, data }: { id: string; data: ResourceNodeData }) {
+function Header({ id, data, detail }: { id: string; data: ResourceNodeData; detail: Detail }) {
   const r = data.resource;
   const expanded = data.hidden === undefined && data.onToggle !== undefined;
+  if (detail !== "full")
+    return (
+      <>
+        <span className="inline-flex shrink-0 origin-left scale-150 pr-2">
+          <TypeIcon type={r.type} tech={r.tech} className="size-3.5" />
+        </span>
+        <span className="min-w-0 flex-1 truncate font-mono text-xl font-medium">{r.name}</span>
+        {data.hidden !== undefined && (
+          <span className="text-muted shrink-0 font-mono text-xl">+{data.hidden}</span>
+        )}
+      </>
+    );
   return (
     <>
       <TypeIcon type={r.type} tech={r.tech} className="size-3.5" />
@@ -150,6 +176,30 @@ function Header({ id, data }: { id: string; data: ResourceNodeData }) {
 
 function ResourceNodeImpl({ id, data, selected }: NodeProps<ResourceFlowNode>) {
   const r = data.resource;
+  const detail = useDetail();
+  if (detail === "overview")
+    return (
+      <div
+        style={{ width: NODE_WIDTH, height: NODE_HEIGHT }}
+        className={cn(
+          "bg-surface-2 relative flex items-center justify-center overflow-hidden rounded-md border transition-opacity",
+          borderClass(data, selected),
+          data.dimmed && "opacity-30",
+        )}
+        title={r.name}
+      >
+        {r.criticality && CRITICALITY_BAR[r.criticality] && (
+          <span
+            className={cn("absolute inset-y-0 left-0 w-1.5", CRITICALITY_BAR[r.criticality])}
+            aria-hidden
+          />
+        )}
+        <Handles />
+        <span className="inline-flex scale-[2]">
+          <TypeIcon type={r.type} tech={r.tech} className="size-3.5" />
+        </span>
+      </div>
+    );
   return (
     <div
       style={{ width: NODE_WIDTH, height: NODE_HEIGHT }}
@@ -167,7 +217,7 @@ function ResourceNodeImpl({ id, data, selected }: NodeProps<ResourceFlowNode>) {
         />
       )}
       <Handles />
-      <Header id={id} data={data} />
+      <Header id={id} data={data} detail={detail} />
     </div>
   );
 }
@@ -175,6 +225,9 @@ function ResourceNodeImpl({ id, data, selected }: NodeProps<ResourceFlowNode>) {
 /** An expanded group (M26): the resource as a box around what runs on it. */
 function GroupNodeImpl({ id, data, selected, width, height }: NodeProps<ResourceFlowNode>) {
   const r = data.resource;
+  const detail = useDetail();
+  // Overview: the name at a constant ~13 px on screen (0 = not needed).
+  const zoom = useStore((s) => (s.transform[2] < OVERVIEW_ZOOM ? s.transform[2] : 0));
   return (
     <div
       style={{ width, height }}
@@ -194,13 +247,23 @@ function GroupNodeImpl({ id, data, selected, width, height }: NodeProps<Resource
         />
       )}
       <Handles />
-      <div
-        className="border-border bg-surface flex items-center gap-2 rounded-t-lg border-b px-2.5"
-        style={{ height: NODE_HEIGHT }}
-        title={r.name}
-      >
-        <Header id={id} data={data} />
-      </div>
+      {detail === "overview" ? (
+        <div
+          className="text-foreground pointer-events-none absolute inset-x-0 bottom-full truncate font-mono font-medium"
+          style={{ fontSize: 13 / Math.max(zoom, 0.01), lineHeight: 1.3 }}
+          title={r.name}
+        >
+          {r.name}
+        </div>
+      ) : (
+        <div
+          className="border-border bg-surface flex items-center gap-2 rounded-t-lg border-b px-2.5"
+          style={{ height: NODE_HEIGHT }}
+          title={r.name}
+        >
+          <Header id={id} data={data} detail={detail} />
+        </div>
+      )}
     </div>
   );
 }

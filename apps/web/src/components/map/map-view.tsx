@@ -16,7 +16,7 @@ import {
   useStoreApi,
   type Edge,
 } from "@xyflow/react";
-import { Crosshair, Download, Maximize2, Minimize2, Radar, X } from "lucide-react";
+import { Crosshair, Download, Maximize2, Minimize2, Radar, RotateCcw, X } from "lucide-react";
 import {
   RELATIONSHIP_TYPE_INFO,
   dependencyDirection,
@@ -31,12 +31,20 @@ import { Select } from "@/components/ui/select";
 import { ENVIRONMENTS, RESOURCE_TYPES, entries } from "@/lib/resource-presentation";
 import { cn } from "@/lib/utils";
 import { buildScene, exportFileName, type ExportImpact } from "@/lib/map-export/scene";
+import {
+  sameViewState,
+  sanitizeViewState,
+  type SavedViewState,
+  type SavedViewSummary,
+  type ViewActionResult,
+} from "@/lib/map-view-state";
 import type { MapEdge, MapNode } from "@/server/modules/map/map";
 import { downloadPdf, downloadPng } from "./export-map";
 import { DETAILED_LAYOUT_LIMIT, NODE_HEIGHT, NODE_WIDTH, drawDirection } from "./layout";
-import { containment, displayGraph, hubs, nestedLayout } from "./groups";
+import { containment, displayGraph, hubs, nestedLayout, withPins, type Pin } from "./groups";
 import { MapInspector } from "./map-inspector";
 import { GroupNode, ResourceNode, type ImpactLevel, type ResourceFlowNode } from "./resource-node";
+import { ViewsMenu } from "./views-menu";
 
 /** Below this zoom node names are unreadable: large maps open on their main group instead. */
 const READABLE_ZOOM = 0.55;
@@ -74,6 +82,16 @@ interface Props {
   edges: MapEdge[];
   initialFocus: string | null;
   initialImpact: string | null;
+  /** Saved views of the workspace (M26 phase 3) and the one to open (?view=). */
+  views: SavedViewSummary[];
+  initialViewId: string | null;
+  canEditViews: boolean;
+  saveView: (input: {
+    id?: string;
+    name: string;
+    state: SavedViewState;
+  }) => Promise<ViewActionResult>;
+  deleteView: (id: string) => Promise<ViewActionResult>;
 }
 
 export function MapView(props: Props) {
@@ -91,21 +109,35 @@ function MapCanvas({
   edges,
   initialFocus,
   initialImpact,
+  views,
+  initialViewId,
+  canEditViews,
+  saveView,
+  deleteView,
 }: Props) {
   const { setViewport } = useReactFlow();
   const store = useStoreApi();
-  const [typeFilter, setTypeFilter] = useState("");
-  const [envFilter, setEnvFilter] = useState("");
-  const [showUnconfirmed, setShowUnconfirmed] = useState(false);
-  const [showInformational, setShowInformational] = useState(true);
-  const [focus, setFocus] = useState<Focus | null>(
-    initialFocus ? { id: initialFocus, depth: 2, direction: "both" } : null,
-  );
-  const [selectedId, setSelectedId] = useState<string | null>(initialImpact ?? initialFocus);
-  // Impact mode: show only the failing resource and what could be affected (M4).
-  const [impactId, setImpactId] = useState<string | null>(initialImpact);
-
   const byId = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
+  // A saved view opened by link starts the map in its state.
+  const [initial] = useState(() => {
+    const view = views.find((v) => v.id === initialViewId);
+    return view ? sanitizeViewState(view.state, (id) => byId.has(id)) : null;
+  });
+  const [activeViewId, setActiveViewId] = useState<string | null>(initial ? initialViewId : null);
+  const [typeFilter, setTypeFilter] = useState<string>(initial?.type ?? "");
+  const [envFilter, setEnvFilter] = useState<string>(initial?.environment ?? "");
+  const [showUnconfirmed, setShowUnconfirmed] = useState(initial?.showUnconfirmed ?? false);
+  const [showInformational, setShowInformational] = useState(initial?.showInformational ?? true);
+  const [focus, setFocus] = useState<Focus | null>(
+    initial
+      ? initial.focus
+      : initialFocus
+        ? { id: initialFocus, depth: 2, direction: "both" }
+        : null,
+  );
+  // Impact mode: show only the failing resource and what could be affected (M4).
+  const [impactId, setImpactId] = useState<string | null>(initial ? initial.impact : initialImpact);
+  const [selectedId, setSelectedId] = useState<string | null>(impactId ?? focus?.id ?? null);
 
   const impactResult = useMemo(() => {
     if (!impactId || !byId.has(impactId)) return null;
@@ -174,8 +206,16 @@ function MapCanvas({
 
   // Groups (M26 phase 2): what runs on / is hosted by one resource is drawn
   // inside it. Focus and impact always show everything (nothing hidden).
-  const [groupMode, setGroupMode] = useState<"auto" | "expanded" | "collapsed">("auto");
-  const [groupOverrides, setGroupOverrides] = useState<Map<string, boolean>>(new Map());
+  const [groupMode, setGroupMode] = useState<"auto" | "expanded" | "collapsed">(
+    initial?.groupMode ?? "auto",
+  );
+  const [groupOverrides, setGroupOverrides] = useState<Map<string, boolean>>(
+    () => new Map(Object.entries(initial?.groups ?? {})),
+  );
+  // Pinned positions (M26 phase 3): dragging a resource on the whole map
+  // keeps it there; saved with a view. Focus and impact lay out on their own.
+  const [pins, setPins] = useState<Record<string, Pin>>(initial?.pinned ?? {});
+  const pinsActive = !focus && !impactId;
   const contained = useMemo(
     () => containment(visibleIds, visibleEdges),
     [visibleIds, visibleEdges],
@@ -247,9 +287,13 @@ function MapCanvas({
     [display, impactLevels, focus],
   );
 
-  const layout = useMemo(
+  const autoLayout = useMemo(
     () => nestedLayout(display, new Map(visibleIds.map((id) => [id, byId.get(id)!.type]))),
     [display, visibleIds, byId],
+  );
+  const layout = useMemo(
+    () => (pinsActive ? withPins(autoLayout, display, pins) : autoLayout),
+    [autoLayout, display, pins, pinsActive],
   );
   const positions = layout.absolute;
   const sizeOf = useCallback(
@@ -285,7 +329,10 @@ function MapCanvas({
           id,
           type: group ? "box" : "resource",
           position: layout.positions.get(id)!,
-          ...(display.parentOf.has(id) ? { parentId: display.parentOf.get(id)! } : {}),
+          // Inside a box: can be moved, but stays in the box.
+          ...(display.parentOf.has(id)
+            ? { parentId: display.parentOf.get(id)!, extent: "parent" as const }
+            : {}),
           ...(group ? { width: size.width, height: size.height, zIndex: -1 } : {}),
           data: {
             resource: byId.get(id)!,
@@ -457,15 +504,78 @@ function MapCanvas({
     ],
   );
 
-  // Keep ?focus= / ?impact= in the URL so a view can be shared.
+  // Keep ?view= / ?focus= / ?impact= in the URL so a view can be shared.
   useEffect(() => {
     const url = new URL(window.location.href);
+    if (activeViewId) url.searchParams.set("view", activeViewId);
+    else url.searchParams.delete("view");
     if (focus) url.searchParams.set("focus", focus.id);
     else url.searchParams.delete("focus");
     if (impactId) url.searchParams.set("impact", impactId);
     else url.searchParams.delete("impact");
     window.history.replaceState(null, "", url);
-  }, [focus, impactId]);
+  }, [focus, impactId, activeViewId]);
+
+  // Saved views (M26 phase 3, ADR-041).
+  const currentState = useMemo<SavedViewState>(
+    () => ({
+      type: (typeFilter || null) as SavedViewState["type"],
+      environment: (envFilter || null) as SavedViewState["environment"],
+      showUnconfirmed,
+      showInformational,
+      focus: focus ? { ...focus, depth: focus.depth as 1 | 2 | 3 | 99 } : null,
+      impact: impactId,
+      groupMode,
+      groups: Object.fromEntries(groupOverrides),
+      pinned: pins,
+    }),
+    [
+      typeFilter,
+      envFilter,
+      showUnconfirmed,
+      showInformational,
+      focus,
+      impactId,
+      groupMode,
+      groupOverrides,
+      pins,
+    ],
+  );
+  const activeView = views.find((v) => v.id === activeViewId) ?? null;
+  const viewModified = activeView ? !sameViewState(activeView.state, currentState) : false;
+  /** Opens a saved view, or the whole map with the automatic layout (null). */
+  const applyView = useCallback(
+    (view: SavedViewSummary | null) => {
+      const s = view
+        ? sanitizeViewState(view.state, (id) => byId.has(id))
+        : sanitizeViewState(
+            {
+              type: null,
+              environment: null,
+              showUnconfirmed: false,
+              showInformational: true,
+              focus: null,
+              impact: null,
+              groupMode: "auto",
+              groups: {},
+              pinned: {},
+            },
+            () => true,
+          );
+      setTypeFilter(s.type ?? "");
+      setEnvFilter(s.environment ?? "");
+      setShowUnconfirmed(s.showUnconfirmed);
+      setShowInformational(s.showInformational);
+      setFocus(s.focus);
+      setImpactId(s.impact);
+      setGroupMode(s.groupMode);
+      setGroupOverrides(new Map(Object.entries(s.groups)));
+      setPins(s.pinned);
+      setSelectedId(s.impact ?? s.focus?.id ?? null);
+      setActiveViewId(view?.id ?? null);
+    },
+    [byId],
+  );
 
   const focusOn = useCallback((id: string) => {
     setImpactId(null);
@@ -523,16 +633,8 @@ function MapCanvas({
         if (!showUnconfirmed) subtitle += " · confirmed relationships only";
       }
       subtitle += ` · ${visibleIds.length} resources, ${visibleEdges.length} relationships`;
-      // Absolute positions: dragged top-level nodes keep their place; nested
-      // ones follow their box.
-      const dragged = new Map(flowNodes.map((n) => [n.id, n.position]));
-      const absolute = new Map<string, { x: number; y: number }>();
-      for (const id of display.shown) {
-        const own = dragged.get(id) ?? layout.positions.get(id)!;
-        const parent = display.parentOf.get(id);
-        const base = parent ? absolute.get(parent)! : { x: 0, y: 0 };
-        absolute.set(id, { x: base.x + own.x, y: base.y + own.y });
-      }
+      // Pinned positions are part of the layout: the export matches the screen.
+      const absolute = layout.absolute;
       const scene = buildScene({
         title: `${workspaceName} — ${view}`,
         subtitle,
@@ -593,7 +695,6 @@ function MapCanvas({
       showUnconfirmed,
       visibleIds,
       visibleEdges,
-      flowNodes,
       display,
       layout,
       sizeOf,
@@ -615,6 +716,19 @@ function MapCanvas({
           onNodesChange={onNodesChange}
           onNodeClick={(_, node) => setSelectedId(node.id)}
           onNodeDoubleClick={(_, node) => focusOn(node.id)}
+          onNodeDragStop={(_, __, moved) => {
+            if (!pinsActive) return; // focus / impact: a cosmetic move
+            setPins((current) => {
+              const next = { ...current };
+              for (const n of moved)
+                next[n.id] = {
+                  x: Math.round(n.position.x),
+                  y: Math.round(n.position.y),
+                  parent: n.parentId ?? null,
+                };
+              return next;
+            });
+          }}
           onPaneClick={() => setSelectedId(null)}
           nodesConnectable={false}
           edgesFocusable={false}
@@ -765,6 +879,27 @@ function MapCanvas({
           <span className="text-subtle pointer-events-auto ml-auto font-mono text-[11px]">
             {visibleIds.length} resources · {visibleEdges.length} relationships
           </span>
+          {pinsActive && Object.keys(pins).length > 0 && (
+            <button
+              type="button"
+              onClick={() => setPins({})}
+              className="border-border bg-surface/95 text-muted hover:text-foreground pointer-events-auto inline-flex h-8 items-center gap-1.5 rounded-lg border px-2 text-xs backdrop-blur"
+              title="Put every moved resource back in its automatic place"
+            >
+              <RotateCcw className="size-3.5" /> Reset positions
+            </button>
+          )}
+          <ViewsMenu
+            views={views}
+            activeId={activeViewId}
+            modified={viewModified}
+            canEdit={canEditViews}
+            current={() => currentState}
+            onApply={applyView}
+            onSaved={setActiveViewId}
+            onSave={saveView}
+            onDelete={deleteView}
+          />
           <ExportMenu onExport={exportView} />
         </div>
 

@@ -235,6 +235,18 @@ last IP, expired sessions and tokens) is deleted, not kept "just in case".
   owner of a workspace with other members. Sessions, accounts, 2FA and
   passkeys go with the user.
 
+## 5j. Saved map views (M26 phase 3, ADR-041)
+
+- `saved_view` is a tenant table with RLS; module functions use
+  `tenantDb(ctx)` and filter by `workspaceId` (overwrite / delete by id
+  alone is impossible: `updateMany` / `deleteMany` scoped to the workspace).
+- `?view=` is accepted only if the id is a view of this workspace (checked
+  server-side in the map page); state is zod-validated and bounded (ids
+  match `[A-Za-z0-9_-]{1,64}`, finite coordinates, ≤ 5,000 entries).
+- Views store resource ids, never names, metadata or anything collected.
+- VIEWER can open views; saving / deleting needs MEMBER. Tested in
+  `tests/integration/map.test.ts`.
+
 ## 5i. Row Level Security (M8c, ADR-020)
 
 - Runtime role `depmap_app` (no superuser, no BYPASSRLS); policies on every
