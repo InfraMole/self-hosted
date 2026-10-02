@@ -11,6 +11,8 @@ export interface ResourceFormValues {
   status: string;
   description: string;
   notes: string;
+  owner: string;
+  ownerContact: string;
   tags: string;
   links: string;
   hostname: string;
@@ -28,6 +30,8 @@ export const EMPTY_FORM_VALUES: ResourceFormValues = {
   status: "ACTIVE",
   description: "",
   notes: "",
+  owner: "",
+  ownerContact: "",
   tags: "",
   links: "",
   hostname: "",
@@ -46,6 +50,8 @@ export function toFormValues(r: ResourceView): ResourceFormValues {
     status: r.status,
     description: r.description ?? "",
     notes: r.notes ?? "",
+    owner: r.owner ?? "",
+    ownerContact: r.ownerContact ?? "",
     tags: r.tags.join(", "),
     links: formatLinks(r.links),
     hostname: r.metadata.hostname ?? "",

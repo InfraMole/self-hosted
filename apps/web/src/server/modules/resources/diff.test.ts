@@ -10,6 +10,8 @@ const base: ResourceSnapshot = {
   status: "ACTIVE",
   description: null,
   notes: null,
+  owner: null,
+  ownerContact: null,
   tags: ["web"],
   links: [],
   metadata: { ipAddresses: ["10.0.0.23"] },

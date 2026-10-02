@@ -324,6 +324,8 @@ fails fast if configuration is invalid. Pages must call `headers()` /
 | `CREDENTIALS_ENCRYPTION_KEY` (+ `_PREVIOUS`, `CREDENTIALS_KEY_VERSION`)                   | Optional. AES-256-GCM key for stored integration tokens (ADR-018)                                                                                                                                      |
 | `CRON_SECRET`                                                                             | Optional. Bearer secret for `/api/cron/*`                                                                                                                                                              |
 | `INTEGRATIONS_PRIVATE_NETWORKS`                                                           | Optional, self-hosted only (refused with `EDITION=cloud`). CIDRs the local-source integrations (Proxmox, TrueNAS, Synology) may reach — M27, ADR-042                                                   |
+| `UPDATE_CHECK`                                                                            | Optional, default false. Admins see a newer release in Settings (one anonymous GET per day) — M29                                                                                                      |
+| `INFRAMOLE_BUILD_VERSION`                                                                 | Set in release images at build time (Dockerfile ARG); shown in Settings                                                                                                                                |
 | `TRUST_PROXY`                                                                             | `true` only behind our reverse proxy: client IP from `X-Real-IP` (overwritten by Caddy). Otherwise the rightmost `X-Forwarded-For` entry (`server/http.ts` `clientIp`, Better Auth `ipAddressHeaders`) |
 | `FEEDBACK_EMAIL`                                                                          | Optional (M12). In-app feedback recipient; needs SMTP. Unset ⇒ no Feedback button                                                                                                                      |
 | `SIGNUP`                                                                                  | `open` (default) or `closed` = invite-only: first account + invited addresses only (M13, ADR-025)                                                                                                      |
@@ -406,3 +408,11 @@ the most-depended-on of up to 25 candidates by `impact()` size) feeds
 `components/onboarding/first-steps.tsx` on the Library. What a viewer has
 looked at (map, impact) is per-browser (`lib/first-steps.ts`, localStorage,
 `useSyncExternalStore`), marked by the map view and the impact page.
+
+## Daily use (M29)
+
+Owners: `Resource.owner` / `ownerContact`, `resources.ts#setOwner` (bulk),
+`lib/notify.ts` (who to warn, pure), impact page section. Quick search:
+`app/w/[slug]/search-actions.ts` + `components/app-shell/quick-search.tsx`
+(Ctrl+K). Find on map: `components/map/map-find.tsx`. Version:
+`server/version.ts` (`currentVersion`, opt-in `latestVersion`).

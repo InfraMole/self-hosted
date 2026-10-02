@@ -19,6 +19,8 @@ export const LIMITS = {
   hostname: 253,
   os: 128,
   version: 64,
+  owner: 120,
+  ownerContact: 200,
 } as const;
 
 const TAG_PATTERN = /^[a-z0-9][a-z0-9._:-]*$/;
@@ -65,6 +67,9 @@ export const resourceInputSchema = z.object({
   status: z.enum(MANUAL_STATUSES).default(ResourceStatus.ACTIVE),
   description: z.string().trim().max(LIMITS.description).nullable().default(null),
   notes: z.string().max(LIMITS.notes).nullable().default(null),
+  /** Who to contact about it (M29). */
+  owner: z.string().trim().max(LIMITS.owner).nullable().default(null),
+  ownerContact: z.string().trim().max(LIMITS.ownerContact).nullable().default(null),
   tags: z
     .array(tagSchema)
     .max(LIMITS.tags, `At most ${LIMITS.tags} tags`)
@@ -144,6 +149,8 @@ export function resourceFormToInput(form: FormData): unknown {
     status: text(form, "status") ?? undefined,
     description: text(form, "description"),
     notes: text(form, "notes"),
+    owner: text(form, "owner"),
+    ownerContact: text(form, "ownerContact"),
     tags: list(text(form, "tags")),
     links: parseLinks(text(form, "links")),
     metadata,

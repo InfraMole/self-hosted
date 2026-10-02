@@ -43,6 +43,10 @@ todas: selecciónalo, o uno de los recursos que lo usan, para ver esas
 líneas. Las líneas entre cajas plegadas se dibujan tenues hasta que
 seleccionas uno de sus extremos.
 
+**Find on map** (o la tecla `/`) busca por nombre, IP o responsable; al
+elegir un recurso se selecciona y el mapa se centra en él, aunque lo ocultara
+un filtro, un foco o una caja plegada.
+
 **Los mapas grandes** se abren sobre su grupo principal a un tamaño
 legible; usa el minimapa, el botón de encajar o el zoom para ver el resto.
 Al alejar el zoom, los recursos muestran solo un icono y un nombre más
@@ -97,6 +101,14 @@ fiable.
 
 Los recursos archivados y las relaciones ignoradas quedan fuera del mapa y
 del impacto.
+
+### A quién avisar
+
+Cuando los recursos tienen [responsable](/es/docs/manual/library#responsables),
+la página de impacto muestra los responsables de lo que podría verse
+afectado — agrupados y con su contacto — y **Copy message** te da un texto
+para pegar en una petición de cambio o en un chat. También se listan los
+recursos sin responsable, para que sepas qué falta.
 
 ## Exportar un mapa o un impacto
 

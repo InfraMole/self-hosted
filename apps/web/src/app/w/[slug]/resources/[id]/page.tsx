@@ -118,6 +118,21 @@ export default async function ResourceOverviewPage({
               ["Type", RESOURCE_TYPES[r.type].label],
               ["Environment", <EnvironmentLabel key="e" environment={r.environment} />],
               ["Criticality", <CriticalityLabel key="c" criticality={r.criticality} />],
+              [
+                "Owner",
+                r.owner ? (
+                  <span key="o">
+                    {r.owner}
+                    {r.ownerContact && (
+                      <span className="text-muted block text-xs break-all">{r.ownerContact}</span>
+                    )}
+                  </span>
+                ) : (
+                  <span key="o" className="text-subtle">
+                    —
+                  </span>
+                ),
+              ],
               ["Status", <StatusBadge key="s" status={r.status} />],
               [
                 "Source",

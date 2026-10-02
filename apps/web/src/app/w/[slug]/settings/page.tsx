@@ -26,6 +26,7 @@ import { listInvitations, listMembers } from "@/server/modules/members/members";
 import { markStaleHosts } from "@/server/modules/discovery/staleness";
 import { listSources } from "@/server/modules/resources/sources";
 import { requireWorkspace } from "@/server/tenancy";
+import { versionInfo } from "@/server/version";
 import { createTokenAction, revokeAgentAction, revokeTokenAction } from "./actions";
 import {
   createIntegrationAction,
@@ -63,12 +64,13 @@ export default async function SettingsPage({ params }: PageProps<"/w/[slug]/sett
   await markStaleHosts(ctx.workspaceId); // throttled (ADR-016)
   const isAdmin = hasRole(ctx.role, "ADMIN");
   const isOwner = ctx.role === "OWNER";
-  const [agents, tokens, integrations, members, invitations] = await Promise.all([
+  const [agents, tokens, integrations, members, invitations, version] = await Promise.all([
     listAgents(ctx),
     isAdmin ? listEnrollmentTokens(ctx) : Promise.resolve([]),
     isAdmin ? listIntegrations(ctx) : Promise.resolve([]),
     listMembers(ctx),
     isAdmin ? listInvitations(ctx) : Promise.resolve([]),
+    versionInfo(),
   ]);
   const assignable: Role[] = isOwner
     ? ["VIEWER", "MEMBER", "ADMIN", "OWNER"]
@@ -124,6 +126,38 @@ export default async function SettingsPage({ params }: PageProps<"/w/[slug]/sett
                   <dd className={mono ? "font-mono text-xs" : "text-sm"}>{value}</dd>
                 </div>
               ))}
+              <div className="grid grid-cols-[160px_1fr] items-baseline gap-4 px-4 py-2.5">
+                <dt className="text-muted text-xs">InfraMole version</dt>
+                <dd className="text-sm">
+                  <span className="font-mono text-xs">
+                    {version.current ?? "development build"}
+                  </span>
+                  {isAdmin && version.newer && (
+                    <span className="text-warning ml-3 text-xs">
+                      {version.newer} is available —{" "}
+                      <Link
+                        href="/docs/operations/upgrade"
+                        className="underline-offset-4 hover:underline"
+                      >
+                        upgrade guide
+                      </Link>{" "}
+                      ·{" "}
+                      <a
+                        href="https://github.com/InfraMole/self-hosted/blob/main/CHANGELOG.md"
+                        className="underline-offset-4 hover:underline"
+                      >
+                        what changed
+                      </a>
+                    </span>
+                  )}
+                  {isAdmin && version.current && !version.checking && (
+                    <span className="text-subtle ml-3 text-xs">
+                      Set <span className="font-mono">UPDATE_CHECK=true</span> to be told about new
+                      releases.
+                    </span>
+                  )}
+                </dd>
+              </div>
               <div className="grid grid-cols-[160px_1fr] items-baseline gap-4 px-4 py-2.5">
                 <dt className="text-muted text-xs">Security</dt>
                 <dd>

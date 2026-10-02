@@ -23,6 +23,7 @@ import {
   archiveResourcesAction,
   deleteResourcesAction,
   retireSourceAction,
+  setOwnerAction,
 } from "../resources/bulk-actions";
 
 export const metadata: Metadata = { title: "Library" };
@@ -130,6 +131,7 @@ export default async function LibraryPage({
                 canWrite={canWrite}
                 archiveAction={archiveResourcesAction.bind(null, ctx.workspaceSlug)}
                 deleteAction={deleteResourcesAction.bind(null, ctx.workspaceSlug)}
+                ownerAction={setOwnerAction.bind(null, ctx.workspaceSlug)}
                 rows={resources.map((r) => ({
                   id: r.id,
                   name: r.name,

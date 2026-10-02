@@ -144,8 +144,6 @@ export function SiteHeader({ locale = "en" }: { locale?: Locale }) {
 
 const GITHUB = "https://github.com/InfraMole/self-hosted";
 
-const technicalValues = ["prod-web-01", "10.20.4.15", "Azure / rg-production", "SQL-PROD-02"];
-
 function Hero({ cloudSignup, demo, inDemo, locale, t }: LandingOptions & Localized) {
   return (
     <section className="mx-auto grid max-w-6xl items-center gap-10 px-4 pt-16 pb-14 sm:px-6 lg:grid-cols-[1.15fr_0.85fr] lg:pt-24">
@@ -183,16 +181,6 @@ function Hero({ cloudSignup, demo, inDemo, locale, t }: LandingOptions & Localiz
             {t.hero.sourceCode} →
           </a>
         </p>
-        <ul className="mt-10 flex flex-wrap gap-2" aria-label={t.hero.mapsLabel}>
-          {technicalValues.map((v) => (
-            <li
-              key={v}
-              className="border-border bg-surface text-muted rounded-md border px-2 py-1 font-mono text-xs"
-            >
-              {v}
-            </li>
-          ))}
-        </ul>
       </div>
       <div className="relative mx-auto w-full max-w-md lg:max-w-none">
         <div className="bg-brand-lavender/45 absolute inset-x-6 bottom-2 h-2/3 rounded-full blur-3xl" />

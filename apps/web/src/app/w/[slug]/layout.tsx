@@ -10,6 +10,7 @@ import { feedbackEnabled } from "@/server/modules/feedback/feedback";
 import { listWorkspacesForUser } from "@/server/modules/workspaces/workspaces";
 import { requireUser, requireWorkspace } from "@/server/tenancy";
 import { sendFeedbackAction } from "./feedback-actions";
+import { searchResourcesAction } from "./search-actions";
 
 export default async function WorkspaceLayout({ children, params }: LayoutProps<"/w/[slug]">) {
   const { slug } = await params;
@@ -29,6 +30,7 @@ export default async function WorkspaceLayout({ children, params }: LayoutProps<
         user={{ name: user.name, email: user.email }}
         suggestionCount={suggestionCount}
         feedbackAction={feedbackEnabled() ? sendFeedbackAction.bind(null, ctx.workspaceSlug) : null}
+        search={searchResourcesAction.bind(null, ctx.workspaceSlug)}
       />
       <main className="flex min-w-0 flex-1 flex-col overflow-auto">
         {isDemoUser(user) && <DemoBanner />}

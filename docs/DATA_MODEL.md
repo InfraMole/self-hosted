@@ -212,6 +212,13 @@ deleted (change event DELETED, "Suggestion removed by an exclusion rule").
 MEMBER+ create / delete (audited `discovery.rule_created` /
 `discovery.rule_deleted`); at most 100 per workspace.
 
+### Resource owner ✅ M29 (ADR-043)
+
+`Resource.owner` (person or team, ≤ 120) and `Resource.ownerContact` (≤ 200,
+free text), both nullable, set only by people or file imports (migration
+`resource_owner`). Part of the change diff (`DIFF_FIELDS`), the workspace
+export (`owner`, `owner_contact`) and the Library search.
+
 ### SavedView ✅ M26 phase 3 (ADR-041)
 
 `id, workspaceId, name (unique per workspace, ≤ 80), state (JSON), createdById?,

@@ -17,6 +17,7 @@ import {
   TypeIcon,
 } from "@/components/resources/resource-badges";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogClose,
@@ -42,6 +43,10 @@ export interface ResourceRow {
 }
 
 type Action = (ids: string[]) => Promise<{ error?: string; message?: string }>;
+type OwnerAction = (
+  ids: string[],
+  input: { owner: string; ownerContact: string },
+) => Promise<{ error?: string; message?: string }>;
 
 /** Library table; with `canWrite`, rows can be selected for bulk archive / delete. */
 export function ResourceTable({
@@ -50,16 +55,20 @@ export function ResourceTable({
   canWrite,
   archiveAction,
   deleteAction,
+  ownerAction,
 }: {
   slug: string;
   rows: ResourceRow[];
   canWrite: boolean;
   archiveAction: Action;
   deleteAction: Action;
+  ownerAction: OwnerAction;
 }) {
   const router = useRouter();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [owning, setOwning] = useState(false);
+  const [owner, setOwner] = useState({ owner: "", ownerContact: "" });
   const [feedback, setFeedback] = useState<{ error?: string; message?: string }>({});
   const [pending, startTransition] = useTransition();
   const all = rows.length > 0 && selected.size === rows.length;
@@ -79,6 +88,7 @@ export function ResourceTable({
       if (!result.error) {
         setSelected(new Set());
         setConfirmDelete(false);
+        setOwning(false);
         router.refresh();
       }
     });
@@ -97,6 +107,14 @@ export function ResourceTable({
                 onClick={() => run(archiveAction)}
               >
                 Archive
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={pending}
+                onClick={() => setOwning(true)}
+              >
+                Set owner…
               </Button>
               <Button
                 size="sm"
@@ -200,6 +218,43 @@ export function ResourceTable({
           </tbody>
         </table>
       </div>
+      <Dialog open={owning} onOpenChange={setOwning}>
+        <DialogContent>
+          <DialogTitle>Set the owner of {selected.size} resources</DialogTitle>
+          <DialogDescription>
+            Who to warn when they could be affected. Leave the owner empty to clear it.
+          </DialogDescription>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <label className="flex flex-col gap-1.5 text-xs">
+              Owner
+              <Input
+                value={owner.owner}
+                onChange={(e) => setOwner({ ...owner, owner: e.target.value })}
+                maxLength={120}
+                placeholder="Platform team"
+                autoFocus
+              />
+            </label>
+            <label className="flex flex-col gap-1.5 text-xs">
+              Contact
+              <Input
+                value={owner.ownerContact}
+                onChange={(e) => setOwner({ ...owner, ownerContact: e.target.value })}
+                maxLength={200}
+                placeholder="platform@example.com"
+              />
+            </label>
+          </div>
+          <div className="mt-5 flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setOwning(false)}>
+              Cancel
+            </Button>
+            <Button disabled={pending} onClick={() => run((ids) => ownerAction(ids, owner))}>
+              {pending ? "Saving…" : owner.owner.trim() ? "Set owner" : "Clear owner"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <DialogContent>
           <DialogTitle>Delete {selected.size} resources?</DialogTitle>

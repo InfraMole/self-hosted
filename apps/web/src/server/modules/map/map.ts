@@ -24,6 +24,9 @@ export interface MapNode {
   ipAddresses: string[];
   /** What it is / where it runs, from its tags and OS (lib/tech.ts). */
   tech: ResourceTech;
+  /** Who to contact about it (M29). */
+  owner: string | null;
+  ownerContact: string | null;
 }
 
 export interface MapEdge {
@@ -59,6 +62,8 @@ export async function getWorkspaceGraph(ctx: WorkspaceContext): Promise<Workspac
         status: true,
         metadata: true,
         tags: true,
+        owner: true,
+        ownerContact: true,
       },
       // No cap (M15): a truncated graph would silently hide dependencies from
       // the map and from impact. Load-tested at 2,000 servers (tests/load).

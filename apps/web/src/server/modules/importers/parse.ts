@@ -37,6 +37,8 @@ export type ProvidedField =
   | "criticality"
   | "description"
   | "notes"
+  | "owner"
+  | "ownerContact"
   | "tags"
   | "hostname"
   | "fqdn"
@@ -251,6 +253,8 @@ export function buildResourceRow(
     criticality: mark("criticality", enumValue(Criticality, {}, get("criticality"))),
     description: mark("description", text(get("description"))),
     notes: mark("notes", text(get("notes"))),
+    owner: mark("owner", text(get("owner"))),
+    ownerContact: mark("ownerContact", text(get("owner_contact", "ownercontact", "contact"))),
     tags: mark(
       "tags",
       list(get("tags")).map((t) => t.toLowerCase()),

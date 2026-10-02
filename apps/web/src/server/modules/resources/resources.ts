@@ -54,6 +54,8 @@ function snapshot(r: Resource): ResourceSnapshot {
     status: r.status,
     description: r.description,
     notes: r.notes,
+    owner: r.owner,
+    ownerContact: r.ownerContact,
     tags: r.tags,
     links: r.links,
     metadata: r.metadata,
@@ -84,6 +86,7 @@ export async function listResources(
     where.OR = [
       { name: { contains: q, mode: "insensitive" } },
       { description: { contains: q, mode: "insensitive" } },
+      { owner: { contains: q, mode: "insensitive" } },
       { tags: { has: q.toLowerCase() } },
       { metadata: { path: ["hostname"], string_contains: q } },
       { metadata: { path: ["ipAddresses"], array_contains: [q] } },
@@ -221,6 +224,54 @@ export async function archiveResources(ctx: WorkspaceContext, rawIds: unknown): 
         });
       }
       return rows.length;
+    },
+    { timeout: 60_000 },
+  );
+}
+
+export const ownerInputSchema = z.object({
+  owner: resourceInputSchema.shape.owner,
+  ownerContact: resourceInputSchema.shape.ownerContact,
+});
+
+/**
+ * Sets (or clears, with empty values) the owner of several resources at once
+ * (M29). One change event per resource that actually changed.
+ */
+export async function setOwner(
+  ctx: WorkspaceContext,
+  rawIds: unknown,
+  rawInput: unknown,
+): Promise<number> {
+  assertRole(ctx, "MEMBER");
+  const ids = bulkIdsSchema.parse(rawIds);
+  const input = ownerInputSchema.parse(rawInput);
+  const owner = input.owner || null;
+  const ownerContact = owner ? input.ownerContact || null : null;
+  return tenantDb(ctx).$transaction(
+    async (tx) => {
+      const rows = await tx.resource.findMany({
+        where: { workspaceId: ctx.workspaceId, id: { in: ids } },
+        select: { id: true, name: true, owner: true, ownerContact: true },
+      });
+      let changed = 0;
+      for (const r of rows) {
+        if (r.owner === owner && r.ownerContact === ownerContact) continue;
+        await tx.resource.update({ where: { id: r.id }, data: { owner, ownerContact } });
+        const diff: Record<string, [unknown, unknown]> = {};
+        if (r.owner !== owner) diff.owner = [r.owner, owner];
+        if (r.ownerContact !== ownerContact) diff.ownerContact = [r.ownerContact, ownerContact];
+        await recordUserChange(tx, ctx, {
+          subjectType: "RESOURCE",
+          subjectId: r.id,
+          subjectLabel: r.name,
+          kind: "UPDATED",
+          summary: owner ? `Owner of ${r.name}: ${owner}` : `Owner of ${r.name} cleared`,
+          diff: diff as Prisma.InputJsonValue,
+        });
+        changed++;
+      }
+      return changed;
     },
     { timeout: 60_000 },
   );

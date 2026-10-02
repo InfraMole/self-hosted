@@ -235,6 +235,18 @@ last IP, expired sessions and tokens) is deleted, not kept "just in case".
   owner of a workspace with other members. Sessions, accounts, 2FA and
   passkeys go with the user.
 
+## 5t. Daily use (M29, ADR-043)
+
+- Owner contacts are free text the workspace enters (often an email): they
+  are personal data of the workspace, exported with it and deleted with it;
+  never sent anywhere (no notifications).
+- Quick search runs through a server action that calls `requireWorkspace`;
+  results come from the scoped `listResources`.
+- `UPDATE_CHECK` is off by default; when on, one anonymous GET to
+  api.github.com per day through safeFetch (public destinations only),
+  nothing sent. The version is shown in Settings (members), never in
+  `/api/health`.
+
 ## 5s. More sources (M27, ADR-042)
 
 - **Local network access is opt-in and narrow**: `INTEGRATIONS_PRIVATE_NETWORKS`

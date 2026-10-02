@@ -31,7 +31,7 @@ export default defineConfig({
     {
       // Library, map and impact on the imported infrastructure only.
       name: "core",
-      testMatch: /(library|map|impact|first-steps)\.spec\.ts/,
+      testMatch: /(library|map|impact|first-steps|daily)\.spec\.ts/,
       dependencies: ["setup"],
       use: { ...devices["Desktop Chrome"], viewport, storageState: "e2e/.auth/owner.json" },
     },

@@ -33,8 +33,10 @@ discovery only. Nothing is ever deleted automatically.
 
 ## Find resources
 
-The search box matches names, descriptions, hostnames, exact tags and exact
-IP addresses. Filters narrow by type, environment, status and **source** —
+The search box matches names, descriptions, owners, hostnames, exact tags
+and exact IP addresses. Anywhere in a workspace, **Ctrl K** (⌘K on a Mac)
+opens a quick search over resources and pages: Enter opens the resource,
+Alt+Enter shows it on the map. Filters narrow by type, environment, status and **source** —
 who created the resource: a person, an agent, an integration or a file
 import.
 
@@ -46,9 +48,19 @@ import.
   **Activity** (every change, with who made it).
 - Members, admins and owners can edit; viewers can only read.
 
+## Owners
+
+Give a resource an **owner** — a person or a team — and a **contact** (an
+email, a phone, a chat channel). The impact of any resource then lists **who
+to warn**: the owners of what could be affected, with a message you can copy
+into a change request. Set owners one by one with **Edit**, for many
+resources at once with **Set owner…** (below), or with `owner` /
+`owner_contact` columns in an [import](/docs/manual/imports).
+
 ## Bulk actions
 
-Tick rows to **archive** or **delete** several resources at once (up to 500).
+Tick rows to **archive**, **delete** or **set the owner** of several
+resources at once (up to 500).
 Deleting also removes their relationships; the delete dialog offers
 **Archive instead**.
 

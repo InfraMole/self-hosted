@@ -96,6 +96,17 @@ export function MapInspector({
           <dd>
             <CriticalityLabel criticality={r.criticality} />
           </dd>
+          {r.owner && (
+            <>
+              <dt className="text-muted">Owner</dt>
+              <dd>
+                {r.owner}
+                {r.ownerContact && (
+                  <span className="text-muted block break-all">{r.ownerContact}</span>
+                )}
+              </dd>
+            </>
+          )}
           {r.ipAddresses.length > 0 && (
             <>
               <dt className="text-muted">IPs</dt>

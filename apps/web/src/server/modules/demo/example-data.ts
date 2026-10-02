@@ -32,6 +32,8 @@ export const RESOURCES: Seed[] = [
   },
   {
     name: "APP01",
+    owner: "Infrastructure",
+    ownerContact: "infra@northwind.example",
     type: "SERVER",
     environment: "PRODUCTION",
     criticality: "HIGH",
@@ -61,6 +63,8 @@ export const RESOURCES: Seed[] = [
   },
   {
     name: "IT Portal",
+    owner: "IT service desk",
+    ownerContact: "servicedesk@northwind.example",
     type: "APPLICATION",
     environment: "PRODUCTION",
     criticality: "MEDIUM",
@@ -69,6 +73,8 @@ export const RESOURCES: Seed[] = [
   },
   {
     name: "Billing",
+    owner: "Finance apps",
+    ownerContact: "finance-apps@northwind.example",
     type: "APPLICATION",
     environment: "PRODUCTION",
     criticality: "HIGH",
@@ -77,6 +83,8 @@ export const RESOURCES: Seed[] = [
   },
   {
     name: "CustomerAPI",
+    owner: "Platform team",
+    ownerContact: "#platform on Slack",
     type: "API",
     environment: "PRODUCTION",
     criticality: "CRITICAL",
@@ -86,6 +94,8 @@ export const RESOURCES: Seed[] = [
   },
   {
     name: "Web",
+    owner: "Web team",
+    ownerContact: "web@northwind.example",
     type: "APPLICATION",
     environment: "PRODUCTION",
     criticality: "CRITICAL",
@@ -94,6 +104,8 @@ export const RESOURCES: Seed[] = [
   },
   {
     name: "Mobile",
+    owner: "Mobile team",
+    ownerContact: "mobile@northwind.example",
     type: "APPLICATION",
     environment: "PRODUCTION",
     criticality: "HIGH",
@@ -102,6 +114,8 @@ export const RESOURCES: Seed[] = [
   },
   {
     name: "SQL01",
+    owner: "Data team",
+    ownerContact: "data@northwind.example",
     type: "SERVER",
     environment: "PRODUCTION",
     criticality: "CRITICAL",
@@ -116,6 +130,8 @@ export const RESOURCES: Seed[] = [
   },
   {
     name: "CustomersDB",
+    owner: "Data team",
+    ownerContact: "data@northwind.example",
     type: "DATABASE",
     environment: "PRODUCTION",
     criticality: "CRITICAL",

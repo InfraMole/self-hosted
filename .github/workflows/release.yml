@@ -50,6 +50,8 @@ jobs:
           file: ${{ matrix.image.file }}
           target: ${{ matrix.image.target }}
           platforms: linux/${{ matrix.platform.arch }}
+          build-args: |
+            INFRAMOLE_BUILD_VERSION=${{ github.ref_name }}
           labels: |
             org.opencontainers.image.title=InfraMole ${{ matrix.image.name }}
             org.opencontainers.image.version=${{ github.ref_name }}

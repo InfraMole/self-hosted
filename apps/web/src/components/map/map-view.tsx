@@ -43,6 +43,7 @@ import type { MapEdge, MapNode } from "@/server/modules/map/map";
 import { downloadPdf, downloadPng } from "./export-map";
 import { DETAILED_LAYOUT_LIMIT, NODE_HEIGHT, NODE_WIDTH, drawDirection } from "./layout";
 import { containment, displayGraph, hubs, nestedLayout, withPins, type Pin } from "./groups";
+import { MapFind } from "./map-find";
 import { MapInspector } from "./map-inspector";
 import { GroupNode, ResourceNode, type ImpactLevel, type ResourceFlowNode } from "./resource-node";
 import { ViewsMenu } from "./views-menu";
@@ -116,7 +117,7 @@ function MapCanvas({
   saveView,
   deleteView,
 }: Props) {
-  const { setViewport } = useReactFlow();
+  const { setViewport, setCenter, getZoom } = useReactFlow();
   const store = useStoreApi();
   const byId = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
   // A saved view opened by link starts the map in its state.
@@ -277,6 +278,23 @@ function MapCanvas({
     },
     [contained, display],
   );
+
+  // Find on map (M29): show it whatever hides it, select it, then centre on
+  // it once the layout has it (after any re-framing).
+  const [pendingCenter, setPendingCenter] = useState<string | null>(null);
+  const findOnMap = useCallback(
+    (id: string) => {
+      if (!visibleIds.includes(id)) {
+        setImpactId(null);
+        setFocus(null);
+        setTypeFilter("");
+        setEnvFilter("");
+      }
+      selectAndReveal(id);
+      setPendingCenter(id);
+    },
+    [visibleIds, selectAndReveal],
+  );
   const toggleGroup = useCallback(
     (id: string) =>
       setGroupOverrides((current) => new Map(current).set(id, !display.expanded.has(id))),
@@ -416,6 +434,22 @@ function MapCanvas({
     frame = requestAnimationFrame(show);
     return () => cancelAnimationFrame(frame);
   }, [visibleIds, groupMode, store, setViewport]);
+
+  useEffect(() => {
+    if (!pendingCenter) return;
+    const at = layout.absolute.get(pendingCenter);
+    if (!at) return;
+    const size = sizeOf(pendingCenter);
+    // After the re-framing a filter change triggers (250 ms).
+    const timer = setTimeout(() => {
+      void setCenter(at.x + size.width / 2, at.y + size.height / 2, {
+        zoom: Math.max(getZoom(), 1),
+        duration: 400,
+      });
+      setPendingCenter(null);
+    }, 320);
+    return () => clearTimeout(timer);
+  }, [pendingCenter, layout, sizeOf, setCenter, getZoom]);
 
   // Selection / focus styling without touching positions.
   useEffect(() => {
@@ -897,6 +931,7 @@ function MapCanvas({
               <RotateCcw className="size-3.5" /> Reset positions
             </button>
           )}
+          <MapFind nodes={nodes} onFind={findOnMap} />
           <ViewsMenu
             views={views}
             activeId={activeViewId}

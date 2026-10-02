@@ -32,7 +32,6 @@ const en = {
       `${days}-day free trial. No card needed. Or self-host Community — free and open source.`,
     freeNote:
       "Free and open source (AGPLv3). Up and running on your own server in about ten minutes.",
-    mapsLabel: "The kind of things it maps",
     sourceCode: "Source code on GitHub",
   },
   miniMap: {
@@ -102,8 +101,8 @@ const en = {
         title: "Integrations",
         note: "Read-only tokens, encrypted at rest",
         items: [
-          "Azure: virtual machines, load balancers, databases, DNS",
-          "AWS: EC2, RDS, load balancers, Route 53",
+          "Azure: virtual machines",
+          "AWS: EC2 instances and RDS databases",
           "Cloudflare: DNS records and what they point to",
         ],
       },
@@ -117,7 +116,7 @@ const en = {
         ],
       },
     ],
-    more: "More clouds, DNS providers, hypervisors and NAS are in preview",
+    more: "More clouds, load balancers, DNS providers, hypervisors and NAS are in preview",
     moreLink: "See all integrations →",
   },
   useCases: {
@@ -236,7 +235,7 @@ const en = {
       },
       twoFactor: {
         title: "2FA and passkeys",
-        body: "For every account, and workspaces can require them. Included in Community and in every Cloud plan.",
+        body: "For every account, and workspaces can require them. Included in every edition, Community too.",
       },
       audit: {
         title: "Audit log",
@@ -366,7 +365,6 @@ const es: SiteCopy = {
       `${days} días de prueba gratis, sin tarjeta. O instala Community en tu servidor — gratis y de código abierto.`,
     freeNote:
       "Gratis y de código abierto (AGPLv3). Funcionando en tu propio servidor en unos diez minutos.",
-    mapsLabel: "El tipo de cosas que mapea",
     sourceCode: "Código fuente en GitHub",
   },
   miniMap: {
@@ -436,8 +434,8 @@ const es: SiteCopy = {
         title: "Integraciones",
         note: "Tokens de solo lectura, cifrados en reposo",
         items: [
-          "Azure: máquinas virtuales, balanceadores, bases de datos, DNS",
-          "AWS: EC2, RDS, balanceadores, Route 53",
+          "Azure: máquinas virtuales",
+          "AWS: instancias EC2 y bases de datos RDS",
           "Cloudflare: registros DNS y a qué apuntan",
         ],
       },
@@ -451,7 +449,7 @@ const es: SiteCopy = {
         ],
       },
     ],
-    more: "Más nubes, proveedores DNS, hipervisores y NAS están en preview",
+    more: "Más nubes, balanceadores, proveedores DNS, hipervisores y NAS están en preview",
     moreLink: "Ver todas las integraciones →",
   },
   useCases: {
@@ -573,7 +571,7 @@ const es: SiteCopy = {
       },
       twoFactor: {
         title: "2FA y llaves de acceso",
-        body: "Para todas las cuentas, y cada espacio de trabajo puede exigirlas. Incluido en Community y en todos los planes Cloud.",
+        body: "Para todas las cuentas, y cada espacio de trabajo puede exigirlas. Incluido en todas las ediciones, también en Community.",
       },
       audit: {
         title: "Registro de auditoría",

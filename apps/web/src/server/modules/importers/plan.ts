@@ -18,6 +18,9 @@ export interface ExistingResource {
   criticality: string | null;
   description: string | null;
   notes: string | null;
+  /** M29; optional so callers that do not load them still type-check. */
+  owner?: string | null;
+  ownerContact?: string | null;
   tags: string[];
   metadata: ResourceMetadata;
 }
@@ -78,6 +81,8 @@ function currentValue(r: ExistingResource, field: ProvidedField): unknown {
     case "criticality":
     case "description":
     case "notes":
+    case "owner":
+    case "ownerContact":
       return r[field];
     case "tags":
       return [...r.tags].sort();
@@ -93,6 +98,8 @@ function newValue(input: ResourceInput, field: ProvidedField): unknown {
     case "criticality":
     case "description":
     case "notes":
+    case "owner":
+    case "ownerContact":
       return input[field];
     case "tags":
       return [...input.tags].sort();

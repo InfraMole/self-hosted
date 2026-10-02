@@ -76,6 +76,13 @@ Si una descarga falla con _no space left on device_, tu versión actual sigue
 funcionando (`up -d` no llegó a ejecutarse): ejecuta `docker image prune -af`
 y vuelve a descargar.
 
+## Qué versión está funcionando
+
+**Settings › Workspace › InfraMole version**, o en el servidor
+`docker compose images web`. Para que Ajustes te avise cuando haya una
+versión nueva, pon `UPDATE_CHECK=true` en `.env` (una petición anónima a
+GitHub al día; no se envía nada de tu instalación).
+
 ## Fijar una versión o volver atrás
 
 El paquete fija sus imágenes a su versión. Para usar una versión concreta,

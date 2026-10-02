@@ -2,11 +2,13 @@
 import type { Metadata } from "next";
 import { MarkFirstStep } from "@/components/onboarding/first-steps";
 import Link from "next/link";
-import { Network, ShieldCheck } from "lucide-react";
+import { Network, ShieldCheck, Users } from "lucide-react";
 import { ConfidenceBadge } from "@/components/relationships/confidence-badge";
 import { EnvironmentLabel, TypeIcon } from "@/components/resources/resource-badges";
+import { CopyTextButton } from "@/components/impact/copy-text-button";
 import { DepthSelect } from "@/components/impact/depth-select";
 import { Button } from "@/components/ui/button";
+import { notifyList, notifyText } from "@/lib/notify";
 import { RESOURCE_TYPES } from "@/lib/resource-presentation";
 import {
   DEFAULT_IMPACT_DEPTH,
@@ -70,12 +72,6 @@ export default async function ImpactPage({
             </>
           )}
         </p>
-        {result.summary.total === 0 && (
-          <p className="text-muted mt-2 text-sm">
-            That is what InfraMole knows, not a guarantee. If something uses it, add the
-            relationship on that resource — or let an agent on that server suggest it.
-          </p>
-        )}
 
         {result.summary.total > 0 && (
           <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -110,6 +106,8 @@ export default async function ImpactPage({
           <DepthSelect value={depth} max={DEFAULT_IMPACT_DEPTH} />
         </div>
       </div>
+
+      {result.summary.total > 0 && <WhoToWarn root={resource.name} affected={result.affected} />}
 
       {result.summary.total === 0 ? (
         <div className="border-border text-muted flex items-start gap-3 rounded-lg border border-dashed p-4 text-sm">
@@ -166,5 +164,53 @@ export default async function ImpactPage({
         proof that a failure will propagate.
       </p>
     </div>
+  );
+}
+
+/** M29: the owners of what could be affected, to warn before a change. */
+function WhoToWarn({ root, affected }: { root: string; affected: AffectedView[] }) {
+  const list = notifyList(
+    affected.map((a) => ({
+      name: a.resource.name,
+      owner: a.resource.owner,
+      ownerContact: a.resource.ownerContact,
+      confidence: a.confidence,
+    })),
+  );
+  return (
+    <section aria-label="Who to warn" className="border-border bg-surface rounded-lg border p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="flex items-center gap-2 text-sm font-medium">
+          <Users className="text-muted size-4" /> Who to warn
+        </h2>
+        <CopyTextButton text={notifyText(root, list)} label="Copy message" />
+      </div>
+      {list.groups.length > 0 ? (
+        <ul className="mt-3 space-y-2 text-sm">
+          {list.groups.map((g) => (
+            <li key={g.owner}>
+              <span className="font-medium">{g.owner}</span>
+              {g.contact && <span className="text-muted"> · {g.contact}</span>}
+              <span className="text-muted">
+                {" "}
+                — {g.resources.length} resource{g.resources.length === 1 ? "" : "s"}:{" "}
+              </span>
+              <span className="font-mono text-xs">{g.resources.map((r) => r.name).join(", ")}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-muted mt-2 text-sm">
+          None of these resources has an owner yet. Add one with <em>Edit</em> on a resource (or an{" "}
+          <span className="font-mono">owner</span> column in an import).
+        </p>
+      )}
+      {list.groups.length > 0 && list.unowned.length > 0 && (
+        <p className="text-subtle mt-3 text-xs">
+          No owner recorded for {list.unowned.length} of them:{" "}
+          <span className="font-mono">{list.unowned.join(", ")}</span>
+        </p>
+      )}
+    </section>
   );
 }

@@ -34,8 +34,11 @@ solo los asigna el descubrimiento. Nunca se borra nada automáticamente.
 
 ## Buscar recursos
 
-El cuadro de búsqueda encuentra nombres, descripciones, nombres de equipo,
-etiquetas exactas y direcciones IP exactas. Los filtros acotan por tipo,
+El cuadro de búsqueda encuentra nombres, descripciones, responsables,
+nombres de equipo, etiquetas exactas y direcciones IP exactas. En cualquier
+parte de un espacio de trabajo, **Ctrl K** (⌘K en Mac) abre una búsqueda
+rápida de recursos y pantallas: Enter abre el recurso y Alt+Enter lo muestra
+en el mapa. Los filtros acotan por tipo,
 entorno, estado y **origen** — quién creó el recurso: una persona, un
 agente, una integración o una importación de fichero.
 
@@ -49,10 +52,20 @@ agente, una integración o una importación de fichero.
 - Los miembros (member), admins y owners pueden editar; los viewers solo
   pueden leer.
 
+## Responsables
+
+Asigna a un recurso un **responsable** (owner) — una persona o un equipo — y
+un **contacto** (un correo, un teléfono, un canal de chat). El impacto de
+cualquier recurso indica entonces **a quién avisar** (Who to warn): los
+responsables de lo que podría verse afectado, con un mensaje que puedes
+copiar en una petición de cambio. Asígnalos uno a uno con **Edit**, a muchos
+recursos a la vez con **Set owner…** (abajo) o con las columnas `owner` /
+`owner_contact` de una [importación](/es/docs/manual/imports).
+
 ## Acciones en bloque
 
-Marca filas para **archivar** o **borrar** varios recursos a la vez (hasta
-500). Al borrar también se eliminan sus relaciones; el diálogo de borrado
+Marca filas para **archivar**, **borrar** o **asignar el responsable** de
+varios recursos a la vez (hasta 500). Al borrar también se eliminan sus relaciones; el diálogo de borrado
 ofrece **Archive instead** (archivar en su lugar).
 
 ## Recursos de un origen eliminado

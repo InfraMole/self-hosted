@@ -288,6 +288,8 @@ const blank = {
   status: null,
   description: null,
   notes: null,
+  owner: null,
+  ownerContact: null,
   tags: null,
   links: null,
 };

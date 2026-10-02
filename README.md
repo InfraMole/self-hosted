@@ -9,9 +9,14 @@ and homelabs.
 
 **InfraMole Community is free and open source** under the
 [GNU AGPL v3.0 only](LICENSE) (`AGPL-3.0-only`): unlimited servers and VMs,
-one workspace, discovery with agents, dependency map, impact analysis,
-Azure / AWS / Cloudflare discovery, two-factor authentication, passkeys and
-an audit log.
+one workspace, discovery with agents (Windows and Linux: services,
+connections, IIS, SQL Server, nginx, Apache, PostgreSQL, MySQL, Docker,
+Kubernetes), integrations with Azure, AWS and Cloudflare (more clouds, DNS
+providers, Proxmox, TrueNAS, Synology and Tailscale in preview), file
+imports, a dependency map with saved views, impact analysis, two-factor
+authentication, passkeys and an audit log.
+
+Try it without installing: [inframole.com/demo](https://inframole.com/demo).
 
 ## Install
 
@@ -47,6 +52,7 @@ pnpm db:up && pnpm db:migrate && pnpm db:app-role && pnpm db:seed
 pnpm dev                     # http://localhost:3000 — demo@depmap.local / demo-password
 pnpm check                   # lint + typecheck + unit tests + build
 pnpm test:integration        # needs pnpm db:up
+pnpm build && pnpm test:e2e  # end-to-end tests in a browser (Playwright)
 ```
 
 Layout: `apps/web` (Next.js application, Prisma schema, tests),

@@ -85,6 +85,8 @@ async function buildPlan(
         criticality: true,
         description: true,
         notes: true,
+        owner: true,
+        ownerContact: true,
         tags: true,
         metadata: true,
       },
@@ -408,6 +410,8 @@ function snapshot(r: {
   status: string;
   description: string | null;
   notes: string | null;
+  owner: string | null;
+  ownerContact: string | null;
   tags: string[];
   links: unknown;
   metadata: unknown;
@@ -420,6 +424,8 @@ function snapshot(r: {
     status: r.status,
     description: r.description,
     notes: r.notes,
+    owner: r.owner,
+    ownerContact: r.ownerContact,
     tags: r.tags,
     links: r.links,
     metadata: r.metadata,

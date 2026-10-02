@@ -10,7 +10,7 @@ or VMs.
 | Licence                                                                    | **AGPL-3.0-only** (open source) |
 | Servers and VMs                                                            | Unlimited                       |
 | Workspaces                                                                 | 1                               |
-| Discovery (agents, Azure, AWS, Cloudflare), map, dependencies, impact      | ✔                               |
+| Discovery (agents, integrations, file imports), map, dependencies, impact  | ✔                               |
 | Two-factor authentication, passkeys, Google / Microsoft sign-in, audit log | ✔                               |
 | Deployment                                                                 | Docker Compose                  |
 

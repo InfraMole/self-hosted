@@ -259,6 +259,10 @@ model Resource {
   criticality    Criticality?
   status         ResourceStatus   @default(ACTIVE)
   description    String?
+  /// Who to contact about it (M29): a person or a team. Set by people (or a file import).
+  owner          String?
+  /// How to reach the owner: email, phone, chat channel… free text.
+  ownerContact   String?
   notes          String?
   tags           String[]         @default([])
   /// [{ label, url }] — https only (validated in resources/schemas.ts)

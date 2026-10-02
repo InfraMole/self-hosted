@@ -28,6 +28,9 @@ RUN pnpm --filter @depmap/web build
 # ── Runtime: standalone server, non-root ──────────────────────────────────────
 FROM node:24-alpine AS runner
 WORKDIR /app
+# Set by the release workflow (the git tag); shown in Settings (M29).
+ARG INFRAMOLE_BUILD_VERSION=""
+ENV INFRAMOLE_BUILD_VERSION=$INFRAMOLE_BUILD_VERSION
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
     PORT=3000 \

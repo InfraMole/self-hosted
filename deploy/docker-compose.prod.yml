@@ -22,6 +22,8 @@ x-app-env: &app-env
   CREDENTIALS_ENCRYPTION_KEY_PREVIOUS: ${CREDENTIALS_ENCRYPTION_KEY_PREVIOUS:-}
   CREDENTIALS_KEY_VERSION: ${CREDENTIALS_KEY_VERSION:-1}
   CRON_SECRET: ${CRON_SECRET:-}
+  # M29: opt-in check for a newer release (admins see it in Settings).
+  UPDATE_CHECK: ${UPDATE_CHECK:-false}
   # M27: private networks Proxmox / TrueNAS / Synology integrations may reach (CIDRs).
   INTEGRATIONS_PRIVATE_NETWORKS: ${INTEGRATIONS_PRIVATE_NETWORKS:-}
   SMTP_URL: ${SMTP_URL:-}

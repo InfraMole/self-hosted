@@ -113,6 +113,8 @@ export async function exportWorkspace(ctx: WorkspaceContext) {
       criticality: r.criticality,
       description: r.description,
       notes: r.notes,
+      owner: r.owner,
+      owner_contact: r.ownerContact,
       tags: r.tags,
       ip_addresses: meta.ipAddresses ?? [],
       hostname: meta.hostname,

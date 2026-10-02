@@ -84,7 +84,7 @@ export const INTEGRATION_FORMS: Record<IntegrationKindName, IntegrationForm> = {
     permissions:
       "App registration (service principal) with the built-in Reader role on the subscription — nothing more.",
     imports:
-      "Virtual machines with private/public IPs, size, region, OS and tags; load balancers and application gateways with their backends; Azure SQL databases and PostgreSQL / MySQL flexible servers; optionally Azure DNS records.",
+      "Virtual machines with private/public IPs, size, region, OS and tags. Preview (not yet verified with a real account): load balancers and application gateways with their backends, Azure SQL databases and PostgreSQL / MySQL flexible servers, and optionally Azure DNS records.",
     config: [
       { name: "tenantId", label: "Tenant ID", placeholder: "00000000-0000-0000-0000-000000000000" },
       {
@@ -108,7 +108,7 @@ export const INTEGRATION_FORMS: Record<IntegrationKindName, IntegrationForm> = {
     permissions:
       "Dedicated IAM user with an inline policy allowing only ec2:DescribeInstances, rds:DescribeDBInstances, elasticloadbalancing:DescribeLoadBalancers, DescribeListeners, DescribeTargetGroups and DescribeTargetHealth — plus route53:ListHostedZones and route53:ListResourceRecordSets for DNS.",
     imports:
-      "EC2 instances (Name tag, IPs, platform), RDS databases and ALB / NLB load balancers with their targets, for one region; optionally Route 53 records (turn DNS on in one AWS integration only — Route 53 is global).",
+      "EC2 instances (Name tag, IPs, platform) and RDS databases, for one region. Preview (not yet verified with a real account): ALB / NLB load balancers with their targets, and optionally Route 53 records (turn DNS on in one AWS integration only — Route 53 is global).",
     config: [{ name: "region", label: "Region", placeholder: "eu-central-1" }, DNS_FIELD],
     secret: [
       { name: "accessKeyId", label: "Access key ID", placeholder: "AKIA…" },

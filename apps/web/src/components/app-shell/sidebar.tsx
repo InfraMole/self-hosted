@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 "use client";
 
+import { QuickSearch, type QuickSearchHit } from "./quick-search";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -20,13 +21,18 @@ import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 
 interface SidebarProps {
-  workspace: { name: string; slug: string };
+  workspace: {
+    name: string;
+    slug: string;
+  };
   workspaces: { name: string; slug: string }[];
   user: { name: string; email: string };
   /** Detected relationships awaiting review. */
   suggestionCount: number;
   /** Null when FEEDBACK_EMAIL / SMTP are not configured. */
   feedbackAction: FeedbackAction | null;
+  /** Quick search (M29). */
+  search: (q: string) => Promise<QuickSearchHit[]>;
 }
 
 const PRIMARY_NAV = [
@@ -42,6 +48,7 @@ export function Sidebar({
   user,
   suggestionCount,
   feedbackAction,
+  search,
 }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -84,6 +91,8 @@ export function Sidebar({
           </Link>
         </div>
       </details>
+
+      <QuickSearch slug={workspace.slug} search={search} />
 
       <nav className="flex flex-1 flex-col gap-0.5 p-2" aria-label="Primary">
         {PRIMARY_NAV.map(({ segment, label, icon: Icon }) => (

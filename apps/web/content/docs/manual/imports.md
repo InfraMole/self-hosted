@@ -33,7 +33,7 @@ CustomerAPI,app,prod,high,,,,api
 
 Accepted columns: `name`, `type` (server, vm, app, db, saas, domain…),
 `environment` / `env` (prod, stg, dev, qa…), `criticality`, `description`,
-`notes`, `tags` (separated by `;`, `,`, `|` or spaces), `ips` /
+`notes`, `owner`, `owner_contact`, `tags` (separated by `;`, `,`, `|` or spaces), `ips` /
 `ip_addresses`, `hostname`, `fqdn`, `os`, `version` and `id` (a stable key;
 the name by default).
 

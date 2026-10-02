@@ -188,6 +188,26 @@ export function ResourceSheet({
             </Section>
 
             <Section title="Context">
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Owner" name="owner" hint="Person or team" error={err.owner}>
+                  <Input
+                    id="owner"
+                    name="owner"
+                    defaultValue={initial.owner}
+                    maxLength={120}
+                    placeholder="Platform team"
+                  />
+                </Field>
+                <Field label="Contact" name="ownerContact" error={err.ownerContact}>
+                  <Input
+                    id="ownerContact"
+                    name="ownerContact"
+                    defaultValue={initial.ownerContact}
+                    maxLength={200}
+                    placeholder="platform@example.com"
+                  />
+                </Field>
+              </div>
               <Field label="Description" name="description" error={err.description}>
                 <Input
                   id="description"

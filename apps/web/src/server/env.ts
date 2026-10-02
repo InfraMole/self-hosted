@@ -43,6 +43,16 @@ const envSchema = z.object({
       }
     }),
   ),
+  /** Baked into release images at build time (M29); unset on source builds. */
+  INFRAMOLE_BUILD_VERSION: optional(z.string().max(40)),
+  /**
+   * Opt-in: tell admins when a newer release exists (one anonymous GET of the
+   * latest public release per day; nothing is sent).
+   */
+  UPDATE_CHECK: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((v) => v === "true"),
   /** Bearer secret for /api/cron/* (scheduled integration sync). */
   CRON_SECRET: optional(z.string().min(32, "must be at least 32 characters")),
 

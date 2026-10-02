@@ -5,6 +5,27 @@ images). The agent has its own changelog in the InfraMole/agent repository.
 To update an installation, see
 [Upgrade guide](https://inframole.com/docs/operations/upgrade).
 
+## 0.19.0 — 2026-10-02
+
+### Added
+
+- **Owners**: a person or team and a contact on each resource — edit one,
+  set many at once from the Library, or import an `owner` column. The impact
+  of any resource now shows **who to warn**, with a message to copy.
+- **Quick search** with Ctrl K (⌘K): resources by name, IP, owner, tag or
+  host name, and the main pages; Alt+Enter shows the resource on the map.
+- **Find on map** (or `/`): select and centre a resource, even when a
+  filter, a focus or a collapsed box hides it.
+- **Settings show the InfraMole version**; optional `UPDATE_CHECK=true`
+  tells admins when a newer release exists.
+
+### Changed
+
+- Website: removed the decorative example labels under the hero buttons;
+  claims now match what is verified (load balancers, managed databases and
+  DNS of Azure and AWS are marked Preview everywhere).
+- Integration forms say which parts of Azure and AWS are still Preview.
+
 ## 0.18.2 — 2026-10-02
 
 ### Changed
@@ -53,12 +74,12 @@ To update an installation, see
 
 ### Added
 
-- DNS records from **Azure DNS, AWS Route 53, Hetzner, DigitalOcean and
-  OVHcloud**, as an option of each integration (off by default): only records
-  pointing to your servers, or all of them.
-- **AWS** Application / Network Load Balancers with their targets; **Azure**
-  Load Balancers and Application Gateways with their backends, Azure SQL
-  databases and PostgreSQL / MySQL flexible servers.
+- (Preview) DNS records from **Azure DNS, AWS Route 53, Hetzner,
+  DigitalOcean and OVHcloud**, as an option of each integration (off by
+  default): only records pointing to your servers, or all of them.
+- (Preview) **AWS** Application / Network Load Balancers with their targets;
+  **Azure** Load Balancers and Application Gateways with their backends,
+  Azure SQL databases and PostgreSQL / MySQL flexible servers.
 - New integrations (Preview): **Vultr, Akamai Cloud (Linode), IONOS Cloud,
   Oracle Cloud** and **Tailscale** — Tailscale adds tailnet addresses to the
   machines you already have instead of duplicating them.

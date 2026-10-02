@@ -74,6 +74,13 @@ This only removes images no container uses; the running version is kept.
 If a pull fails with _no space left on device_, your current version keeps
 running (`up -d` never ran): run `docker image prune -af`, then pull again.
 
+## Which version is running
+
+**Settings › Workspace › InfraMole version**, or on the server
+`docker compose images web`. To be told in Settings when a newer release
+exists, set `UPDATE_CHECK=true` in `.env` (one anonymous request to GitHub
+per day; nothing about your installation is sent).
+
 ## Pin or roll back a version
 
 The bundle pins its images to its version. To run a specific version,

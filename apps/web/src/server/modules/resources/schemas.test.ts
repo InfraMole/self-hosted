@@ -25,6 +25,8 @@ describe("resourceInputSchema", () => {
       status: "ACTIVE",
       description: null,
       notes: null,
+      owner: null,
+      ownerContact: null,
       tags: [],
       links: [],
       metadata: {},

@@ -41,6 +41,10 @@ monitoring) shows how many lines point to it instead of drawing them all:
 select it, or one of the resources that use it, to see those lines. Lines
 between collapsed boxes are drawn faint until you select one of their ends.
 
+**Find on map** (or press `/`) searches by name, IP or owner; choosing a
+resource selects it and centres the map on it, even if a filter, a focus or
+a collapsed box was hiding it.
+
 **Large maps** open on their main group at a readable size; use the
 minimap, the fit button or zoom to see the rest. Zoomed out, resources show
 a larger icon and name only, and further out just their icon, so the shape
@@ -89,6 +93,14 @@ larger or smaller. Confirm the suggestions that matter to make it reliable.
 
 Archived resources and ignored relationships are left out of both the map
 and impact.
+
+### Who to warn
+
+When resources have an [owner](/docs/manual/library#owners), the impact page
+lists the owners of what could be affected — grouped, with their contact —
+and **Copy message** gives you a text to paste into a change request or a
+chat. Resources without an owner are listed too, so you know what is
+missing.
 
 ## Export a map or an impact
 

@@ -4,15 +4,15 @@
 propio servidor. Es un producto completo, no una versión de prueba: no hay
 límite de servidores ni de máquinas virtuales.
 
-|                                                                                        | Community                          |
-| -------------------------------------------------------------------------------------- | ---------------------------------- |
-| Precio                                                                                 | Gratis para siempre                |
-| Licencia                                                                               | **AGPL-3.0-only** (código abierto) |
-| Servidores y máquinas virtuales                                                        | Ilimitados                         |
-| Espacios de trabajo                                                                    | 1                                  |
-| Descubrimiento (agentes, Azure, AWS, Cloudflare), mapa, dependencias, impacto          | ✔                                  |
-| Autenticación en dos pasos, llaves de acceso, inicio con Google / Microsoft, auditoría | ✔                                  |
-| Despliegue                                                                             | Docker Compose                     |
+|                                                                                               | Community                          |
+| --------------------------------------------------------------------------------------------- | ---------------------------------- |
+| Precio                                                                                        | Gratis para siempre                |
+| Licencia                                                                                      | **AGPL-3.0-only** (código abierto) |
+| Servidores y máquinas virtuales                                                               | Ilimitados                         |
+| Espacios de trabajo                                                                           | 1                                  |
+| Descubrimiento (agentes, integraciones, importación de ficheros), mapa, dependencias, impacto | ✔                                  |
+| Autenticación en dos pasos, llaves de acceso, inicio con Google / Microsoft, auditoría        | ✔                                  |
+| Despliegue                                                                                    | Docker Compose                     |
 
 ## Ediciones previstas
 

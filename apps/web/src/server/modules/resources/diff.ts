@@ -9,6 +9,8 @@ export const DIFF_FIELDS = [
   "status",
   "description",
   "notes",
+  "owner",
+  "ownerContact",
   "tags",
   "links",
   "metadata",

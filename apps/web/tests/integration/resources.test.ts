@@ -8,8 +8,10 @@ import {
   deleteResource,
   getResource,
   listResources,
+  setOwner,
   updateResource,
 } from "@/server/modules/resources/resources";
+import { applyImport } from "@/server/modules/importers/importers";
 import {
   createWorkspace,
   findWorkspaceContextForUser,
@@ -151,5 +153,58 @@ describe("listResources filters", () => {
     expect(await names({ q: "iis" })).toEqual(["APP01"]);
     expect(await names({ q: "app01.corp" })).toEqual(["APP01"]);
     expect(await names({ type: "NOT_A_TYPE" })).toHaveLength(3); // invalid filter ignored
+  });
+});
+
+describe("owners (M29)", () => {
+  it("are set on create / edit, searchable, and recorded as changes", async () => {
+    const ctx = await ownerContext("Acme");
+    const r = await createResource(ctx, {
+      name: "SQL01",
+      type: "SERVER",
+      owner: "Data team",
+      ownerContact: "data@example.com",
+    });
+    expect(r).toMatchObject({ owner: "Data team", ownerContact: "data@example.com" });
+    expect((await listResources(ctx, { q: "data team" })).map((x) => x.name)).toEqual(["SQL01"]);
+    await updateResource(ctx, r.id, { name: "SQL01", type: "SERVER", owner: "DBA" });
+    const [last] = await listChangesForSubject(ctx, "RESOURCE", r.id);
+    expect(last!.diff).toMatchObject({
+      owner: ["Data team", "DBA"],
+      ownerContact: ["data@example.com", null],
+    });
+  });
+
+  it("can be set in bulk, only on this workspace, by members", async () => {
+    const acme = await ownerContext("Acme");
+    const globex = await ownerContext("Globex");
+    const a = await createResource(acme, { name: "APP01", type: "SERVER" });
+    const b = await createResource(acme, { name: "APP02", type: "SERVER", owner: "Web team" });
+    const other = await createResource(globex, { name: "G1", type: "SERVER" });
+    const n = await setOwner(acme, [a.id, b.id, other.id], {
+      owner: "Web team",
+      ownerContact: "#web",
+    });
+    expect(n).toBe(2); // b's contact changes; the other workspace is never touched
+    expect((await getResource(acme, a.id))!.owner).toBe("Web team");
+    expect(
+      (await adminDb().resource.findUniqueOrThrow({ where: { id: other.id } })).owner,
+    ).toBeNull();
+    // Clearing the owner clears its contact too.
+    await setOwner(acme, [a.id], { owner: "", ownerContact: "x" });
+    expect(await getResource(acme, a.id)).toMatchObject({ owner: null, ownerContact: null });
+    const viewer = await memberContext(acme, "VIEWER");
+    await expect(setOwner(viewer, [a.id], { owner: "X", ownerContact: "" })).rejects.toBeInstanceOf(
+      ForbiddenError,
+    );
+  });
+
+  it("come from a CSV import column and stay on update", async () => {
+    const ctx = await ownerContext("Acme");
+    await applyImport(ctx, {
+      text: "name,type,owner,owner_contact\nAPP01,server,Platform team,platform@example.com",
+    });
+    const [app] = await listResources(ctx, { q: "APP01" });
+    expect(app).toMatchObject({ owner: "Platform team", ownerContact: "platform@example.com" });
   });
 });
