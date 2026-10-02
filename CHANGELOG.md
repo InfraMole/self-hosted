@@ -5,6 +5,14 @@ images). The agent has its own changelog in the InfraMole/agent repository.
 To update an installation, see
 [Upgrade guide](https://inframole.com/docs/operations/upgrade).
 
+## 0.18.2 — 2026-10-02
+
+### Changed
+
+- Website: an interactive example map — click any resource to see what could
+  be affected — and an illustration of how the map reads, instead of
+  screenshots.
+
 ## 0.18.1 — 2026-10-02
 
 ### Changed

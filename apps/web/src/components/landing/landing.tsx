@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import Image from "next/image";
 import Link from "next/link";
 import {
   Boxes,
@@ -33,6 +32,8 @@ import { localePath, type Locale } from "@/lib/i18n";
 import { LISTED_LEGAL_DOCS, legalTitle } from "@/lib/legal";
 import { SITE_COPY, type SiteCopy } from "./copy";
 import { LanguageSuggestion, LanguageSwitch } from "./language";
+import { MapIllustration } from "./map-illustration";
+import { MiniMap } from "./mini-map";
 
 /**
  * Public landing page (M11, ADR-022). Shown at "/" (English) and "/es"
@@ -201,26 +202,11 @@ function Hero({ cloudSignup, demo, inDemo, locale, t }: LandingOptions & Localiz
   );
 }
 
-/** A real screenshot of the public demo (no brand logos: ADR-038). */
-function Proof({ t }: Localized) {
+/** The idea in ten seconds: click a resource, see what could be affected. */
+function Proof({ locale }: Localized) {
   return (
     <section className="mx-auto max-w-6xl px-4 pb-20 sm:px-6">
-      <figure>
-        <div className="border-border shadow-brand-ink/25 overflow-hidden rounded-xl border bg-[#0a0b10] shadow-2xl">
-          <Image
-            src="/landing/impact.webp"
-            alt={t.hero.proofAlt}
-            width={1600}
-            height={1283}
-            priority
-            sizes="(min-width: 1152px) 1104px, 100vw"
-            className="h-auto w-full"
-          />
-        </div>
-        <figcaption className="text-muted mt-3 text-center text-sm">
-          {t.hero.proofCaption}
-        </figcaption>
-      </figure>
+      <MiniMap locale={locale} />
     </section>
   );
 }
@@ -244,15 +230,8 @@ function MapSection({ t }: Localized) {
           );
         })}
       </ul>
-      <div className="border-border mt-10 overflow-hidden rounded-xl border bg-[#0a0b10]">
-        <Image
-          src="/landing/map.webp"
-          alt={t.map.alt}
-          width={1600}
-          height={947}
-          sizes="(min-width: 1152px) 1104px, 100vw"
-          className="h-auto w-full"
-        />
+      <div className="mt-10">
+        <MapIllustration t={t.miniMap} />
       </div>
     </section>
   );

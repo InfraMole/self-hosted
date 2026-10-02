@@ -34,10 +34,30 @@ const en = {
       "Free and open source (AGPLv3). Up and running on your own server in about ten minutes.",
     mapsLabel: "The kind of things it maps",
     sourceCode: "Source code on GitHub",
-    proofCaption:
-      "A real screenshot of the public demo: everything that could be affected if the SQL01 server fails — solid lines confirmed by a person, dashed ones detected by the agent.",
-    proofAlt:
-      "InfraMole impact view: SQL01 with its databases at the bottom, and the applications, containers, sites and domains above it that could be affected.",
+  },
+  miniMap: {
+    label: "Example map: domains, applications, databases and servers",
+    ifFails: (name: string, n: number) =>
+      n === 0
+        ? `If ${name} fails, nothing recorded depends on it`
+        : `If ${name} fails, ${n} could be affected`,
+    hint: "Click any resource",
+    select: (name: string) => `Show what could be affected if ${name} fails`,
+    nothing: "Nothing recorded depends on it.",
+    note: "Detected and inferred links stay suggestions until someone on your team confirms them.",
+    confidence: { confirmed: "Confirmed", detected: "Detected", inferred: "Inferred" },
+    kinds: {
+      domain: "domain",
+      app: "application",
+      database: "database",
+      server: "server",
+      hypervisor: "hypervisor",
+      vm: "virtual machine",
+      lb: "load balancer",
+    },
+    layers: ["Entry points", "Load balancing", "Servers and hosts"],
+    illustrationLabel:
+      "Illustration of the map: domains on top, a load balancer below them, and at the bottom a server box with its applications and a hypervisor box holding a virtual machine with its databases.",
   },
   map: {
     eyebrow: "The map",
@@ -61,7 +81,6 @@ const en = {
         body: "Save views with their filters and positions, share them by link, export PNG or PDF.",
       },
     ],
-    alt: "InfraMole map of the demo: a CDN and domains on top, applications in the middle, servers, hypervisors and Kubernetes nodes below, and the directory service at the bottom.",
   },
   sources: {
     eyebrow: "What it discovers",
@@ -349,10 +368,30 @@ const es: SiteCopy = {
       "Gratis y de código abierto (AGPLv3). Funcionando en tu propio servidor en unos diez minutos.",
     mapsLabel: "El tipo de cosas que mapea",
     sourceCode: "Código fuente en GitHub",
-    proofCaption:
-      "Captura real de la demo pública: todo lo que podría verse afectado si falla el servidor SQL01 — las líneas continuas las ha confirmado una persona; las discontinuas, el agente.",
-    proofAlt:
-      "Vista de impacto de InfraMole: SQL01 con sus bases de datos abajo y, encima, las aplicaciones, contenedores, sitios y dominios que podrían verse afectados.",
+  },
+  miniMap: {
+    label: "Mapa de ejemplo: dominios, aplicaciones, bases de datos y servidores",
+    ifFails: (name: string, n: number) =>
+      n === 0
+        ? `Si ${name} falla, no hay nada registrado que dependa de él`
+        : `Si ${name} falla, ${n} podrían verse afectados`,
+    hint: "Pulsa cualquier recurso",
+    select: (name: string) => `Ver qué podría verse afectado si falla ${name}`,
+    nothing: "No hay nada registrado que dependa de él.",
+    note: "Las relaciones detectadas e inferidas siguen siendo sugerencias hasta que alguien de tu equipo las confirma.",
+    confidence: { confirmed: "Confirmada", detected: "Detectada", inferred: "Inferida" },
+    kinds: {
+      domain: "dominio",
+      app: "aplicación",
+      database: "base de datos",
+      server: "servidor",
+      hypervisor: "hipervisor",
+      vm: "máquina virtual",
+      lb: "balanceador",
+    },
+    layers: ["Puntos de entrada", "Balanceo", "Servidores y hosts"],
+    illustrationLabel:
+      "Ilustración del mapa: dominios arriba, un balanceador debajo y, abajo del todo, la caja de un servidor con sus aplicaciones y la de un hipervisor con una máquina virtual y sus bases de datos.",
   },
   map: {
     eyebrow: "El mapa",
@@ -376,7 +415,6 @@ const es: SiteCopy = {
         body: "Guarda vistas con sus filtros y posiciones, compártelas por enlace y expórtalas en PNG o PDF.",
       },
     ],
-    alt: "Mapa de InfraMole de la demo: una CDN y dominios arriba, aplicaciones en medio, servidores, hipervisores y nodos de Kubernetes debajo y el servicio de directorio abajo del todo.",
   },
   sources: {
     eyebrow: "Qué descubre",
