@@ -67,7 +67,9 @@ Docker Compose stack), `apps/web/content/docs` (the user documentation).
 
 Copyright (C) 2026 Alejandro Galisteo.
 
-## Contributing and security
+## Changes, contributing and security
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) (a Contributor License Agreement is
-required) and [SECURITY.md](SECURITY.md) to report vulnerabilities.
+What changed in each release: [CHANGELOG.md](CHANGELOG.md). Issues and pull
+requests are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) (pull requests
+need the one-time [Contributor License Agreement](CLA.md)). Report
+vulnerabilities privately: [SECURITY.md](SECURITY.md).

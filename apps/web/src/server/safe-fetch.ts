@@ -243,10 +243,12 @@ function localAgent(local: LocalNetwork, testOnlyAllow?: (ip: string) => boolean
       `${host} resolves to ${ip}, which is not public and not in INTEGRATIONS_PRIVATE_NETWORKS`,
   );
   // A pinned certificate replaces CA verification: the chain is not checked,
-  // the exact certificate is (before any byte of the request is sent).
+  // the exact certificate is (before any byte of the request is sent). No TLS
+  // session resumption: a resumed session carries no certificate to check, so
+  // every connection does a full handshake and is checked again.
   const base = buildConnector({
     lookup: lookup as never,
-    ...(pin ? { rejectUnauthorized: false } : {}),
+    ...(pin ? { rejectUnauthorized: false, maxCachedSessions: 0 } : {}),
   });
   const connect: buildConnector.connector = (opts, callback) =>
     base(opts, (err, socket) => {
@@ -273,6 +275,7 @@ function localAgent(local: LocalNetwork, testOnlyAllow?: (ip: string) => boolean
 /** TESTS ONLY: the local agent against a loopback test server (always blocked otherwise). */
 export const __testing = {
   localAgentAllowingLoopback: (pin?: string) => localAgent({ allowed: [], pin }, () => true),
+  certificateError: (error: unknown) => certificateError(error),
 };
 
 export interface SafeFetchOptions {
@@ -318,7 +321,7 @@ export async function safeFetch(
     for (let e: unknown = error; e; e = (e as { cause?: unknown }).cause) {
       if (e instanceof BlockedDestinationError) throw e;
     }
-    throw error;
+    throw certificateError(error) ?? error;
   }
   if (res.status >= 300 && res.status < 400) {
     await res.body?.cancel();
@@ -461,4 +464,18 @@ export async function safeJsonRpc(
     },
     close: () => ws.close(),
   };
+}
+
+const CERT_ERRORS = /CERT|SELF_SIGNED|UNABLE_TO_VERIFY|UNABLE_TO_GET_ISSUER|ALTNAME/;
+
+/** A TLS verification failure, explained (the user can act on it). */
+function certificateError(error: unknown): BlockedDestinationError | null {
+  for (let e: unknown = error; e; e = (e as { cause?: unknown }).cause) {
+    const code = (e as { code?: unknown }).code;
+    if (typeof code === "string" && CERT_ERRORS.test(code))
+      return new BlockedDestinationError(
+        `the server's certificate is not trusted (${code}). For a self-signed certificate, pin its SHA-256 fingerprint in the integration.`,
+      );
+  }
+  return null;
 }

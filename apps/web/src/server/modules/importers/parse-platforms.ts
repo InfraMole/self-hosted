@@ -1214,8 +1214,20 @@ interface PveResource {
   ips?: string[];
 }
 
+/**
+ * `pvesh get /cluster/resources` output (a plain array: file upload, agent
+ * collector), or the API integration's `{ cluster, resources }` (M27): VM ids
+ * repeat across clusters, so its keys are scoped by the cluster (or host).
+ */
 function proxmox(batch: ImportBatch, data: unknown) {
-  const items = (Array.isArray(data) ? data : []) as PveResource[];
+  const doc = data as { cluster?: unknown; resources?: unknown } | null;
+  const items = (
+    Array.isArray(data) ? data : Array.isArray(doc?.resources) ? doc.resources : []
+  ) as PveResource[];
+  const scope =
+    !Array.isArray(data) && typeof doc?.cluster === "string" && doc.cluster
+      ? `cluster/${doc.cluster.toLowerCase()}/`
+      : "";
   const nodes = new Set(items.filter((i) => i.type === "node" && i.node).map((i) => i.node!));
   // Nodes referenced by guests but missing from the export still get a resource.
   for (const i of items) if ((i.type === "qemu" || i.type === "lxc") && i.node) nodes.add(i.node);
@@ -1223,7 +1235,7 @@ function proxmox(batch: ImportBatch, data: unknown) {
   let row = 0;
   for (const node of [...nodes].sort()) {
     add(batch, ++row, {
-      id: `node/${node}`,
+      id: `${scope}node/${node}`,
       name: node,
       type: "SERVER",
       description: "Proxmox VE node",
@@ -1241,7 +1253,7 @@ function proxmox(batch: ImportBatch, data: unknown) {
     }
     const kind = i.type === "qemu" ? "VM" : "CONTAINER";
     const created = add(batch, row, {
-      id: i.id,
+      id: `${scope}${i.id}`,
       name: i.name ?? `${i.type}-${i.vmid}`,
       type: kind,
       description: [i.type === "qemu" ? `VM ${i.vmid}` : `LXC ${i.vmid}`, i.status, gb(i.maxmem)]
@@ -1254,8 +1266,8 @@ function proxmox(batch: ImportBatch, data: unknown) {
       // Placement reported by the hypervisor itself: a fact, not an inference.
       batch.relationships.push({
         row,
-        from: `node/${i.node}`,
-        to: i.id.toLowerCase(),
+        from: `${scope}node/${i.node}`.toLowerCase(),
+        to: `${scope}${i.id}`.toLowerCase(),
         type: "HOSTS",
         note: "Reported by Proxmox (/cluster/resources)",
         suggested: false,

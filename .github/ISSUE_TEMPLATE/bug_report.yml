@@ -1,0 +1,55 @@
+name: Bug report
+description: Something in InfraMole does not work as expected.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for taking the time to report this. **Do not paste tokens,
+        passwords, connection strings or other secrets** — remove them from
+        logs and screenshots. Security problems: see SECURITY.md (never in a
+        public issue).
+  - type: input
+    id: version
+    attributes:
+      label: InfraMole version
+      description: The image tag you run (`INFRAMOLE_VERSION`, or `docker compose images`).
+      placeholder: "0.17.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: How do you run it?
+      options:
+        - Self-hosted bundle (Docker Compose)
+        - From source
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what you saw instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Go to …
+        2. Click …
+        3. See …
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: "Relevant lines of `docker compose logs web` (secrets removed)."
+      render: text
+  - type: input
+    id: browser
+    attributes:
+      label: Browser (for problems in the interface)
+      placeholder: "Firefox 131 on Windows 11"

@@ -121,7 +121,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # Release notes: this version's section of CHANGELOG.md.
+          awk -v v="${GITHUB_REF_NAME#v}" 'index($0, "## " v " ") == 1 {f = 1; next} f && /^## / {exit} f' CHANGELOG.md > notes.md
+          printf '\n---\n\nInstall or update: https://inframole.com/docs/operations/upgrade — images `ghcr.io/inframole/{web,migrate,backup}:%s`. Licence: AGPL-3.0-only.\n' "${GITHUB_REF_NAME#v}" >> notes.md
           gh release create "$GITHUB_REF_NAME" \
             dist/inframole-self-hosted.tar.gz dist/inframole-self-hosted.tar.gz.sha256 \
             --title "InfraMole ${GITHUB_REF_NAME#v}" \
-            --notes "Install or update: https://inframole.com/docs/installation/requirements — images ghcr.io/inframole/{web,migrate,backup}:${GITHUB_REF_NAME#v}. Licence: AGPL-3.0-only."
+            --notes-file notes.md

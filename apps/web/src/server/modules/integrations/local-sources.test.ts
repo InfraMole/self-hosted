@@ -150,6 +150,13 @@ describe("proxmox", () => {
     );
     const batch = parseImport(out.text, "proxmox");
     expect(batch.errors).toEqual([]);
+    // VM ids repeat across clusters: keys are scoped (no cluster entry → the host).
+    expect(batch.resources.map((r) => r.key)).toEqual([
+      "cluster/pve.lab/node/pve1",
+      "cluster/pve.lab/qemu/100",
+      "cluster/pve.lab/lxc/200",
+      "cluster/pve.lab/qemu/101",
+    ]);
     expect(
       batch.resources.map((r) => [r.input.name, r.input.type, r.input.metadata.ipAddresses ?? []]),
     ).toEqual([

@@ -139,7 +139,10 @@ export const proxmox: Provider<z.infer<typeof localConfig>, z.infer<typeof proxm
         );
       }
     });
-    return { format: "proxmox", text: JSON.stringify(items) };
+    // VM ids repeat across clusters: scope the keys (cluster name, else the host).
+    const cluster =
+      status.find((s) => s.type === "cluster" && s.name)?.name ?? new URL(config.url).hostname;
+    return { format: "proxmox", text: JSON.stringify({ cluster, resources: items }) };
   },
 };
 

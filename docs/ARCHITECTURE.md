@@ -31,20 +31,20 @@ reason and an ADR.
 
 ## 2. Stack
 
-| Concern          | Choice                                                                 | ADR |
-| ---------------- | ---------------------------------------------------------------------- | --- |
-| Web framework    | Next.js 16 (App Router, Turbopack), React 19, TypeScript 5.9 strict    | 001 |
-| Styling / UI     | Tailwind CSS v4, shadcn/ui-style owned components, lucide-react, Geist | 014 |
-| Database         | PostgreSQL 17                                                          | 002 |
-| ORM              | Prisma 7 (`prisma-client` generator, `@prisma/adapter-pg`)             | 002 |
-| Auth             | Better Auth (email/password, DB sessions)                              | 006 |
-| Validation       | Zod 4 (all inputs: forms, API, agent payloads, env)                    | —   |
-| Graph UI         | React Flow (@xyflow/react) + ELK/dagre layout                          | 003 |
-| Graph algorithms | `packages/graph` (pure TS)                                             | 008 |
-| Agent            | Go (static binaries, Windows + Linux)                                  | 004 |
-| Tests            | Vitest (unit + integration against real Postgres)                      | 013 |
-| Packaging        | pnpm workspaces; Docker (standalone Next output)                       | 012 |
-| CI               | GitHub Actions: lint, typecheck, test, build                           | —   |
+| Concern          | Choice                                                                                                                 | ADR |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------- | --- |
+| Web framework    | Next.js 16 (App Router, Turbopack), React 19, TypeScript 5.9 strict                                                    | 001 |
+| Styling / UI     | Tailwind CSS v4, shadcn/ui-style owned components, lucide-react, Geist                                                 | 014 |
+| Database         | PostgreSQL 17                                                                                                          | 002 |
+| ORM              | Prisma 7 (`prisma-client` generator, `@prisma/adapter-pg`)                                                             | 002 |
+| Auth             | Better Auth (email/password, DB sessions)                                                                              | 006 |
+| Validation       | Zod 4 (all inputs: forms, API, agent payloads, env)                                                                    | —   |
+| Graph UI         | React Flow (@xyflow/react) + ELK/dagre layout                                                                          | 003 |
+| Graph algorithms | `packages/graph` (pure TS)                                                                                             | 008 |
+| Agent            | Go (static binaries, Windows + Linux)                                                                                  | 004 |
+| Tests            | Vitest (unit + integration against real Postgres); Playwright end-to-end on the production build (M28, `apps/web/e2e`) | 013 |
+| Packaging        | pnpm workspaces; Docker (standalone Next output)                                                                       | 012 |
+| CI               | GitHub Actions: lint, typecheck, test, build                                                                           | —   |
 
 ## 3. Layering rules (apps/web)
 
@@ -363,8 +363,6 @@ check).
 
 ```
 .
-├── AGENTS.md                 # Instructions for AI agents (read first)
-├── CLAUDE.md                 # Points Claude Code to AGENTS.md
 ├── README.md
 ├── docs/                     # Source of truth for product/architecture/state
 ├── apps/
@@ -383,3 +381,28 @@ check).
 ├── docker-compose.yml
 └── .github/workflows/ci.yml
 ```
+
+## End-to-end tests (M28)
+
+`apps/web/e2e` + `playwright.config.ts`: `pnpm build && pnpm test:e2e`, also
+in CI after the build. `global-setup.ts` recreates `depmap_e2e` (same
+Postgres as `DATABASE_URL_TEST`), migrates it and enables the app role; the
+server under test is `next start` on port 3100 with an isolated env
+(`e2e/env.ts` — never the developer's `.env` settings). Projects run in
+order on one installation: **setup** (sign up the first account, create the
+workspace, import a small infrastructure through the UI, save the session),
+**core** (Library, map — boxes, saved views, pins —, impact) and **sources**
+(enrollment token in the UI → enroll + report through the real agent API with
+the Go golden report; a Proxmox integration against a fake Proxmox API over
+TLS on the machine's private IP, reached only through
+`INTEGRATIONS_PRIVATE_NETWORKS` and a pinned self-signed certificate). No
+test hooks in the application.
+
+## First steps (M28)
+
+`server/modules/workspaces/first-steps.ts#getFirstStepsFacts` (resources,
+pending suggestions, confirmed relationships, and the "showcase" resource:
+the most-depended-on of up to 25 candidates by `impact()` size) feeds
+`components/onboarding/first-steps.tsx` on the Library. What a viewer has
+looked at (map, impact) is per-browser (`lib/first-steps.ts`, localStorage,
+`useSyncExternalStore`), marked by the map view and the impact page.

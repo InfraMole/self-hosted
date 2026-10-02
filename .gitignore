@@ -5,6 +5,10 @@ out/
 build/
 dist/
 coverage/
+# end-to-end runs (M28)
+apps/web/e2e/.auth/
+apps/web/playwright-report/
+apps/web/test-results/
 *.tsbuildinfo
 next-env.d.ts
 

@@ -25,11 +25,15 @@ The empty Library shows three ways to start. Use any of them:
 - **Install the agent** on one or two servers that talk to each other (for
   example a web server and its database). See
   [Install the agent](/docs/agent/install).
-- **Connect a cloud** in **Settings › Integrations** (Azure, AWS,
-  Cloudflare, Hetzner, DigitalOcean…) with a read-only token. See
+- **Connect a source** in **Settings › Integrations** (Azure, AWS,
+  Cloudflare, Hetzner, Proxmox…) with a read-only token. See
   [Integrations](/docs/manual/integrations).
 - **Import a file**: a CSV with your servers, a docker-compose file or a
   Proxmox export. See [Import files](/docs/manual/imports).
+
+Once something is in the Library, a **First steps** card on top of it shows
+what is left — confirm relationships, open the map, and ask what could be
+affected if your most depended-on resource fails. Hide it whenever you want.
 
 ### Review the suggestions
 

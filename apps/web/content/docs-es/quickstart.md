@@ -25,12 +25,17 @@ La Library vacía muestra tres formas de empezar. Usa cualquiera:
 - **Instala el agente** en uno o dos servidores que se comuniquen entre sí
   (por ejemplo, un servidor web y su base de datos). Consulta
   [Instalar el agente](/es/docs/agent/install).
-- **Conecta una nube** en **Settings › Integrations** (Azure, AWS,
-  Cloudflare, Hetzner, DigitalOcean…) con un token de solo lectura. Consulta
+- **Conecta una fuente** en **Settings › Integrations** (Azure, AWS,
+  Cloudflare, Hetzner, Proxmox…) con un token de solo lectura. Consulta
   [Integraciones](/es/docs/manual/integrations).
 - **Importa un fichero**: un CSV con tus servidores, un fichero
   docker-compose o una exportación de Proxmox. Consulta
   [Importar ficheros](/es/docs/manual/imports).
+
+Cuando ya hay algo en la Library, una tarjeta **First steps** encima indica
+lo que falta: confirmar relaciones, abrir el mapa y preguntar qué podría
+verse afectado si falla el recurso del que más cosas dependen. Puedes
+ocultarla cuando quieras.
 
 ### Revisa las sugerencias
 

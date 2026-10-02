@@ -2,6 +2,7 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { ForbiddenError, type WorkspaceContext } from "@/server/authz";
 import { getWorkspaceGraph } from "@/server/modules/map/map";
+import { getFirstStepsFacts } from "@/server/modules/workspaces/first-steps";
 import {
   SavedViewError,
   deleteSavedView,
@@ -120,5 +121,36 @@ describe("saved views (M26 phase 3)", () => {
       saveView(acme, { name: "Bad", state: { ...state(), pinned: { "x y": { x: 1, y: 1 } } } }),
     ).rejects.toThrow();
     await expect(saveView(acme, { name: " ", state: state() })).rejects.toThrow();
+  });
+});
+
+describe("first steps (M28)", () => {
+  it("knows what exists and picks the resource with the most that could be affected", async () => {
+    const acme = await ownerContext("Acme");
+    expect(await getFirstStepsFacts(acme)).toEqual({
+      resources: 0,
+      pendingSuggestions: 0,
+      confirmedRelationships: 0,
+      showcase: null,
+    });
+    const sql = await createResource(acme, { name: "SQL01", type: "SERVER" });
+    const db = await createResource(acme, { name: "orders-db", type: "DATABASE" });
+    const app = await createResource(acme, { name: "shop", type: "APPLICATION" });
+    await createRelationship(acme, {
+      fromResourceId: db.id,
+      toResourceId: sql.id,
+      type: "RUNS_ON",
+    });
+    await createRelationship(acme, {
+      fromResourceId: app.id,
+      toResourceId: db.id,
+      type: "USES_DATABASE",
+    });
+    const facts = await getFirstStepsFacts(acme);
+    expect(facts).toMatchObject({ resources: 3, confirmedRelationships: 2 });
+    // SQL01 takes orders-db and shop with it; orders-db only shop.
+    expect(facts.showcase).toEqual({ id: sql.id, name: "SQL01", affected: 2 });
+    // Another workspace sees none of it.
+    expect((await getFirstStepsFacts(await ownerContext("Globex"))).resources).toBe(0);
   });
 });

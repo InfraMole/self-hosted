@@ -37,8 +37,8 @@ export function GettingStarted({
     },
     {
       icon: Cloud,
-      title: "Connect a cloud",
-      body: "Azure, AWS or Cloudflare with a read-only token, encrypted at rest and synced on a schedule.",
+      title: "Connect a source",
+      body: "A cloud (Azure, AWS, Google Cloud, Hetzner, OVHcloud…), DNS, Tailscale, or Proxmox and NAS on your network — read-only, encrypted at rest, synced on a schedule.",
       href: admin ? `/w/${slug}/settings#integrations` : null,
       cta: "Add an integration",
       note: "Workspace admins connect integrations.",

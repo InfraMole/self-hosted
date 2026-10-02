@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { FileUp, Plus, SearchX } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
+import { FirstSteps } from "@/components/onboarding/first-steps";
 import { GettingStarted } from "@/components/resources/getting-started";
 import { PageHeader } from "@/components/page-header";
 import { LibraryFilters } from "@/components/resources/library-filters";
@@ -14,6 +15,7 @@ import { hasRole } from "@/server/authz";
 import { LIST_LIMIT, listResources } from "@/server/modules/resources/resources";
 import { listSources } from "@/server/modules/resources/sources";
 import { markStaleHosts } from "@/server/modules/discovery/staleness";
+import { getFirstStepsFacts } from "@/server/modules/workspaces/first-steps";
 import { requireWorkspace } from "@/server/tenancy";
 import { saveResourceAction } from "../resources/actions";
 import { resolveTech } from "@/lib/tech";
@@ -33,7 +35,11 @@ export default async function LibraryPage({
   const ctx = await requireWorkspace(slug);
   await markStaleHosts(ctx.workspaceId); // throttled (ADR-016)
   const filters = await searchParams;
-  const [resources, sources] = await Promise.all([listResources(ctx, filters), listSources(ctx)]);
+  const [resources, sources, firstSteps] = await Promise.all([
+    listResources(ctx, filters),
+    listSources(ctx),
+    getFirstStepsFacts(ctx),
+  ]);
   const canWrite = hasRole(ctx.role, "MEMBER");
   const filtered = ["q", "type", "environment", "status", "source"].some((k) => filters[k]);
   const activeSource = sources.find((s) => s.ref === filters.source);
@@ -85,6 +91,11 @@ export default async function LibraryPage({
           <GettingStarted slug={ctx.workspaceSlug} role={ctx.role} addButton={addButton} />
         ) : (
           <>
+            <FirstSteps
+              slug={ctx.workspaceSlug}
+              facts={firstSteps}
+              canAdd={{ sources: hasRole(ctx.role, "ADMIN"), import: canWrite }}
+            />
             {retired && (
               <p
                 role="status"

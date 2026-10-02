@@ -138,6 +138,15 @@ describe.skipIf(!openssl)("certificate pinning (self-signed test server)", () =>
     expect(await res.text()).toBe('{"ok":true}');
   });
 
+  it("checks every connection, not only the first (no TLS session resumption)", async () => {
+    const agent = __testing.localAgentAllowingLoopback(fingerprint);
+    await fetch(url, { dispatcher: agent }).then((r) => r.text());
+    const many = await Promise.all(
+      [1, 2, 3, 4, 5].map((i) => fetch(`${url}${i}`, { dispatcher: agent }).then((r) => r.text())),
+    );
+    expect(many).toEqual(Array(5).fill('{"ok":true}'));
+  });
+
   it("refuses another certificate before sending the request", async () => {
     const before = hits;
     const wrong = "AA:".repeat(31) + "AA";
@@ -150,6 +159,16 @@ describe.skipIf(!openssl)("certificate pinning (self-signed test server)", () =>
     expect(cause).toBeInstanceOf(BlockedDestinationError);
     expect(String((cause as Error).message)).toMatch(/not the pinned one/);
     expect(hits).toBe(before); // the request never reached the server
+  });
+
+  it("explains an untrusted certificate", async () => {
+    // A real handshake failure (safeFetch itself never reaches loopback).
+    const err = await fetch(url, { dispatcher: __testing.localAgentAllowingLoopback() }).catch(
+      (e: unknown) => e,
+    );
+    expect(__testing.certificateError(err)?.message).toMatch(
+      /certificate is not trusted .* pin its SHA-256 fingerprint/,
+    );
   });
 
   it("without a pin, a self-signed certificate is not trusted", async () => {

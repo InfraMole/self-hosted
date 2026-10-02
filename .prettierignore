@@ -3,8 +3,8 @@ apps/web/src/generated/
 apps/web/prisma/migrations/
 .next/
 coverage/
-apps/web/AGENTS.md
-apps/web/CLAUDE.md
 apps/web/next-env.d.ts
 # Go-owned / generated files (gofmt and the Go golden test own their format)
 agent/
+apps/web/playwright-report/
+apps/web/test-results/

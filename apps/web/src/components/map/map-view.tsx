@@ -30,6 +30,7 @@ import { ConfidenceBadge } from "@/components/relationships/confidence-badge";
 import { Select } from "@/components/ui/select";
 import { ENVIRONMENTS, RESOURCE_TYPES, entries } from "@/lib/resource-presentation";
 import { cn } from "@/lib/utils";
+import { markFirstStep } from "@/lib/first-steps";
 import { buildScene, exportFileName, type ExportImpact } from "@/lib/map-export/scene";
 import {
   sameViewState,
@@ -504,6 +505,12 @@ function MapCanvas({
     ],
   );
 
+  // First steps (M28): this viewer has seen the map, and an impact.
+  useEffect(() => markFirstStep(workspaceSlug, "map"), [workspaceSlug]);
+  useEffect(() => {
+    if (impactLevels) markFirstStep(workspaceSlug, "impact");
+  }, [workspaceSlug, impactLevels]);
+
   // Keep ?view= / ?focus= / ?impact= in the URL so a view can be shared.
   useEffect(() => {
     const url = new URL(window.location.href);
@@ -904,6 +911,21 @@ function MapCanvas({
         </div>
 
         <Legend />
+        {edges.length === 0 && !impactLevels && !focus && (
+          // Resources but nothing connecting them yet: say where lines come from.
+          <div className="border-border bg-surface/95 pointer-events-auto absolute bottom-3 left-1/2 w-[min(32rem,calc(100%-2rem))] -translate-x-1/2 rounded-lg border px-4 py-3 text-xs backdrop-blur">
+            <p className="text-foreground font-medium">No relationships yet</p>
+            <p className="text-muted mt-1 leading-relaxed">
+              Lines appear when InfraMole knows what depends on what: agents suggest the connections
+              they see (review them in{" "}
+              <a href={`/w/${workspaceSlug}/suggestions`} className="text-accent hover:underline">
+                Suggestions
+              </a>
+              ), integrations add load balancers and DNS, and you can add a relationship on any
+              resource.
+            </p>
+          </div>
+        )}
       </div>
 
       {selected && (

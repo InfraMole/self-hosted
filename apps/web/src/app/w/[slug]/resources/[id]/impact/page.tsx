@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import type { Metadata } from "next";
+import { MarkFirstStep } from "@/components/onboarding/first-steps";
 import Link from "next/link";
 import { Network, ShieldCheck } from "lucide-react";
 import { ConfidenceBadge } from "@/components/relationships/confidence-badge";
@@ -53,6 +54,7 @@ export default async function ImpactPage({
 
   return (
     <div className="flex max-w-4xl flex-col gap-6">
+      <MarkFirstStep slug={ctx.workspaceSlug} step="impact" />
       <div className="border-border bg-surface rounded-lg border p-5">
         <p className="text-subtle text-[11px] font-medium tracking-wider uppercase">
           Potential blast radius
@@ -68,6 +70,12 @@ export default async function ImpactPage({
             </>
           )}
         </p>
+        {result.summary.total === 0 && (
+          <p className="text-muted mt-2 text-sm">
+            That is what InfraMole knows, not a guarantee. If something uses it, add the
+            relationship on that resource — or let an agent on that server suggest it.
+          </p>
+        )}
 
         {result.summary.total > 0 && (
           <div className="mt-4 flex flex-wrap items-center gap-2">
