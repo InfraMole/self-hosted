@@ -12,6 +12,7 @@ límite de servidores ni de máquinas virtuales.
 | Espacios de trabajo                                                                           | 1                                  |
 | Descubrimiento (agentes, integraciones, importación de ficheros), mapa, dependencias, impacto | ✔                                  |
 | Autenticación en dos pasos, llaves de acceso, inicio con Google / Microsoft, auditoría        | ✔                                  |
+| API de solo lectura, responsables y a quién avisar, vistas guardadas del mapa                 | ✔                                  |
 | Despliegue                                                                                    | Docker Compose                     |
 
 ## Ediciones previstas

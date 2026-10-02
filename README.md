@@ -13,8 +13,9 @@ one workspace, discovery with agents (Windows and Linux: services,
 connections, IIS, SQL Server, nginx, Apache, PostgreSQL, MySQL, Docker,
 Kubernetes), integrations with Azure, AWS and Cloudflare (more clouds, DNS
 providers, Proxmox, TrueNAS, Synology and Tailscale in preview), file
-imports, a dependency map with saved views, impact analysis, two-factor
-authentication, passkeys and an audit log.
+imports, a dependency map with saved views, impact analysis, owners and
+who to warn, a read-only API, two-factor authentication, passkeys and an
+audit log.
 
 Try it without installing: [inframole.com/demo](https://inframole.com/demo).
 

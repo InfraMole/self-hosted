@@ -82,6 +82,20 @@ describe("retention policy", () => {
         createdById: user.id,
       })),
     });
+    // Read-only API tokens: revoked long ago (gone), never expiring (kept).
+    await db.apiToken.createMany({
+      data: [
+        { revokedAt: daysAgo(100), expiresAt: null },
+        { revokedAt: null, expiresAt: null },
+      ].map((t, k) => ({
+        ...t,
+        workspaceId: ws.id,
+        name: `a${k}`,
+        tokenHash: `a${k}`,
+        prefix: "dmp_api_x",
+        createdById: user.id,
+      })),
+    });
     await db.session.create({
       data: {
         id: "s-old",
@@ -106,9 +120,11 @@ describe("retention policy", () => {
       changeEvents: 1,
       invitations: 1,
       enrollmentTokens: 1,
+      apiTokens: 1,
       agents: 1,
       sessions: 1,
     });
+    expect((await db.apiToken.findMany()).map((t) => t.name)).toEqual(["a1"]);
     expect((await db.agent.findMany()).map((a) => a.hostname).sort()).toEqual([
       "active-01",
       "new-revoked",

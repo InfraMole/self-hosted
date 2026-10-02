@@ -20,6 +20,7 @@ export const RETENTION = {
   auditDays: AUDIT_RETENTION_DAYS,
   endedInvitationDays: 30, // after accepted / revoked / expired (they hold emails)
   endedEnrollmentTokenDays: 90, // after revoked / expired
+  endedApiTokenDays: 90, // read-only API tokens (M30), after revoked / expired
   revokedAgentDays: 90, // revoked agents keep their last IP until then
   suggestionDays: 30, // unreviewed agent suggestions not observed since (M15)
 } as const;
@@ -29,38 +30,53 @@ const DAY = 86_400_000;
 export async function runRetention(now = new Date()) {
   const before = (days: number) => new Date(now.getTime() - days * DAY);
   const db = systemDb("retention policy across workspaces");
-  const [observations, connectionFacts, changeEvents, invitations, enrollmentTokens, agents] =
-    await Promise.all([
-      db.observation.deleteMany({
-        where: { receivedAt: { lt: before(RETENTION.observationDays) } },
-      }),
-      db.connectionFact.deleteMany({
-        where: { lastSeenAt: { lt: before(RETENTION.connectionFactDays) } },
-      }),
-      db.changeEvent.deleteMany({
-        where: { occurredAt: { lt: before(RETENTION.changeEventDays) } },
-      }),
-      db.invitation.deleteMany({
-        where: {
-          OR: [
-            { acceptedAt: { lt: before(RETENTION.endedInvitationDays) } },
-            { revokedAt: { lt: before(RETENTION.endedInvitationDays) } },
-            { expiresAt: { lt: before(RETENTION.endedInvitationDays) } },
-          ],
-        },
-      }),
-      db.enrollmentToken.deleteMany({
-        where: {
-          OR: [
-            { revokedAt: { lt: before(RETENTION.endedEnrollmentTokenDays) } },
-            { expiresAt: { lt: before(RETENTION.endedEnrollmentTokenDays) } },
-          ],
-        },
-      }),
-      db.agent.deleteMany({
-        where: { status: "REVOKED", revokedAt: { lt: before(RETENTION.revokedAgentDays) } },
-      }),
-    ]);
+  const [
+    observations,
+    connectionFacts,
+    changeEvents,
+    invitations,
+    enrollmentTokens,
+    agents,
+    apiTokens,
+  ] = await Promise.all([
+    db.observation.deleteMany({
+      where: { receivedAt: { lt: before(RETENTION.observationDays) } },
+    }),
+    db.connectionFact.deleteMany({
+      where: { lastSeenAt: { lt: before(RETENTION.connectionFactDays) } },
+    }),
+    db.changeEvent.deleteMany({
+      where: { occurredAt: { lt: before(RETENTION.changeEventDays) } },
+    }),
+    db.invitation.deleteMany({
+      where: {
+        OR: [
+          { acceptedAt: { lt: before(RETENTION.endedInvitationDays) } },
+          { revokedAt: { lt: before(RETENTION.endedInvitationDays) } },
+          { expiresAt: { lt: before(RETENTION.endedInvitationDays) } },
+        ],
+      },
+    }),
+    db.enrollmentToken.deleteMany({
+      where: {
+        OR: [
+          { revokedAt: { lt: before(RETENTION.endedEnrollmentTokenDays) } },
+          { expiresAt: { lt: before(RETENTION.endedEnrollmentTokenDays) } },
+        ],
+      },
+    }),
+    db.agent.deleteMany({
+      where: { status: "REVOKED", revokedAt: { lt: before(RETENTION.revokedAgentDays) } },
+    }),
+    db.apiToken.deleteMany({
+      where: {
+        OR: [
+          { revokedAt: { lt: before(RETENTION.endedApiTokenDays) } },
+          { expiresAt: { lt: before(RETENTION.endedApiTokenDays) } },
+        ],
+      },
+    }),
+  ]);
   // Auth tables (no RLS): expired sessions and verification / reset tokens.
   const [sessions, verifications] = await Promise.all([
     getDb().session.deleteMany({ where: { expiresAt: { lt: now } } }),
@@ -75,6 +91,7 @@ export async function runRetention(now = new Date()) {
     changeEvents: changeEvents.count + planHistory,
     invitations: invitations.count,
     enrollmentTokens: enrollmentTokens.count,
+    apiTokens: apiTokens.count,
     agents: agents.count,
     sessions: sessions.count,
     verifications: verifications.count,

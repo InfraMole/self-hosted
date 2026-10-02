@@ -1,16 +1,19 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /**
- * Enrollment tokens and agent secrets (docs/SECURITY.md §6, ADR-010).
+ * Enrollment tokens, agent secrets, invitations and read-only API tokens
+ * (docs/SECURITY.md §6, ADR-010).
  * 32 random bytes, base64url, typed prefix; only sha256 is stored.
  */
 import { createHash, randomBytes } from "node:crypto";
 
-export type SecretKind = "enrollment" | "agent" | "invitation";
+export type SecretKind = "enrollment" | "agent" | "invitation" | "api";
 
 const PREFIX: Record<SecretKind, string> = {
   enrollment: "dmp_enr_",
   agent: "dmp_agt_",
   invitation: "dmp_inv_",
+  /** Read-only API token (M30). */
+  api: "dmp_api_",
 };
 
 /** 32 bytes -> 43 base64url chars. */
@@ -39,10 +42,15 @@ export function isWellFormed(value: string, kind: SecretKind): boolean {
   return value.startsWith(prefix) && BODY_PATTERN.test(value.slice(prefix.length));
 }
 
-/** Extracts an agent secret from an `Authorization: Bearer …` header. */
-export function bearerAgentSecret(header: string | null): string | null {
+/** Extracts a well-formed secret of `kind` from an `Authorization: Bearer …` header. */
+export function bearerSecret(header: string | null, kind: SecretKind): string | null {
   if (!header) return null;
   const match = /^Bearer\s+(\S+)$/i.exec(header.trim());
   const token = match?.[1];
-  return token && isWellFormed(token, "agent") ? token : null;
+  return token && isWellFormed(token, kind) ? token : null;
+}
+
+/** Extracts an agent secret from an `Authorization: Bearer …` header. */
+export function bearerAgentSecret(header: string | null): string | null {
+  return bearerSecret(header, "agent");
 }

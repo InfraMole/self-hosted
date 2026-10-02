@@ -157,3 +157,8 @@ sudo systemctl restart inframole-agent
 ```
 
 :::
+
+## Muchas máquinas
+
+Para decenas o cientos de servidores (GPO, Intune, Ansible, cloud-init), ver
+[Desplegar en muchas máquinas](/es/docs/agent/mass-deployment).

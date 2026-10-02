@@ -4,6 +4,7 @@ import Link from "next/link";
 import { DeleteIntegrationDialog } from "@/components/integrations/delete-integration-dialog";
 import { IntegrationSheet, SyncNowButton } from "@/components/integrations/integration-sheet";
 import { CreateTokenDialog } from "@/components/agents/create-token-dialog";
+import { CreateApiTokenDialog } from "@/components/settings/create-api-token-dialog";
 import { InviteSheet, RoleSelect } from "@/components/members/invite-sheet";
 import { DeleteWorkspaceDialog } from "@/components/settings/delete-workspace-dialog";
 import { RequireTwoFactorToggle } from "@/components/settings/require-two-factor-toggle";
@@ -20,6 +21,7 @@ import {
   listEnrollmentTokens,
   type TokenState,
 } from "@/server/modules/agents/agents";
+import { listApiTokens, type ApiTokenState } from "@/server/modules/api/tokens";
 import { integrationsEnabled, listIntegrations } from "@/server/modules/integrations/integrations";
 import { INTEGRATION_FORMS } from "@/lib/integration-forms";
 import { listInvitations, listMembers } from "@/server/modules/members/members";
@@ -28,6 +30,7 @@ import { listSources } from "@/server/modules/resources/sources";
 import { requireWorkspace } from "@/server/tenancy";
 import { versionInfo } from "@/server/version";
 import { createTokenAction, revokeAgentAction, revokeTokenAction } from "./actions";
+import { createApiTokenAction, revokeApiTokenAction } from "./api-actions";
 import {
   createIntegrationAction,
   deleteIntegrationAction,
@@ -58,20 +61,28 @@ const TOKEN_STATE: Record<TokenState, string> = {
   exhausted: "border-border text-subtle",
 };
 
+const API_TOKEN_STATE: Record<ApiTokenState, string> = {
+  active: "border-success/50 text-success",
+  expired: "border-border text-subtle",
+  revoked: "border-danger/50 text-danger",
+};
+
 export default async function SettingsPage({ params }: PageProps<"/w/[slug]/settings">) {
   const { slug } = await params;
   const ctx = await requireWorkspace(slug);
   await markStaleHosts(ctx.workspaceId); // throttled (ADR-016)
   const isAdmin = hasRole(ctx.role, "ADMIN");
   const isOwner = ctx.role === "OWNER";
-  const [agents, tokens, integrations, members, invitations, version] = await Promise.all([
-    listAgents(ctx),
-    isAdmin ? listEnrollmentTokens(ctx) : Promise.resolve([]),
-    isAdmin ? listIntegrations(ctx) : Promise.resolve([]),
-    listMembers(ctx),
-    isAdmin ? listInvitations(ctx) : Promise.resolve([]),
-    versionInfo(),
-  ]);
+  const [agents, tokens, integrations, members, invitations, version, apiTokens] =
+    await Promise.all([
+      listAgents(ctx),
+      isAdmin ? listEnrollmentTokens(ctx) : Promise.resolve([]),
+      isAdmin ? listIntegrations(ctx) : Promise.resolve([]),
+      listMembers(ctx),
+      isAdmin ? listInvitations(ctx) : Promise.resolve([]),
+      versionInfo(),
+      isAdmin ? listApiTokens(ctx) : Promise.resolve([]),
+    ]);
   const assignable: Role[] = isOwner
     ? ["VIEWER", "MEMBER", "ADMIN", "OWNER"]
     : ["VIEWER", "MEMBER", "ADMIN"];
@@ -478,6 +489,63 @@ export default async function SettingsPage({ params }: PageProps<"/w/[slug]/sett
                       owned={ownedBySource.get(`integration:${i.id}`) ?? 0}
                       action={deleteIntegrationAction.bind(null, ctx.workspaceSlug, i.id)}
                     />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+        )}
+
+        {isAdmin && (
+          <Card id="api">
+            <CardHeader className="flex items-center justify-between gap-4">
+              <div>
+                <CardTitle>API tokens</CardTitle>
+                <p className="text-muted mt-0.5 text-xs">
+                  Read-only access to this workspace for scripts and other tools — resources,
+                  relationships, impact and paths.{" "}
+                  <Link href="/docs/reference/api" className="text-accent hover:underline">
+                    API reference
+                  </Link>
+                </p>
+              </div>
+              <CreateApiTokenDialog action={createApiTokenAction.bind(null, ctx.workspaceSlug)} />
+            </CardHeader>
+            {apiTokens.length === 0 ? (
+              <CardContent className="text-subtle text-sm">No API tokens.</CardContent>
+            ) : (
+              <ul className="divide-border divide-y">
+                {apiTokens.map((t) => (
+                  <li key={t.id} className="flex items-center gap-3 px-4 py-2">
+                    <span className="min-w-0 flex-1 truncate text-sm">{t.name}</span>
+                    <span className="text-subtle font-mono text-xs">{t.prefix}…</span>
+                    <Badge className={API_TOKEN_STATE[t.state]}>{t.state}</Badge>
+                    <span
+                      className="text-muted w-28 text-right text-xs"
+                      title={t.lastUsedAt ? formatDateTime(t.lastUsedAt) : undefined}
+                    >
+                      {t.lastUsedAt ? `used ${formatRelative(t.lastUsedAt)}` : "never used"}
+                    </span>
+                    <span
+                      className="text-muted w-32 text-right text-xs"
+                      title={t.expiresAt ? formatDateTime(t.expiresAt) : undefined}
+                    >
+                      {t.state !== "active"
+                        ? ""
+                        : t.expiresAt
+                          ? `expires ${formatRelative(t.expiresAt)}`
+                          : "no expiry"}
+                    </span>
+                    <span className="w-16 text-right">
+                      {t.state === "active" && (
+                        <RevokeButton
+                          label={`Revoke API token ${t.name}`}
+                          title={`Revoke API token “${t.name}”?`}
+                          description="Scripts using it stop working immediately."
+                          action={revokeApiTokenAction.bind(null, ctx.workspaceSlug, t.id)}
+                        />
+                      )}
+                    </span>
                   </li>
                 ))}
               </ul>

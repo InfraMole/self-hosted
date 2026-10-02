@@ -72,6 +72,23 @@ El estilo de las líneas sigue la
 continua para confirmadas, discontinua para detectadas, punteada para
 inferidas.
 
+## Cómo están unidos dos recursos
+
+Selecciona un recurso, elige **Path to…** en su panel y escoge otro. El mapa
+muestra solo la cadena entre ambos, y el aviso dice qué significa:
+
+- **A depends on B** — A depende de B, directamente o a través de otros
+  recursos;
+- **A may depend on B** — la cadena incluye relaciones que nadie ha
+  confirmado todavía;
+- **A and B are connected, but neither depends on the other** — están
+  unidos, pero ninguno depende del otro (por ejemplo, usan la misma base de
+  datos).
+
+**Copy as text** te da la cadena paso a paso («Billing uses database
+CustomersDB»), lista para una petición de cambio. Los scripts obtienen la
+misma respuesta con la [API](/es/docs/reference/api).
+
 ## Impacto
 
 Impact responde a **«¿qué podría verse afectado si esto desaparece?»**.

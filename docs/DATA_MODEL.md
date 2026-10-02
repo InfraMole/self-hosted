@@ -57,14 +57,14 @@ Unique `(workspaceId, userId)`.
 
 Role capabilities (enforced from M1 on):
 
-| Capability                                                          | VIEWER | MEMBER | ADMIN | OWNER |
-| ------------------------------------------------------------------- | ------ | ------ | ----- | ----- |
-| Read library/map/impact/changes                                     | ✔      | ✔      | ✔     | ✔     |
-| Create/edit resources & relationships, confirm/ignore suggestions   |        | ✔      | ✔     | ✔     |
-| Manage agents & enrollment tokens, integrations, workspace settings |        |        | ✔     | ✔     |
-| Invite members, change roles, remove members (not owners) — M8b     |        |        | ✔     | ✔     |
-| Grant / change / remove the OWNER role, delete workspace            |        |        |       | ✔     |
-| Leave the workspace                                                 | ✔      | ✔      | ✔     | ✔     |
+| Capability                                                                      | VIEWER | MEMBER | ADMIN | OWNER |
+| ------------------------------------------------------------------------------- | ------ | ------ | ----- | ----- |
+| Read library/map/impact/changes                                                 | ✔      | ✔      | ✔     | ✔     |
+| Create/edit resources & relationships, confirm/ignore suggestions               |        | ✔      | ✔     | ✔     |
+| Manage agents & enrollment tokens, API tokens, integrations, workspace settings |        |        | ✔     | ✔     |
+| Invite members, change roles, remove members (not owners) — M8b                 |        |        | ✔     | ✔     |
+| Grant / change / remove the OWNER role, delete workspace                        |        |        |       | ✔     |
+| Leave the workspace                                                             | ✔      | ✔      | ✔     | ✔     |
 
 A workspace always keeps at least one OWNER (demoting or removing the last
 one is refused).
@@ -211,6 +211,15 @@ unreviewed suggestions whose every piece of evidence matches a rule are
 deleted (change event DELETED, "Suggestion removed by an exclusion rule").
 MEMBER+ create / delete (audited `discovery.rule_created` /
 `discovery.rule_deleted`); at most 100 per workspace.
+
+### ApiToken ✅ M30 (ADR-044)
+
+`api_token`: `workspaceId`, `name`, `tokenHash` (sha256, unique), `prefix`
+(display), `expiresAt?` (null = never), `lastUsedAt?` (written at most every
+5 min), `revokedAt?`, `createdById`, `createdAt`. RLS tenant policy like
+every workspace table (migration `api_tokens`); authentication reads it by
+hash through `systemDb`. ≤ 25 active per workspace. Retention: deleted 90
+days after revoked / expired.
 
 ### Resource owner ✅ M29 (ADR-043)
 
@@ -396,6 +405,7 @@ opportunistic per-agent pruning on each report.
 | Audit events                          | 365 days                                         | deleted (the trigger allows nothing earlier)                                                                             |
 | Invitations (hold an email)           | until 30 days after accepted / revoked / expired | deleted                                                                                                                  |
 | Enrollment tokens (hash only)         | until 90 days after revoked / expired            | deleted                                                                                                                  |
+| API tokens (hash only, M30)           | until 90 days after revoked / expired            | deleted                                                                                                                  |
 | Revoked agents (last IP)              | 90 days after revocation                         | deleted (host resource stays)                                                                                            |
 | Sessions, verification / reset tokens | until expiry                                     | deleted                                                                                                                  |
 | Workspace (on deletion)               | —                                                | everything deleted immediately                                                                                           |

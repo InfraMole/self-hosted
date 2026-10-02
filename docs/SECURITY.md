@@ -235,6 +235,29 @@ last IP, expired sessions and tokens) is deleted, not kept "just in case".
   owner of a workspace with other members. Sessions, accounts, 2FA and
   passkeys go with the user.
 
+## 5u. Read-only API and mass deployment (M30, ADR-044)
+
+- API tokens: `dmp_api_` + 32 random bytes, only sha256 stored, shown once,
+  expiry (30/90/365 days or never), revocable, ≤ 25 active per workspace,
+  managed by ADMIN+, creation / revocation audited, deleted 90 days after
+  revoked / expired. Malformed bearer values are refused before any lookup.
+- Lookup by hash through `systemDb("API authentication by token hash")`;
+  the resulting context is the token's workspace with role VIEWER (no
+  write path exists: GET handlers only, and VIEWER fails `assertRole` for
+  every write). Another workspace's ids → 404.
+- Rate limits: 300/min per token, 600/min per client IP (`clientIp`), 429
+  with `Retry-After`. `lastUsedAt` written at most every 5 minutes.
+- Responses `Cache-Control: no-store`; no CORS (server-to-server use).
+- What a token reads = what a viewer reads, including owner contacts and
+  notes (said in the create dialog).
+- Deployment templates: verify `SHA256SUMS` before running a binary, never
+  put the enrollment token on a command line (environment only; Ansible
+  `no_log`), refuse `http://` servers unless explicitly in dev mode. GPO
+  scripts are readable by domain users: the guide recommends an expiring,
+  use-limited enrollment token revoked after the rollout. A leaked
+  enrollment token only lets someone enrol agents (data lands as
+  Discovered, never confirmed).
+
 ## 5t. Daily use (M29, ADR-043)
 
 - Owner contacts are free text the workspace enters (often an email): they
@@ -403,7 +426,7 @@ last IP, expired sessions and tokens) is deleted, not kept "just in case".
 ## 6. Secret handling conventions
 
 - Generate with `crypto.randomBytes(32)` → base64url, prefixed for
-  identification (`dmp_enr_…`, `dmp_agt_…`).
+  identification (`dmp_enr_…`, `dmp_agt_…`, `dmp_inv_…`, `dmp_api_…`).
 - Store `sha256(secret)` + a short non-secret prefix for lookup/UI.
 - Compare with `crypto.timingSafeEqual`.
 - Show once at creation; never retrievable later.

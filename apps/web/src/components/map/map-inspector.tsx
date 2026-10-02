@@ -2,7 +2,8 @@
 "use client";
 
 import Link from "next/link";
-import { Crosshair, ExternalLink, Radar, X } from "lucide-react";
+import { useState } from "react";
+import { Crosshair, ExternalLink, Radar, Route, X } from "lucide-react";
 import { perspective, type Bucket, type Confidence } from "@depmap/graph";
 import { ConfidenceBadge } from "@/components/relationships/confidence-badge";
 import {
@@ -13,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { RESOURCE_TYPES } from "@/lib/resource-presentation";
 import type { MapEdge, MapNode } from "@/server/modules/map/map";
+import { MapFind } from "./map-find";
 
 interface Props {
   workspaceSlug: string;
@@ -26,6 +28,8 @@ interface Props {
   onSelect: (id: string) => void;
   onFocus: (id: string) => void;
   onImpact: (id: string) => void;
+  /** "Path to…" (M30): how this resource and another one are linked. */
+  onPath: (from: string, to: string) => void;
   onClose: () => void;
   /** Collapsed box: what it contains and the relationships inside it. */
   inside?: { resources: MapNode[]; relationships: string[] };
@@ -48,9 +52,11 @@ export function MapInspector({
   onSelect,
   onFocus,
   onImpact,
+  onPath,
   onClose,
   inside,
 }: Props) {
+  const [pathFrom, setPathFrom] = useState<string | null>(null);
   const rows: Record<
     Bucket,
     { id: string; name: string; phrase: string; type: MapNode["type"] }[]
@@ -140,6 +146,27 @@ export function MapInspector({
         >
           <Radar /> {isImpactRoot ? "Showing impact" : "Impact — what could be affected?"}
         </Button>
+        {pathFrom === r.id ? (
+          <div className="pointer-events-auto">
+            <MapFind
+              nodes={[...byId.values()]}
+              onFind={(to) => {
+                setPathFrom(null);
+                onPath(r.id, to);
+              }}
+              placeholder="Path to… (name, IP or owner)"
+              label={`Path from ${r.name} to`}
+              shortcut={false}
+              autoFocus
+              exclude={r.id}
+              onCancel={() => setPathFrom(null)}
+            />
+          </div>
+        ) : (
+          <Button size="sm" variant="outline" onClick={() => setPathFrom(r.id)} className="w-full">
+            <Route /> Path to…
+          </Button>
+        )}
 
         {impactInfo && (
           <div className="border-warning/40 bg-surface-2 rounded-md border px-3 py-2.5">

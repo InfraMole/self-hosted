@@ -16,11 +16,24 @@ import {
   useStoreApi,
   type Edge,
 } from "@xyflow/react";
-import { Crosshair, Download, Maximize2, Minimize2, Radar, RotateCcw, X } from "lucide-react";
+import {
+  Check,
+  Copy,
+  Crosshair,
+  Download,
+  Maximize2,
+  Minimize2,
+  Radar,
+  RotateCcw,
+  Route,
+  X,
+} from "lucide-react";
 import {
   RELATIONSHIP_TYPE_INFO,
   dependencyDirection,
+  describePath,
   edgeConfidence,
+  findPath,
   impact,
   neighbourhood,
   perspective,
@@ -141,14 +154,25 @@ function MapCanvas({
   const [impactId, setImpactId] = useState<string | null>(initial ? initial.impact : initialImpact);
   const [selectedId, setSelectedId] = useState<string | null>(impactId ?? focus?.id ?? null);
 
+  const confidenceEdges = useMemo(
+    () => edges.map((e) => ({ ...e, confidence: edgeConfidence(e.status, e.origin) })),
+    [edges],
+  );
   const impactResult = useMemo(() => {
     if (!impactId || !byId.has(impactId)) return null;
-    const impactEdges = edges.map((e) => ({
-      ...e,
-      confidence: edgeConfidence(e.status, e.origin),
-    }));
-    return impact(impactEdges, impactId);
-  }, [impactId, edges, byId]);
+    return impact(confidenceEdges, impactId);
+  }, [impactId, confidenceEdges, byId]);
+
+  // Path mode (M30): only the chain linking two resources.
+  const [pathEnds, setPathEnds] = useState<{ from: string; to: string } | null>(null);
+  const pathResult = useMemo(
+    () =>
+      pathEnds && byId.has(pathEnds.from) && byId.has(pathEnds.to)
+        ? findPath(confidenceEdges, pathEnds.from, pathEnds.to)
+        : null,
+    [pathEnds, confidenceEdges, byId],
+  );
+  const pathEdgeIds = useMemo(() => new Set(pathResult?.viaEdges ?? []), [pathResult]);
 
   const impactLevels = useMemo(() => {
     if (!impactResult) return null;
@@ -168,16 +192,18 @@ function MapCanvas({
       edges.filter((e) => {
         const confidence = edgeConfidence(e.status, e.origin);
         if (!confidence) return false;
+        if (pathResult) return pathEdgeIds.has(e.id);
         // Impact mode shows every propagating edge (confidence is drawn, not filtered).
         if (impactLevels) return dependencyDirection(e) !== null;
         if (confidence !== "confirmed" && !showUnconfirmed) return false;
         if (!showInformational && dependencyDirection(e) === null) return false;
         return true;
       }),
-    [edges, showUnconfirmed, showInformational, impactLevels],
+    [edges, showUnconfirmed, showInformational, impactLevels, pathResult, pathEdgeIds],
   );
 
   const visibleIds = useMemo(() => {
+    if (pathResult) return pathResult.path;
     if (impactLevels) return nodes.filter((n) => impactLevels.has(n.id)).map((n) => n.id);
     const hood =
       focus && byId.has(focus.id)
@@ -199,7 +225,17 @@ function MapCanvas({
         );
       })
       .map((n) => n.id);
-  }, [nodes, byId, candidateEdges, focus, typeFilter, envFilter, showInformational, impactLevels]);
+  }, [
+    nodes,
+    byId,
+    candidateEdges,
+    focus,
+    typeFilter,
+    envFilter,
+    showInformational,
+    impactLevels,
+    pathResult,
+  ]);
 
   const visibleEdges = useMemo(() => {
     const ids = new Set(visibleIds);
@@ -217,21 +253,22 @@ function MapCanvas({
   // Pinned positions (M26 phase 3): dragging a resource on the whole map
   // keeps it there; saved with a view. Focus and impact lay out on their own.
   const [pins, setPins] = useState<Record<string, Pin>>(initial?.pinned ?? {});
-  const pinsActive = !focus && !impactId;
+  const pinsActive = !focus && !impactId && !pathResult;
+  /** Focus, impact or path: a computed subset, laid out on its own with every box open. */
+  const subset = !!focus || !!impactLevels || !!pathResult;
   const contained = useMemo(
     () => containment(visibleIds, visibleEdges),
     [visibleIds, visibleEdges],
   );
   const display = useMemo(() => {
     const byDefault =
-      !!focus ||
-      !!impactLevels ||
+      subset ||
       groupMode === "expanded" ||
       (groupMode === "auto" && visibleIds.length <= EXPANDED_BY_DEFAULT);
     return displayGraph(visibleIds, visibleEdges, contained, (id) =>
-      focus || impactLevels ? true : (groupOverrides.get(id) ?? byDefault),
+      subset ? true : (groupOverrides.get(id) ?? byDefault),
     );
-  }, [visibleIds, visibleEdges, contained, focus, impactLevels, groupMode, groupOverrides]);
+  }, [visibleIds, visibleEdges, contained, subset, groupMode, groupOverrides]);
   /** "Billing uses database CustomersDB" — names, never ids. */
   const describe = useCallback(
     (e: MapEdge) =>
@@ -286,6 +323,7 @@ function MapCanvas({
     (id: string) => {
       if (!visibleIds.includes(id)) {
         setImpactId(null);
+        setPathEnds(null);
         setFocus(null);
         setTypeFilter("");
         setEnvFilter("");
@@ -302,8 +340,8 @@ function MapCanvas({
   );
   // Lines drawn into a hub, by its stored "to" end (who points at whom).
   const hubCounts = useMemo(
-    () => (impactLevels || focus ? new Map<string, number>() : hubs(display.shown, display.edges)),
-    [display, impactLevels, focus],
+    () => (subset ? new Map<string, number>() : hubs(display.shown, display.edges)),
+    [display, subset],
   );
 
   const autoLayout = useMemo(
@@ -323,7 +361,8 @@ function MapCanvas({
   // Selected node + its direct neighbours stay bright; everything else dims.
   const highlighted = useMemo(() => {
     // In impact view the root is the subject: selecting it must not dim the affected resources.
-    if (!selectedId || selectedId === impactId) return null;
+    // A path view shows only the chain: nothing in it is ever dimmed.
+    if (!selectedId || selectedId === impactId || pathResult) return null;
     const set = new Set([selectedId]);
     for (const e of display.edges) {
       if (e.from === selectedId) set.add(e.to);
@@ -333,7 +372,7 @@ function MapCanvas({
     for (const id of [...set])
       for (let p = display.parentOf.get(id); p; p = display.parentOf.get(p)) set.add(p);
     return set;
-  }, [selectedId, display, impactId]);
+  }, [selectedId, display, impactId, pathResult]);
 
   const [flowNodes, setFlowNodes, onNodesChange] = useNodesState<ResourceFlowNode>([]);
 
@@ -363,23 +402,12 @@ function MapCanvas({
             insideRelationships: display.hidden.has(id)
               ? (display.inside.get(id) ?? []).map(describe)
               : undefined,
-            onToggle: hasChildren && !focus && !impactLevels ? toggleGroup : undefined,
+            onToggle: hasChildren && !subset ? toggleGroup : undefined,
           },
         };
       }),
     );
-  }, [
-    display,
-    layout,
-    sizeOf,
-    byId,
-    focus,
-    impactLevels,
-    toggleGroup,
-    describe,
-    hubCounts,
-    setFlowNodes,
-  ]);
+  }, [display, layout, sizeOf, byId, subset, toggleGroup, describe, hubCounts, setFlowNodes]);
 
   // Framing: when the set of visible resources changes (filters, focus,
   // impact) or after Expand all / Collapse all — toggling one box keeps the
@@ -478,13 +506,15 @@ function MapCanvas({
           : perspective(e, source).phrase;
         const connected = selectedId !== null && (source === selectedId || target === selectedId);
         const onImpactPath = impactEdgeIds.has(e.id);
-        const color = connected
-          ? COLORS.highlight
-          : onImpactPath
-            ? COLORS.impact
-            : informational
-              ? COLORS.informational
-              : COLORS.edge;
+        const onPath = pathEdgeIds.has(e.id);
+        const color =
+          connected || onPath
+            ? COLORS.highlight
+            : onImpactPath
+              ? COLORS.impact
+              : informational
+                ? COLORS.informational
+                : COLORS.edge;
         // Leave and enter on the facing sides: an edge to something above
         // (exposed through, monitored by…) goes out the top and in the bottom.
         const centreY = (id: string) => (positions.get(id)?.y ?? 0) + sizeOf(id).height / 2;
@@ -498,11 +528,12 @@ function MapCanvas({
           sourceHandle: up ? "top-out" : "bottom-out",
           targetHandle: up ? "bottom-in" : "top-in",
           // A line attached to a collapsed box says what it stands for.
-          label: connected
-            ? (standsFor(e) ?? phrase)
-            : (display.represents.get(e.id)?.length ?? 1) > 1
-              ? `×${display.represents.get(e.id)!.length}`
-              : undefined,
+          label:
+            connected || onPath
+              ? (standsFor(e) ?? phrase)
+              : (display.represents.get(e.id)?.length ?? 1) > 1
+                ? `×${display.represents.get(e.id)!.length}`
+                : undefined,
           labelStyle: { fill: COLORS.label, fontSize: 11 },
           labelBgPadding: [6, 3] as [number, number],
           labelBgBorderRadius: 4,
@@ -533,6 +564,7 @@ function MapCanvas({
       highlighted,
       impactEdgeIds,
       impactLevels,
+      pathEdgeIds,
       positions,
       sizeOf,
       standsFor,
@@ -621,15 +653,31 @@ function MapCanvas({
 
   const focusOn = useCallback((id: string) => {
     setImpactId(null);
+    setPathEnds(null);
     setFocus((f) => ({ id, depth: f?.depth ?? 2, direction: f?.direction ?? "both" }));
     setSelectedId(id);
   }, []);
 
   const showImpact = useCallback((id: string) => {
     setFocus(null);
+    setPathEnds(null);
     setImpactId(id);
     setSelectedId(id);
   }, []);
+
+  const showPath = useCallback((from: string, to: string) => {
+    setFocus(null);
+    setImpactId(null);
+    setPathEnds({ from, to });
+    setSelectedId(from);
+  }, []);
+  const pathText = useMemo(
+    () =>
+      pathResult
+        ? describePath(pathResult, confidenceEdges, (id) => byId.get(id)?.name ?? "?")
+        : "",
+    [pathResult, confidenceEdges, byId],
+  );
 
   const selected = selectedId ? byId.get(selectedId) : undefined;
   // A collapsed box selected: what it contains and the relationships inside.
@@ -649,7 +697,10 @@ function MapCanvas({
       const now = new Date();
       let view = "Map";
       let subtitle: string;
-      if (impactResult && impactRoot) {
+      if (pathResult && pathEnds) {
+        view = `Path from ${byId.get(pathEnds.from)!.name} to ${byId.get(pathEnds.to)!.name}`;
+        subtitle = pathText.split("\n")[0]!.replace(/:$/, "");
+      } else if (impactResult && impactRoot) {
         const by = (c: string) => impactResult.affected.filter((a) => a.confidence === c).length;
         view = `Impact of ${impactRoot.name}`;
         subtitle = `If ${impactRoot.name} fails, ${impactResult.affected.length} resources could be affected (${by("confirmed")} confirmed, ${by("detected")} detected, ${by("inferred")} inferred)`;
@@ -712,7 +763,7 @@ function MapCanvas({
             target,
             confidence: edgeConfidence(e.status, e.origin)!,
             informational: dependencyDirection(e) === null,
-            onImpactPath: impactEdgeIds.has(e.id),
+            onImpactPath: impactEdgeIds.has(e.id) || pathEdgeIds.has(e.id),
           };
         }),
       });
@@ -744,6 +795,10 @@ function MapCanvas({
       impactLevels,
       byId,
       impactEdgeIds,
+      pathEdgeIds,
+      pathEnds,
+      pathResult,
+      pathText,
     ],
   );
   const selectedImpact = impactResult?.affected.find((a) => a.resourceId === selectedId);
@@ -822,6 +877,14 @@ function MapCanvas({
                 <X className="size-3.5" />
               </button>
             </div>
+          ) : pathEnds ? (
+            <PathBanner
+              from={byId.get(pathEnds.from)?.name ?? "?"}
+              to={byId.get(pathEnds.to)?.name ?? "?"}
+              result={pathResult}
+              text={pathText}
+              onClose={() => setPathEnds(null)}
+            />
           ) : (
             <div className="border-border bg-surface/95 pointer-events-auto flex flex-wrap items-center gap-2 rounded-lg border p-1.5 backdrop-blur">
               <Select
@@ -895,29 +958,27 @@ function MapCanvas({
             </div>
           )}
 
-          {(contained.children.size > 0 || display.expanded.size > 0) &&
-            !focus &&
-            !impactLevels && (
-              <button
-                type="button"
-                className="border-border bg-surface/95 text-muted hover:text-foreground pointer-events-auto inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs backdrop-blur"
-                onClick={() => {
-                  setGroupOverrides(new Map());
-                  setGroupMode(display.expanded.size > 0 ? "collapsed" : "expanded");
-                }}
-                title="Servers, hypervisors and hosts as boxes with what runs on them"
-              >
-                {display.expanded.size > 0 ? (
-                  <>
-                    <Minimize2 className="size-3.5" /> Collapse all
-                  </>
-                ) : (
-                  <>
-                    <Maximize2 className="size-3.5" /> Expand all
-                  </>
-                )}
-              </button>
-            )}
+          {(contained.children.size > 0 || display.expanded.size > 0) && !subset && (
+            <button
+              type="button"
+              className="border-border bg-surface/95 text-muted hover:text-foreground pointer-events-auto inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs backdrop-blur"
+              onClick={() => {
+                setGroupOverrides(new Map());
+                setGroupMode(display.expanded.size > 0 ? "collapsed" : "expanded");
+              }}
+              title="Servers, hypervisors and hosts as boxes with what runs on them"
+            >
+              {display.expanded.size > 0 ? (
+                <>
+                  <Minimize2 className="size-3.5" /> Collapse all
+                </>
+              ) : (
+                <>
+                  <Maximize2 className="size-3.5" /> Expand all
+                </>
+              )}
+            </button>
+          )}
           <span className="text-subtle pointer-events-auto ml-auto font-mono text-[11px]">
             {visibleIds.length} resources · {visibleEdges.length} relationships
           </span>
@@ -947,7 +1008,7 @@ function MapCanvas({
         </div>
 
         <Legend />
-        {edges.length === 0 && !impactLevels && !focus && (
+        {edges.length === 0 && !subset && (
           // Resources but nothing connecting them yet: say where lines come from.
           <div className="border-border bg-surface/95 pointer-events-auto absolute bottom-3 left-1/2 w-[min(32rem,calc(100%-2rem))] -translate-x-1/2 rounded-lg border px-4 py-3 text-xs backdrop-blur">
             <p className="text-foreground font-medium">No relationships yet</p>
@@ -985,9 +1046,81 @@ function MapCanvas({
           inside={selectedInside}
           onFocus={focusOn}
           onImpact={showImpact}
+          onPath={showPath}
           onClose={() => setSelectedId(null)}
         />
       )}
+    </div>
+  );
+}
+
+/** What the path view shows, in words (M30). Never "depends on" for an unconfirmed chain. */
+function PathBanner({
+  from,
+  to,
+  result,
+  text,
+  onClose,
+}: {
+  from: string;
+  to: string;
+  result: ReturnType<typeof findPath>;
+  text: string;
+  onClose: () => void;
+}) {
+  const [copied, setCopied] = useState(false);
+  const sure = result?.confidence === "confirmed";
+  const name = (n: string) => <span className="font-mono">{n}</span>;
+  return (
+    <div
+      role="status"
+      className="border-accent/50 bg-surface/95 pointer-events-auto flex flex-wrap items-center gap-2 rounded-lg border p-1.5 pl-2.5 backdrop-blur"
+    >
+      <Route className="text-accent size-3.5" />
+      <span className="text-xs">
+        {!result ? (
+          <>
+            No link between {name(from)} and {name(to)}
+          </>
+        ) : result.kind === "connected" ? (
+          <>
+            {name(from)} and {name(to)} are connected, but neither depends on the other
+          </>
+        ) : (
+          <>
+            {name(result.kind === "dependsOn" ? from : to)} {sure ? "depends on" : "may depend on"}{" "}
+            {name(result.kind === "dependsOn" ? to : from)}
+          </>
+        )}
+      </span>
+      {result && (
+        <>
+          <ConfidenceBadge confidence={result.confidence} />
+          <span className="text-subtle font-mono text-xs">
+            {result.viaEdges.length} hop{result.viaEdges.length === 1 ? "" : "s"}
+          </span>
+          <button
+            type="button"
+            onClick={async () => {
+              await navigator.clipboard.writeText(text);
+              setCopied(true);
+              setTimeout(() => setCopied(false), 1500);
+            }}
+            className="text-subtle hover:bg-surface-2 hover:text-foreground inline-flex items-center gap-1 rounded px-1.5 py-1 text-xs"
+          >
+            {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+            {copied ? "Copied" : "Copy as text"}
+          </button>
+        </>
+      )}
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Exit path view"
+        className="text-subtle hover:bg-surface-2 hover:text-foreground rounded p-1"
+      >
+        <X className="size-3.5" />
+      </button>
     </div>
   );
 }

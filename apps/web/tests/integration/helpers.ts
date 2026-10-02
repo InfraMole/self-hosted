@@ -19,7 +19,7 @@ export function adminDb(): PrismaClient {
 /** Wipes all tables (test database only — guarded in global-setup). */
 export async function resetDatabase() {
   await adminDb().$executeRawUnsafe(
-    'TRUNCATE TABLE "workspace_subscription", "saved_view", "passkey", "two_factor", "audit_event", "invitation", "integration", "relationship_evidence", "connection_fact", "observation", "agent", "enrollment_token", "change_event", "relationship", "resource", "membership", "workspace", "session", "account", "verification", "user" CASCADE',
+    'TRUNCATE TABLE "workspace_subscription", "api_token", "saved_view", "passkey", "two_factor", "audit_event", "invitation", "integration", "relationship_evidence", "connection_fact", "observation", "agent", "enrollment_token", "change_event", "relationship", "resource", "membership", "workspace", "session", "account", "verification", "user" CASCADE',
   );
 }
 

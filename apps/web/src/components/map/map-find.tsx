@@ -10,14 +10,30 @@ import type { MapNode } from "@/server/modules/map/map";
 /**
  * Find a resource on the map (M29): by name, IP or owner. Choosing one
  * selects it and centres the map on it, whatever hides it now (a filter, a
- * focus, a collapsed box). "/" focuses the field.
+ * focus, a collapsed box). "/" focuses the field. Also the picker of
+ * "Path to…" in the inspector (M30), with its own label and no shortcut.
  */
 export function MapFind({
   nodes,
   onFind,
+  placeholder = "Find on map  /",
+  label = "Find a resource on the map",
+  shortcut = true,
+  autoFocus = false,
+  exclude,
+  onCancel,
 }: {
   nodes: readonly MapNode[];
   onFind: (id: string) => void;
+  placeholder?: string;
+  label?: string;
+  /** "/" focuses this field (only one per page). */
+  shortcut?: boolean;
+  autoFocus?: boolean;
+  /** Never offered (the resource the path starts from). */
+  exclude?: string;
+  /** Escape pressed. */
+  onCancel?: () => void;
 }) {
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
@@ -25,6 +41,7 @@ export function MapFind({
   const input = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    if (!shortcut) return;
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
       if (e.key !== "/" || t?.closest("input, textarea, select, [contenteditable]")) return;
@@ -33,12 +50,13 @@ export function MapFind({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [shortcut]);
 
   const matches = useMemo(() => {
     const query = q.trim().toLowerCase();
     if (!query) return [];
     const scored = nodes.flatMap((n) => {
+      if (n.id === exclude) return [];
       const name = n.name.toLowerCase();
       const score =
         name === query
@@ -58,7 +76,7 @@ export function MapFind({
       .sort((a, b) => a.score - b.score || a.n.name.localeCompare(b.n.name))
       .slice(0, 8)
       .map((s) => s.n);
-  }, [q, nodes]);
+  }, [q, nodes, exclude]);
 
   const choose = (n: MapNode) => {
     onFind(n.id);
@@ -94,11 +112,16 @@ export function MapFind({
             } else if (e.key === "Escape") {
               setQ("");
               input.current?.blur();
+              onCancel?.();
             }
           }}
-          placeholder="Find on map  /"
-          aria-label="Find a resource on the map"
-          className="placeholder:text-subtle w-36 bg-transparent text-xs outline-none"
+          placeholder={placeholder}
+          aria-label={label}
+          autoFocus={autoFocus}
+          className={cn(
+            "placeholder:text-subtle bg-transparent text-xs outline-none",
+            shortcut ? "w-36" : "w-full",
+          )}
         />
       </div>
       {open && q.trim() && (

@@ -60,6 +60,11 @@ const NAV: (Titled & { pages: (Titled & { slug: string })[] })[] = [
         title: "vCenter, Hyper-V and XCP-ng",
         es: "vCenter, Hyper-V y XCP-ng",
       },
+      {
+        slug: "agent/mass-deployment",
+        title: "Deploy to many machines",
+        es: "Desplegar en muchas máquinas",
+      },
       { slug: "agent/manage", title: "Manage and remove", es: "Gestionar y desinstalar" },
     ],
   },
@@ -103,6 +108,7 @@ const NAV: (Titled & { pages: (Titled & { slug: string })[] })[] = [
     pages: [
       { slug: "reference/environment", title: "Environment variables", es: "Variables de entorno" },
       { slug: "reference/editions", title: "Editions and limits", es: "Ediciones y límites" },
+      { slug: "reference/api", title: "Read-only API", es: "API de solo lectura" },
       {
         slug: "reference/relationship-types",
         title: "Relationship types",

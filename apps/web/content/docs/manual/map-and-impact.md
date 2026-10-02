@@ -67,6 +67,22 @@ open them.
 Line styles follow the [certainty encoding](/docs/manual/relationships#how-certain-is-it):
 solid for confirmed, dashed for detected, dotted for inferred.
 
+## How two resources are linked
+
+Select a resource, choose **Path to…** in its panel and pick another one.
+The map then shows only the chain between them, and the banner says what it
+means:
+
+- **A depends on B** — directly or through other resources;
+- **A may depend on B** — the chain includes relationships nobody has
+  confirmed yet;
+- **A and B are connected, but neither depends on the other** — for
+  example, both use the same database.
+
+**Copy as text** gives you the chain step by step ("Billing uses database
+CustomersDB"), ready for a change request. Scripts get the same answer from
+the [API](/docs/reference/api).
+
 ## Impact
 
 Impact answers **"what could be affected if this disappears?"**. Open it

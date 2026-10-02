@@ -144,6 +144,7 @@ relationship id).
 | `/api/stripe/webhook` | POST, Stripe-signed; checkout completed and subscription created/updated/deleted — M9 |
 | `/api/agent/v1/enroll` | Agent enrollment (token → per-agent secret) — M5 |
 | `/api/agent/v1/report` | Agent reports (bearer secret) — M5 |
+| `/api/v1/workspace`, `/api/v1/resources`, `/api/v1/resources/{id}`, `/api/v1/resources/{id}/impact`, `/api/v1/relationships`, `/api/v1/path` | Read-only API (GET, bearer `dmp_api_` token → VIEWER context of its workspace; 300/min per token) — M30 |
 | `/api/cron/integrations` | POST, `Authorization: Bearer $CRON_SECRET`; syncs due integrations (404 when unset) — M8b |
 | `/api/cron/maintenance` | POST, same bearer guard (`server/cron.ts`); enforces the retention policy — M8c |
 | `/api/cron/digest` | POST, same guard; sends the weekly digests due (Mondays from 06:00 UTC, ≤ 200 per run) — M21 |
@@ -416,3 +417,15 @@ Owners: `Resource.owner` / `ownerContact`, `resources.ts#setOwner` (bulk),
 `app/w/[slug]/search-actions.ts` + `components/app-shell/quick-search.tsx`
 (Ctrl+K). Find on map: `components/map/map-find.tsx`. Version:
 `server/version.ts` (`currentVersion`, opt-in `latestVersion`).
+
+## Ready for teams (M30)
+
+Read-only API: `server/modules/api/tokens.ts` (create / list / revoke,
+`authenticateApiToken`), `api/v1.ts` (read model = the public JSON
+contract), `api/http.ts` (`apiRequest`: bearer → context, rate limits, JSON
+errors), routes under `app/api/v1/`. Settings › API tokens
+(`settings/api-actions.ts`, `components/settings/create-api-token-dialog.tsx`).
+Path: `@depmap/graph` `findPath` / `pathSteps` / `describePath`; map path
+view in `map-view.tsx` (`pathEnds`, `PathBanner`), inspector "Path to…"
+reuses `MapFind`. Mass deployment templates: `agent/deploy/` (exported with
+the agent repository); guide `content/docs/agent/mass-deployment.md`.

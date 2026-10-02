@@ -5,6 +5,20 @@ images). The agent has its own changelog in the InfraMole/agent repository.
 To update an installation, see
 [Upgrade guide](https://inframole.com/docs/operations/upgrade).
 
+## 0.20.0 — 2026-10-02
+
+### Added
+
+- **Path to…**: pick two resources on the map and see how they are linked —
+  "A depends on B", "A may depend on B" (not confirmed yet) or "connected,
+  but neither depends on the other" — with the chain to copy as text.
+- **Read-only API** (`/api/v1`): resources, relationships, impact (with who
+  to warn) and the path between two resources, for scripts and reports.
+  Admins create tokens in **Settings › API tokens**; tokens can only read.
+- **Deploying the agent to many machines**: a guide and templates for Group
+  Policy, Intune, Ansible and cloud-init (in the agent repository).
+- The public demo shows owners, saved views, DNS records and load balancers.
+
 ## 0.19.0 — 2026-10-02
 
 ### Added

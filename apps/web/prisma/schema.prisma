@@ -111,6 +111,7 @@ model Workspace {
   evidence         RelationshipEvidence[]
   discoveryRules   DiscoveryRule[]
   savedViews       SavedView[]
+  apiTokens        ApiToken[]
   integrations     Integration[]
   invitations      Invitation[]
   auditEvents      AuditEvent[]
@@ -634,6 +635,30 @@ model SavedView {
 
   @@unique([workspaceId, name])
   @@map("saved_view")
+}
+
+// ───────────────────────────── Read-only API (M30, ADR-044) ─────────────────────────────
+
+/// A read-only token for /api/v1 (M30). Only the sha256 is stored; the
+/// plaintext is shown once. Grants VIEWER-level reads of one workspace.
+model ApiToken {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  name        String
+  tokenHash   String    @unique
+  /// First characters of the token, safe to display.
+  prefix      String
+  /// null = does not expire.
+  expiresAt   DateTime?
+  /// Updated at most every few minutes (not on every request).
+  lastUsedAt  DateTime?
+  revokedAt   DateTime?
+  createdById String
+  createdAt   DateTime  @default(now())
+
+  @@index([workspaceId, createdAt])
+  @@map("api_token")
 }
 
 // ───────────────────────────── Integrations (M8b, ADR-018 D) ─────────────────────────────

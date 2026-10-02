@@ -8,6 +8,7 @@
 import { RELATIONSHIP_TYPE_INFO } from "@depmap/graph";
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
 import type { RelationshipType } from "@/generated/prisma/enums";
+import { savedViewStateSchema, type SavedViewState } from "@/lib/map-view-state";
 
 export type Seed = Omit<Prisma.ResourceCreateManyInput, "workspaceId">;
 
@@ -428,9 +429,32 @@ export const RESOURCES: Seed[] = [
     tags: ["proxmox"],
     ...integration("Proxmox via agent on PVE01"),
   },
+  // ── DNS (Cloudflare integration, M8b / M27) ──
+  {
+    name: "www.northwind.example",
+    type: "DOMAIN",
+    environment: "PRODUCTION",
+    criticality: "CRITICAL",
+    description: "A record · Cloudflare DNS · proxied by Cloudflare",
+    tags: ["cloudflare", "proxied"],
+    metadata: { ipAddresses: ["203.0.113.99"] },
+    ...integration("Cloudflare “northwind.example”"),
+  },
+  {
+    name: "mail.northwind.example",
+    type: "DOMAIN",
+    environment: "PRODUCTION",
+    criticality: "MEDIUM",
+    description: "A record · Cloudflare DNS",
+    tags: ["cloudflare"],
+    metadata: { ipAddresses: ["172.31.5.20"] },
+    ...integration("Cloudflare “northwind.example”"),
+  },
   // ── Clouds (integrations, M8b, M23) ──
   {
     name: "web-eu-1",
+    owner: "Web team",
+    ownerContact: "#web-oncall",
     type: "VM",
     environment: "PRODUCTION",
     criticality: "HIGH",
@@ -441,6 +465,8 @@ export const RESOURCES: Seed[] = [
   },
   {
     name: "web-eu-2",
+    owner: "Web team",
+    ownerContact: "#web-oncall",
     type: "VM",
     environment: "PRODUCTION",
     criticality: "HIGH",
@@ -571,6 +597,15 @@ export const RELATIONSHIPS: [string, RelationshipType, string, string?][] = [
   ["web-eu-1", "EXPOSED_THROUGH", "lb-web", "Load balancer backend (Hetzner Cloud configuration)"],
   ["web-eu-2", "EXPOSED_THROUGH", "lb-web", "Load balancer backend (Hetzner Cloud configuration)"],
   ["entra-sync", "AUTHENTICATES_WITH", "corp.local"],
+  // DNS records and what they point to
+  ["www.northwind.example", "DEPENDS_ON", "lb-web", "DNS www.northwind.example → 203.0.113.99"],
+  ["www.northwind.example", "EXPOSED_THROUGH", "Cloudflare", "Proxied (Cloudflare DNS)"],
+  [
+    "mail.northwind.example",
+    "DEPENDS_ON",
+    "mail-relay",
+    "DNS mail.northwind.example → 172.31.5.20",
+  ],
   ["SQL01", "BACKS_UP_TO", "vps-backup"],
 ];
 
@@ -597,7 +632,17 @@ export const DETECTED: [string, string, number, string, string, number][] = [
   ["DOCKER01", "SQL01", 1433, "MSSQL", "dockerd", 33],
 ];
 
-type DemoDb = Pick<PrismaClient, "resource" | "relationship" | "changeEvent">;
+// Example saved views (M26 phase 3): [name, resource the view is about, state].
+export const SAVED_VIEWS: [string, string, (id: string) => Partial<SavedViewState>][] = [
+  ["If SQL01 goes down", "SQL01", (id) => ({ impact: id })],
+  [
+    "Public entry points",
+    "Cloudflare",
+    (id) => ({ focus: { id, depth: 99, direction: "usedBy" }, groupMode: "expanded" }),
+  ],
+];
+
+type DemoDb = Pick<PrismaClient, "resource" | "relationship" | "changeEvent" | "savedView">;
 
 /** Fills an existing, empty workspace with the example infrastructure. */
 export async function populateExampleWorkspace(
@@ -722,6 +767,18 @@ export async function populateExampleWorkspace(
         kind: "DISCOVERED",
         summary: `Suggested: ${fromName} depends on ${toName} (${note})`,
         resourceIds: [from, to],
+      },
+    });
+  }
+  for (const [name, about, state] of SAVED_VIEWS) {
+    const id = ids.get(about);
+    if (!id) throw new Error(`Unknown resource in example data: ${about}`);
+    await db.savedView.create({
+      data: {
+        workspaceId,
+        name,
+        state: savedViewStateSchema.parse(state(id)),
+        createdById: confirmedById,
       },
     });
   }

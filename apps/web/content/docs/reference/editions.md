@@ -12,6 +12,7 @@ or VMs.
 | Workspaces                                                                 | 1                               |
 | Discovery (agents, integrations, file imports), map, dependencies, impact  | ✔                               |
 | Two-factor authentication, passkeys, Google / Microsoft sign-in, audit log | ✔                               |
+| Read-only API, owners and who to warn, saved map views                     | ✔                               |
 | Deployment                                                                 | Docker Compose                  |
 
 ## Planned editions
