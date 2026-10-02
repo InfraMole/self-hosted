@@ -27,7 +27,7 @@ La Library vacía muestra tres formas de empezar. Usa cualquiera:
   [Instalar el agente](/es/docs/agent/install).
 - **Conecta una nube** en **Settings › Integrations** (Azure, AWS,
   Cloudflare, Hetzner, DigitalOcean…) con un token de solo lectura. Consulta
-  [Integraciones en la nube](/es/docs/manual/integrations).
+  [Integraciones](/es/docs/manual/integrations).
 - **Importa un fichero**: un CSV con tus servidores, un fichero
   docker-compose o una exportación de Proxmox. Consulta
   [Importar ficheros](/es/docs/manual/imports).

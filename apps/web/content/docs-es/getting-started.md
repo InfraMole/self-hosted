@@ -41,12 +41,12 @@ de cada camino.
 
 ## Arquitectura
 
-| Componente                     | Qué hace                                                                                                                                 |
-| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| **Servidor InfraMole**         | La aplicación web y la API, una base de datos PostgreSQL y Caddy para HTTPS. Funciona en Docker.                                         |
-| **Agente** (`inframole-agent`) | Un binario por servidor. Cada 5 minutos envía por HTTPS datos del equipo, servicios, puertos en escucha y conexiones TCP agregadas.      |
-| **Integraciones**              | Tokens de API de solo lectura para Azure, AWS, Cloudflare y (Preview) Hetzner, DigitalOcean, Scaleway, OVHcloud, Google Cloud, Clouding. |
-| **Importadores**               | CSV, JSON, docker-compose y exportaciones de Proxmox, Azure, AWS y Cloudflare.                                                           |
+| Componente                     | Qué hace                                                                                                                                                                                                                       |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Servidor InfraMole**         | La aplicación web y la API, una base de datos PostgreSQL y Caddy para HTTPS. Funciona en Docker.                                                                                                                               |
+| **Agente** (`inframole-agent`) | Un binario por servidor. Cada 5 minutos envía por HTTPS datos del equipo, servicios, puertos en escucha y conexiones TCP agregadas.                                                                                            |
+| **Integraciones**              | Tokens de API de solo lectura para Azure, AWS, Cloudflare y (Preview) Google Cloud, Hetzner, DigitalOcean, Scaleway, OVHcloud, Clouding, Vultr, Akamai, IONOS, Oracle Cloud, Tailscale; Proxmox, TrueNAS y Synology en tu red. |
+| **Importadores**               | CSV, JSON, docker-compose y exportaciones de Proxmox, Azure, AWS y Cloudflare.                                                                                                                                                 |
 
 ## Autoalojado hoy, Cloud más adelante
 

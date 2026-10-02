@@ -55,7 +55,24 @@ docker compose up -d
 docker compose ps
 ```
 
+### Remove the old images
+
+Every version downloads new images (about 700 MB) and the old ones stay on
+disk until you remove them. After a few upgrades they can fill a small
+server — the next `docker compose pull` then fails with _no space left on
+device_. Once the new version is running:
+
+```sh
+docker image prune -af
+```
+
+This only removes images no container uses; the running version is kept.
+`docker system df` shows how much space images take.
+
 :::
+
+If a pull fails with _no space left on device_, your current version keeps
+running (`up -d` never ran): run `docker image prune -af`, then pull again.
 
 ## Pin or roll back a version
 

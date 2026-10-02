@@ -3,7 +3,15 @@ import { describe, expect, it } from "vitest";
 import { parseImport } from "@/server/modules/importers/parse";
 import { planImport } from "@/server/modules/importers/plan";
 import type { SafeResponse } from "@/server/safe-fetch";
-import { IntegrationError, aws, azure, cloudflare, linkedRecords, type Http } from "./providers";
+import {
+  IntegrationError,
+  aws,
+  azure,
+  cloudflare,
+  linkedRecords,
+  type AwsApi,
+  type Http,
+} from "./providers";
 
 const res = (status: number, body: unknown): SafeResponse => ({
   status,
@@ -77,9 +85,11 @@ describe("azure provider", () => {
         /publicIPAddresses\?/,
         () => res(200, { value: [{ id: pipId, properties: { ipAddress: "20.50.1.2" } }] }),
       ],
+      // Optional sections (M27) refused: the sync still imports the VMs.
+      [/./, () => res(409, { error: { message: "MissingSubscriptionRegistration" } })],
     ]);
     const out = await azure.fetchExport(
-      { tenantId: TENANT, subscriptionId: SUB },
+      { tenantId: TENANT, subscriptionId: SUB, dns: "off" },
       { clientId: CLIENT, clientSecret: "super-secret-value" },
       { http },
     );
@@ -105,7 +115,7 @@ describe("azure provider", () => {
     ]);
     const err = await azure
       .fetchExport(
-        { tenantId: TENANT, subscriptionId: SUB },
+        { tenantId: TENANT, subscriptionId: SUB, dns: "off" },
         { clientId: CLIENT, clientSecret: "super-secret-value" },
         { http },
       )
@@ -244,6 +254,19 @@ describe("cloudflare export parsing", () => {
   });
 });
 
+/** AWS API fake: EC2 / RDS as given, nothing else unless overridden. */
+const fakeAws = (over: Partial<AwsApi>): AwsApi => ({
+  describeInstances: async () => ({}),
+  describeDbInstances: async () => ({}),
+  describeLoadBalancers: async () => ({}),
+  describeListeners: async () => ({}),
+  describeTargetGroups: async () => ({}),
+  describeTargetHealth: async () => ({}),
+  listHostedZones: async () => ({}),
+  listRecordSets: async () => ({}),
+  ...over,
+});
+
 describe("aws provider", () => {
   it("paginates EC2 and RDS and maps SDK errors to a safe message", async () => {
     const pages: Record<string, unknown>[] = [
@@ -254,34 +277,41 @@ describe("aws provider", () => {
       { Reservations: [{ Instances: [{ InstanceId: "i-2", State: { Name: "running" } }] }] },
     ];
     const out = await aws.fetchExport(
-      { region: "eu-central-1" },
+      { region: "eu-central-1", dns: "off" },
       { accessKeyId: "AKIAABCDEFGHIJKLMNOP", secretAccessKey: "x".repeat(40) },
       {
         http: async () => {
           throw new Error("no http for aws");
         },
-        aws: () => ({
-          describeInstances: async (token) => pages[token ? 1 : 0] as never,
-          describeDbInstances: async () => ({ DBInstances: [{ DBInstanceIdentifier: "orders" }] }),
-        }),
+        aws: () =>
+          fakeAws({
+            describeInstances: async (token) => pages[token ? 1 : 0] as never,
+            describeDbInstances: async () => ({
+              DBInstances: [{ DBInstanceIdentifier: "orders" }],
+            }),
+            // Older policies without ELB permissions keep working.
+            describeLoadBalancers: async () => {
+              throw Object.assign(new Error("denied"), { name: "AccessDenied" });
+            },
+          }),
       },
     );
     const batch = parseImport(out.text, "json");
     expect(batch.resources.map((r) => r.key)).toEqual(["i-1", "i-2", "rds/orders"]);
 
     const failing = aws.fetchExport(
-      { region: "eu-central-1" },
+      { region: "eu-central-1", dns: "off" },
       { accessKeyId: "AKIAABCDEFGHIJKLMNOP", secretAccessKey: "x".repeat(40) },
       {
         http: async () => {
           throw new Error();
         },
-        aws: () => ({
-          describeInstances: async () => {
-            throw Object.assign(new Error("secret details"), { name: "UnauthorizedOperation" });
-          },
-          describeDbInstances: async () => ({}),
-        }),
+        aws: () =>
+          fakeAws({
+            describeInstances: async () => {
+              throw Object.assign(new Error("secret details"), { name: "UnauthorizedOperation" });
+            },
+          }),
       },
     );
     await expect(failing).rejects.toThrow(/AWS API: UnauthorizedOperation/);

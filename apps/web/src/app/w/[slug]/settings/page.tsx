@@ -372,8 +372,9 @@ export default async function SettingsPage({ params }: PageProps<"/w/[slug]/sett
               <div>
                 <CardTitle>Integrations</CardTitle>
                 <p className="text-muted mt-0.5 text-xs">
-                  Read-only cloud credentials, encrypted at rest and synced on a schedule through
-                  the importer. Imported hosts appear as <em>Discovered</em>.
+                  Read-only API credentials (clouds, DNS, Tailscale, Proxmox, NAS), encrypted at
+                  rest and synced on a schedule through the importer. Imported hosts appear as{" "}
+                  <em>Discovered</em>.
                 </p>
               </div>
               {canStoreSecrets && (
@@ -391,7 +392,8 @@ export default async function SettingsPage({ params }: PageProps<"/w/[slug]/sett
               </CardContent>
             ) : integrations.length === 0 ? (
               <CardContent className="text-subtle text-sm">
-                No integrations. Connect Azure, AWS or Cloudflare with a read-only credential.
+                No integrations. Connect a cloud, a DNS provider or a local source with a read-only
+                credential.
               </CardContent>
             ) : (
               <ul className="divide-border divide-y">

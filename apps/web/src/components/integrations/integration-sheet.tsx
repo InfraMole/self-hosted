@@ -136,6 +136,23 @@ export function IntegrationSheet({ test, save }: Props) {
                     real account. Use Test connection and review the preview before saving.
                   </p>
                 )}
+                {form.local && (
+                  <p className="text-muted">
+                    InfraMole&apos;s server calls this API itself. On a private network, the server
+                    administrator must first allow that network with{" "}
+                    <span className="font-mono">INTEGRATIONS_PRIVATE_NETWORKS</span> (self-hosted
+                    only) —{" "}
+                    <a
+                      href="/docs/manual/integrations#local-sources"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-accent hover:underline"
+                    >
+                      how
+                    </a>
+                    .
+                  </p>
+                )}
               </div>
             </div>
 

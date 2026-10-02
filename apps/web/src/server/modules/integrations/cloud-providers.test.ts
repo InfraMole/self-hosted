@@ -124,7 +124,7 @@ describe("hetzner", () => {
           }),
       ],
     ]);
-    const out = await hetzner.fetchExport({}, { apiToken: TOKEN }, { http });
+    const out = await hetzner.fetchExport({ dns: "off" }, { apiToken: TOKEN }, { http });
     expect(calls[0]!.headers?.authorization).toBe(`Bearer ${TOKEN}`);
     expect(calls.every((c) => (c.method ?? "GET") === "GET")).toBe(true);
 
@@ -153,7 +153,7 @@ describe("hetzner", () => {
         () => res(403, { error: { code: "forbidden", message: "insufficient permissions" } }),
       ],
     ]);
-    const out = await hetzner.fetchExport({}, { apiToken: TOKEN }, { http });
+    const out = await hetzner.fetchExport({ dns: "off" }, { apiToken: TOKEN }, { http });
     expect(JSON.parse(out.text)).toMatchObject({ servers: [{ id: "1" }], loadBalancers: [] });
   });
 
@@ -164,7 +164,9 @@ describe("hetzner", () => {
         () => res(401, { error: { code: "unauthorized", message: "unable to authenticate" } }),
       ],
     ]);
-    const err = await hetzner.fetchExport({}, { apiToken: TOKEN }, { http }).catch((e) => e);
+    const err = await hetzner
+      .fetchExport({ dns: "off" }, { apiToken: TOKEN }, { http })
+      .catch((e) => e);
     expect(err).toBeInstanceOf(IntegrationError);
     expect(String(err.message)).not.toContain(TOKEN);
   });
@@ -236,7 +238,7 @@ describe("digitalocean", () => {
           }),
       ],
     ]);
-    const out = await digitalocean.fetchExport({}, { apiToken: TOKEN }, { http });
+    const out = await digitalocean.fetchExport({ dns: "off" }, { apiToken: TOKEN }, { http });
     expect(calls[0]!.url).toContain("per_page=200&page=1");
     const { batch, plan: p } = plan(out.text);
     const app = batch.resources.find((r) => r.key === "digitalocean/server/3164444")!;

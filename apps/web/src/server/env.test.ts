@@ -14,6 +14,18 @@ describe("parseEnv", () => {
     expect(parseEnv(valid)).toMatchObject({ NODE_ENV: "development" });
   });
 
+  it("local-source networks: validated, and never on the hosted service (M27)", () => {
+    expect(parseEnv({ ...valid, INTEGRATIONS_PRIVATE_NETWORKS: "192.168.1.0/24" })).toMatchObject({
+      INTEGRATIONS_PRIVATE_NETWORKS: "192.168.1.0/24",
+    });
+    expect(() => parseEnv({ ...valid, INTEGRATIONS_PRIVATE_NETWORKS: "lan" })).toThrow(
+      /INTEGRATIONS_PRIVATE_NETWORKS/,
+    );
+    expect(() =>
+      parseEnv({ ...valid, EDITION: "cloud", INTEGRATIONS_PRIVATE_NETWORKS: "10.0.0.0/8" }),
+    ).toThrow(/not allowed on EDITION=cloud/);
+  });
+
   it("rejects a short auth secret", () => {
     expect(() => parseEnv({ ...valid, BETTER_AUTH_SECRET: "short" })).toThrow(/BETTER_AUTH_SECRET/);
   });

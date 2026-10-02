@@ -15,7 +15,16 @@ import type { ImportBatch, ImportFormat, RowError } from "./parse";
 import { buildResourceRow } from "./parse";
 
 export type PlatformFormat =
-  "proxmox" | "azure" | "aws" | "cloudflare" | "workloads" | "cloud" | "hypervisor" | "kubernetes";
+  | "proxmox"
+  | "azure"
+  | "aws"
+  | "cloudflare"
+  | "workloads"
+  | "cloud"
+  | "hypervisor"
+  | "kubernetes"
+  | "tailscale"
+  | "storage";
 
 /** Detects a platform export inside already-parsed JSON (null = generic JSON). */
 export function detectPlatform(data: unknown): PlatformFormat | null {
@@ -40,6 +49,9 @@ export function detectPlatform(data: unknown): PlatformFormat | null {
   }
   if (data && typeof data === "object" && ("Reservations" in data || "DBInstances" in data))
     return "aws";
+  // The Azure integration's document (M27).
+  if (data && typeof data === "object" && Array.isArray((data as AzureDoc).virtualMachines))
+    return "azure";
   return null;
 }
 
@@ -58,6 +70,8 @@ export function parsePlatform(format: PlatformFormat, data: unknown): ImportBatc
   else if (format === "cloud") cloud(batch, data);
   else if (format === "hypervisor") hypervisor(batch, data);
   else if (format === "kubernetes") kubernetes(batch, data);
+  else if (format === "tailscale") tailscale(batch, data);
+  else if (format === "storage") storage(batch, data);
   else aws(batch, data);
   return batch;
 }
@@ -388,42 +402,80 @@ function containersOf(
   }
 }
 
-// ───────────────────────── Cloudflare ─────────────────────────
+// ───────────────────────── DNS (Cloudflare M8b, other providers M27) ─────────────────────────
 
-interface CfRecord {
+/** One DNS record, absolute names (no trailing dot). */
+export interface DnsRecord {
   name: string;
   type: string;
   content: string;
+  /** Cloudflare only: traffic goes through Cloudflare's proxy. */
   proxied?: boolean;
+  zone?: string;
+}
+
+interface CfRecord extends DnsRecord {
   zone_name?: string;
 }
 
 /**
  * DNS records (API `GET /zones/:id/dns_records` response, one or more zones
  * concatenated in `result`) → DOMAIN resources. Proxied records are
- * EXPOSED_THROUGH Cloudflare; A/AAAA records DEPEND_ON the resource owning
- * the origin IP (resolved against the Library, skipped if unknown); CNAMEs
- * DEPEND_ON their target when it is in the same export.
+ * EXPOSED_THROUGH Cloudflare; see `dnsRecords` for the rest.
  */
 function cloudflare(batch: ImportBatch, data: unknown) {
-  // Names with a label starting with "_" (DKIM, SRV, ACME…) never name a host.
-  const records = (((data as { result?: CfRecord[] })?.result ?? []) as CfRecord[]).filter(
+  const records = ((data as { result?: CfRecord[] })?.result ?? []) as CfRecord[];
+  const kept = dnsRecords(batch, records, { tag: "cloudflare", proxy: "Cloudflare" }, 0);
+  if (kept === 0) batch.errors.push({ row: 0, message: "No A, AAAA or CNAME records found." });
+}
+
+/**
+ * DNS records → one DOMAIN per name. A/AAAA records DEPEND_ON the resource
+ * owning the IP (resolved against the Library, skipped if unknown); a CNAME
+ * DEPENDS_ON its target when that is a record of the same export or a
+ * resource of the same batch with that host name (an RDS endpoint, a load
+ * balancer's DNS name). Names with a label starting with "_" (DKIM, SRV,
+ * ACME…) never name a host. Returns how many names were imported.
+ */
+export function dnsRecords(
+  batch: ImportBatch,
+  all: readonly DnsRecord[],
+  opts: { tag: string; label?: string; proxy?: string },
+  firstRow: number,
+): number {
+  const records = all.filter(
     (r) =>
       ["A", "AAAA", "CNAME"].includes(r.type) &&
+      typeof r.name === "string" &&
+      typeof r.content === "string" &&
       !r.name.split(".").some((label) => label.startsWith("_")),
   );
-  const byName = new Map<string, CfRecord[]>();
+  const byName = new Map<string, DnsRecord[]>();
   for (const r of records) {
-    const name = r.name.toLowerCase();
+    const name = r.name.toLowerCase().replace(/\.$/, "");
     byName.set(name, [...(byName.get(name) ?? []), r]);
   }
-  let row = 0;
+  // Host names and IPs of what this batch already imports (servers, databases,
+  // load balancers): a first sync links its records without waiting for the Library.
+  const byHost = new Map<string, string>();
+  const byIp = new Map<string, string[]>();
+  for (const r of batch.resources) {
+    if (r.input.type === "DOMAIN") continue;
+    for (const h of [r.input.metadata?.hostname, r.input.metadata?.fqdn])
+      if (h) byHost.set(h.toLowerCase().replace(/\.$/, ""), r.key);
+    for (const ip of r.input.metadata?.ipAddresses ?? [])
+      byIp.set(ip.toLowerCase(), [...(byIp.get(ip.toLowerCase()) ?? []), r.key]);
+  }
+  let row = firstRow;
   let anyProxied = false;
   for (const [name, recs] of byName) {
     row++;
     const ips = recs.filter((r) => r.type !== "CNAME").map((r) => r.content);
-    const cname = recs.find((r) => r.type === "CNAME")?.content.toLowerCase();
-    const proxied = recs.some((r) => r.proxied);
+    const cname = recs
+      .find((r) => r.type === "CNAME")
+      ?.content.toLowerCase()
+      .replace(/\.$/, "");
+    const proxied = !!opts.proxy && recs.some((r) => r.proxied);
     anyProxied ||= proxied;
     add(batch, row, {
       id: `dns/${name}`,
@@ -431,40 +483,43 @@ function cloudflare(batch: ImportBatch, data: unknown) {
       type: "DOMAIN",
       description: [
         cname ? `CNAME → ${cname}` : `${recs[0]!.type} record`,
-        proxied && "proxied by Cloudflare",
+        opts.label && `${opts.label} DNS`,
+        proxied && `proxied by ${opts.proxy}`,
       ]
         .filter(Boolean)
         .join(" · "),
       ips,
-      tags: ["cloudflare", ...(proxied ? ["proxied"] : [])],
+      tags: [opts.tag, ...(proxied ? ["proxied"] : [])],
     });
     const self = `dns/${name}`;
     if (proxied) {
       batch.relationships.push({
         row,
         from: self,
-        to: "Cloudflare",
+        to: opts.proxy!,
         type: "EXPOSED_THROUGH",
-        note: "Proxied (Cloudflare DNS)",
+        note: `Proxied (${opts.proxy} DNS)`,
         suggested: false,
       });
     }
     for (const ip of ips) {
+      const own = byIp.get(ip.toLowerCase());
       batch.relationships.push({
         row,
         from: self,
-        to: `ip:${ip}`,
+        to: own?.length === 1 ? own[0]! : `ip:${ip}`,
         type: "DEPENDS_ON",
         note: `DNS ${name} → ${ip}`,
         suggested: false,
         optional: true,
       });
     }
-    if (cname && byName.has(cname)) {
+    const target = cname && (byName.has(cname) ? `dns/${cname}` : byHost.get(cname));
+    if (target) {
       batch.relationships.push({
         row,
         from: self,
-        to: `dns/${cname}`,
+        to: target,
         type: "DEPENDS_ON",
         note: `CNAME → ${cname}`,
         suggested: false,
@@ -473,15 +528,28 @@ function cloudflare(batch: ImportBatch, data: unknown) {
   }
   if (anyProxied) {
     add(batch, ++row, {
-      id: "cloudflare",
-      name: "Cloudflare",
+      id: opts.proxy!.toLowerCase(),
+      name: opts.proxy,
       type: "EXTERNAL_SERVICE",
       description: "CDN / reverse proxy",
-      tags: ["cloudflare"],
+      tags: [opts.tag],
     });
   }
-  if (records.length === 0)
-    batch.errors.push({ row: 0, message: "No A, AAAA or CNAME records found." });
+  return byName.size;
+}
+
+/**
+ * Absolute name of a zone-relative DNS name or target: "@" → the zone, a
+ * name with a trailing dot → as is, a single label → under the zone, a
+ * dotted name → treated as absolute.
+ */
+export function absoluteName(value: string, zone: string): string {
+  const v = value.trim().toLowerCase();
+  const z = zone.toLowerCase().replace(/\.$/, "");
+  if (v === "@" || v === "") return z;
+  if (v.endsWith(".")) return v.slice(0, -1);
+  if (v === z || v.endsWith(`.${z}`)) return v;
+  return v.includes(".") ? v : `${v}.${z}`;
 }
 
 // ───────────────────────── Cloud inventory (M23) ─────────────────────────
@@ -493,6 +561,10 @@ export const CLOUD_PROVIDERS = [
   "ovhcloud",
   "gcp",
   "clouding",
+  "vultr",
+  "linode",
+  "ionos",
+  "oci",
 ] as const;
 export type CloudProvider = (typeof CLOUD_PROVIDERS)[number];
 
@@ -503,6 +575,10 @@ const CLOUD_LABELS: Record<CloudProvider, string> = {
   ovhcloud: "OVHcloud",
   gcp: "Google Cloud",
   clouding: "Clouding",
+  vultr: "Vultr",
+  linode: "Akamai Cloud (Linode)",
+  ionos: "IONOS Cloud",
+  oci: "Oracle Cloud",
 };
 
 export interface CloudServer {
@@ -522,11 +598,18 @@ export interface CloudServer {
 export interface CloudLoadBalancer {
   id: string;
   name: string;
+  /** Description override, e.g. "AWS Application Load Balancer". */
+  kind?: string;
   region?: string;
+  /** DNS name of the load balancer (AWS), for CNAME / alias records. */
+  hostname?: string;
   ips?: string[];
   ports?: number[];
-  /** Backends as configured in the provider: a server id of this inventory, or an IP. */
-  targets?: { server?: string; ip?: string }[];
+  /**
+   * Backends as configured in the provider: a server id of this inventory,
+   * another load balancer of it, an IP, or a host name.
+   */
+  targets?: { server?: string; lb?: string; ip?: string; host?: string }[];
   labels?: Record<string, string>;
 }
 
@@ -549,6 +632,8 @@ export interface CloudInventory {
   servers: CloudServer[];
   loadBalancers?: CloudLoadBalancer[];
   databases?: CloudDatabase[];
+  /** DNS records of the provider's zones (M27), already filtered by the integration. */
+  dns?: DnsRecord[];
 }
 
 /**
@@ -588,63 +673,281 @@ function cloud(batch: ImportBatch, data: unknown) {
     if (created) serverKeys.add(key("server", s.id));
   }
 
-  for (const db of inv.databases ?? []) {
+  const opts = {
+    label,
+    tag: provider,
+    key: (id: string) => key("lb", id),
+    serverKey: (id: string) => key("server", id),
+    serverKeys,
+  };
+  row = cloudDatabases(batch, inv.databases ?? [], { ...opts, key: (id) => key("db", id) }, row);
+  row = cloudLoadBalancers(batch, inv.loadBalancers ?? [], opts, row);
+
+  if (inv.dns?.length) row += dnsRecords(batch, inv.dns, { tag: provider, label }, row);
+
+  if (row === 0) batch.warnings.push(`No servers, databases or load balancers found in ${label}.`);
+}
+
+interface CloudSectionOptions {
+  /** Shown in descriptions and notes, e.g. "Hetzner Cloud". */
+  label: string;
+  /** First tag of every resource, e.g. "hetzner". */
+  tag: string;
+  /** Batch key of an item of this section. */
+  key: (id: string) => string;
+  /** Batch key of a server of the same inventory (load balancer targets). */
+  serverKey?: (id: string) => string;
+  serverKeys?: Set<string>;
+}
+
+const uniqueIps = (ips?: (string | undefined)[]) => [
+  ...new Set((ips ?? []).filter((ip): ip is string => !!ip)),
+];
+
+/** Managed databases → DATABASE (shared by the cloud, AWS and Azure formats). */
+function cloudDatabases(
+  batch: ImportBatch,
+  dbs: readonly CloudDatabase[],
+  o: CloudSectionOptions,
+  firstRow: number,
+): number {
+  let row = firstRow;
+  for (const db of dbs) {
     row++;
     const t = fromCloudTags(db.labels ?? {});
     add(batch, row, {
-      id: key("db", db.id),
+      id: o.key(db.id),
       name: db.name,
       type: "DATABASE",
       environment: t.environment,
-      description: [`${label} managed ${db.engine ?? "database"}`, db.size, db.region]
+      description: [`${o.label} managed ${db.engine ?? "database"}`, db.size, db.region]
         .filter(Boolean)
         .join(" · "),
       hostname: db.hostname,
       version: db.version,
-      ips: unique(db.ips),
+      ips: uniqueIps(db.ips),
       ports: db.port ? [db.port] : undefined,
-      tags: [provider, "managed-database", ...t.tags],
+      tags: [o.tag, "managed-database", ...t.tags],
     });
   }
+  return row;
+}
 
-  for (const lb of inv.loadBalancers ?? []) {
+/**
+ * Load balancers → NETWORK. A backend configured on a load balancer is
+ * EXPOSED_THROUGH it: configuration read from the provider, so a fact (not a
+ * suggestion). Server backends must be in the same inventory; IP backends
+ * resolve against the Library and are skipped when unknown; host-name
+ * backends resolve to a resource of the batch with that host name.
+ */
+function cloudLoadBalancers(
+  batch: ImportBatch,
+  lbs: readonly CloudLoadBalancer[],
+  o: CloudSectionOptions,
+  firstRow: number,
+): number {
+  let row = firstRow;
+  for (const lb of lbs) {
     row++;
     const t = fromCloudTags(lb.labels ?? {});
-    const self = key("lb", lb.id);
+    const self = o.key(lb.id);
     const created = add(batch, row, {
       id: self,
       name: lb.name,
       type: "NETWORK",
       environment: t.environment,
-      description: [`${label} load balancer`, lb.region].filter(Boolean).join(" · "),
-      ips: unique(lb.ips),
+      description: [lb.kind ?? `${o.label} load balancer`, lb.region].filter(Boolean).join(" · "),
+      hostname: lb.hostname,
+      ips: uniqueIps(lb.ips),
       ports: lb.ports?.length ? [...new Set(lb.ports)].sort((a, b) => a - b) : undefined,
-      tags: [provider, "load-balancer", ...t.tags],
+      tags: [o.tag, "load-balancer", ...t.tags],
     });
     if (!created) continue;
+    const byHost = new Map<string, string>();
+    const byIp = new Map<string, string[]>();
+    for (const r of batch.resources) {
+      if (r.input.type === "DOMAIN" || r.key === self) continue;
+      if (r.input.metadata?.hostname) byHost.set(r.input.metadata.hostname.toLowerCase(), r.key);
+      for (const ip of r.input.metadata?.ipAddresses ?? [])
+        byIp.set(ip.toLowerCase(), [...(byIp.get(ip.toLowerCase()) ?? []), r.key]);
+    }
+    const ipRef = (ip: string) => {
+      const own = byIp.get(ip.toLowerCase());
+      return own?.length === 1 ? own[0]! : `ip:${ip}`;
+    };
     const seen = new Set<string>();
     for (const target of lb.targets ?? []) {
       const ref = target.server
-        ? key("server", target.server)
-        : target.ip
-          ? `ip:${target.ip}`
-          : null;
-      if (!ref || seen.has(ref)) continue;
+        ? (o.serverKey ?? o.key)(target.server)
+        : target.lb
+          ? o.key(target.lb)
+          : target.host
+            ? (byHost.get(target.host.toLowerCase()) ?? null)
+            : target.ip
+              ? ipRef(target.ip)
+              : null;
+      if (!ref || seen.has(ref) || ref === self) continue;
       seen.add(ref);
-      if (target.server && !serverKeys.has(ref)) continue; // not in this inventory
+      if (target.server && o.serverKeys && !o.serverKeys.has(ref)) continue; // not in this inventory
       batch.relationships.push({
         row,
         from: ref,
         to: self,
         type: "EXPOSED_THROUGH",
-        note: `Load balancer backend (${label} configuration)`,
+        note: `Load balancer backend (${o.label} configuration)`,
         suggested: false,
-        optional: !target.server,
+        optional: !target.server && !target.lb,
       });
     }
   }
+  return row;
+}
 
-  if (row === 0) batch.warnings.push(`No servers, databases or load balancers found in ${label}.`);
+// ───────────────────────── Tailscale (M27) ─────────────────────────
+
+export interface TailnetDevice {
+  id: string;
+  /** MagicDNS name, e.g. "web-1.tail1234.ts.net". */
+  name: string;
+  /** The machine's own host name. */
+  hostname?: string;
+  addresses?: string[];
+  os?: string;
+  /** ACL tags, e.g. "tag:server". Tagged devices are servers, not people's laptops. */
+  tags?: string[];
+}
+
+export interface TailnetInput {
+  tailnet: string;
+  /** Devices that match nothing in the Library: create the tagged ones, all, or none. */
+  create: "tagged" | "all" | "none";
+  devices: TailnetDevice[];
+}
+
+/**
+ * Tailnet devices → the machines they are. A device whose name matches a
+ * SERVER / VM of the Library only adds its tailnet addresses and a tag to it
+ * (enrichment, so traffic over Tailscale resolves to the right machine);
+ * unmatched devices are created as SERVER per `create`, otherwise skipped.
+ */
+function tailscale(batch: ImportBatch, data: unknown) {
+  const inv = (data ?? {}) as Partial<TailnetInput>;
+  const create = inv.create ?? "tagged";
+  let row = 0;
+  for (const d of inv.devices ?? []) {
+    row++;
+    const fqdn = d.name?.replace(/\.$/, "").toLowerCase();
+    const name = d.hostname || fqdn?.split(".")[0];
+    if (!name) continue;
+    const tags = (d.tags ?? []).map((t) => cleanTag(`tailscale:${t.replace(/^tag:/, "")}`));
+    const r = add(batch, row, {
+      id: `device/${d.id}`,
+      name,
+      type: "SERVER",
+      description: ["Tailscale device", d.os].filter(Boolean).join(" · "),
+      os: d.os,
+      fqdn,
+      ips: [...new Set(d.addresses ?? [])],
+      tags: ["tailscale", ...tags],
+    });
+    if (r)
+      r.enrich = { create: create === "all" || (create === "tagged" && (d.tags?.length ?? 0) > 0) };
+  }
+  if (row === 0) batch.warnings.push(`No devices found in tailnet ${inv.tailnet ?? ""}.`.trim());
+}
+
+// ───────────────────────── Storage appliances (M27) ─────────────────────────
+
+const STORAGE_SOURCES = {
+  truenas: { label: "TrueNAS", tag: "truenas" },
+  synology: { label: "Synology DSM", tag: "synology" },
+} as const;
+
+export interface StorageShare {
+  id: string;
+  name: string;
+  protocol: "smb" | "nfs" | "iscsi" | "share";
+  path?: string;
+  comment?: string;
+}
+
+export interface StorageInput {
+  source: keyof typeof STORAGE_SOURCES;
+  appliance: { name: string; model?: string; version?: string; ips?: string[] };
+  shares: StorageShare[];
+  /** Machines connected right now (SMB / NFS / iSCSI sessions), by IP; share = StorageShare.id. */
+  clients?: { ip: string; share?: string }[];
+}
+
+/**
+ * A NAS and its shares / iSCSI targets → STORAGE resources, each share drawn
+ * inside the appliance (RUNS_ON). Machines connected to a share right now are
+ * suggested as STORES_DATA_IN it (a session seen once is evidence, not a
+ * confirmed dependency); unknown IPs are skipped with a warning.
+ */
+function storage(batch: ImportBatch, data: unknown) {
+  const inv = (data ?? {}) as Partial<StorageInput>;
+  const src = inv.source && STORAGE_SOURCES[inv.source];
+  if (!src || !inv.appliance?.name) {
+    batch.errors.push({ row: 0, message: "Unknown storage appliance." });
+    return;
+  }
+  const host = inv.appliance.name.toLowerCase();
+  const key = (...parts: string[]) => [src.tag, host, ...parts].join("/").toLowerCase();
+  let row = 1;
+  const appliance = add(batch, row, {
+    id: key(),
+    name: inv.appliance.name,
+    type: "STORAGE",
+    description: [src.label, inv.appliance.model].filter(Boolean).join(" · "),
+    version: inv.appliance.version,
+    ips: inv.appliance.ips,
+    tags: [src.tag],
+  });
+  if (!appliance) return;
+  const PROTOCOL = {
+    smb: "SMB share",
+    nfs: "NFS export",
+    iscsi: "iSCSI target",
+    share: "Shared folder",
+  };
+  const shareKeys = new Map<string, string>();
+  for (const s of inv.shares ?? []) {
+    row++;
+    const k = key(s.protocol, s.id);
+    const created = add(batch, row, {
+      id: k,
+      name: `${s.name} (${inv.appliance.name})`,
+      type: "STORAGE",
+      description: [PROTOCOL[s.protocol] ?? "Share", s.path, s.comment].filter(Boolean).join(" · "),
+      tags: [src.tag, ...(s.protocol === "share" ? [] : [s.protocol])],
+    });
+    if (!created) continue;
+    shareKeys.set(s.id, k);
+    batch.relationships.push({
+      row,
+      from: k,
+      to: key(),
+      type: "RUNS_ON",
+      note: `Reported by ${src.label}`,
+      suggested: false,
+    });
+  }
+  const seen = new Set<string>();
+  for (const c of inv.clients ?? []) {
+    const to = (c.share && shareKeys.get(c.share)) || key();
+    if (!c.ip || seen.has(`${c.ip}|${to}`)) continue;
+    seen.add(`${c.ip}|${to}`);
+    batch.relationships.push({
+      row: 1,
+      from: `ip:${c.ip}`,
+      to,
+      type: "STORES_DATA_IN",
+      note: `Connected when ${src.label} was read`,
+      suggested: true,
+      optional: true,
+    });
+  }
 }
 
 // ───────────────────────── Hypervisors (M24) ─────────────────────────
@@ -907,6 +1210,8 @@ interface PveResource {
   status?: string;
   maxmem?: number;
   template?: number;
+  /** Addresses read from the API (M27): node IP, LXC interfaces, QEMU guest agent. */
+  ips?: string[];
 }
 
 function proxmox(batch: ImportBatch, data: unknown) {
@@ -924,6 +1229,7 @@ function proxmox(batch: ImportBatch, data: unknown) {
       description: "Proxmox VE node",
       tags: ["proxmox"],
       hostname: node,
+      ips: items.find((i) => i.type === "node" && i.node === node)?.ips,
     });
   }
   for (const i of items) {
@@ -941,6 +1247,7 @@ function proxmox(batch: ImportBatch, data: unknown) {
       description: [i.type === "qemu" ? `VM ${i.vmid}` : `LXC ${i.vmid}`, i.status, gb(i.maxmem)]
         .filter(Boolean)
         .join(" · "),
+      ips: i.ips,
       tags: ["proxmox"],
     });
     if (created && i.node) {
@@ -977,8 +1284,25 @@ interface AzureVm {
   tags?: Record<string, string> | null;
 }
 
+/**
+ * What the Azure integration sends (M27): VMs plus optional sections. A plain
+ * array is `az vm list -d` output (file upload, M8).
+ */
+export interface AzureDoc {
+  virtualMachines?: AzureVm[];
+  /** Load Balancers and Application Gateways; server targets are VM ids. */
+  loadBalancers?: CloudLoadBalancer[];
+  /** Azure SQL databases, PostgreSQL / MySQL flexible servers. */
+  databases?: CloudDatabase[];
+  dns?: DnsRecord[];
+}
+
 function azure(batch: ImportBatch, data: unknown) {
-  const vms = (Array.isArray(data) ? data : []) as AzureVm[];
+  const doc: AzureDoc = Array.isArray(data)
+    ? { virtualMachines: data as AzureVm[] }
+    : ((data ?? {}) as AzureDoc);
+  const vms = doc.virtualMachines ?? [];
+  const vmKeys = new Set<string>();
   vms.forEach((vm, i) => {
     const t = fromCloudTags(vm.tags ?? {});
     const ips = [vm.privateIps, vm.publicIps]
@@ -987,7 +1311,7 @@ function azure(batch: ImportBatch, data: unknown) {
       .map((s) => s.trim())
       .filter(Boolean);
     const image = vm.storageProfile?.imageReference;
-    add(batch, i + 1, {
+    const created = add(batch, i + 1, {
       id: (vm.id ?? `${vm.resourceGroup}/${vm.name}`).toLowerCase(),
       name: vm.name,
       type: "VM",
@@ -1004,8 +1328,20 @@ function azure(batch: ImportBatch, data: unknown) {
       ips,
       tags: ["azure", ...t.tags],
     });
+    if (created) vmKeys.add(created.key);
   });
-  if (vms.length === 0)
+  let row = vms.length;
+  const section = (kind: string) => ({
+    label: "Azure",
+    tag: "azure",
+    key: (id: string) => `${kind}/${id}`.toLowerCase(),
+    serverKey: (id: string) => id.toLowerCase(),
+    serverKeys: vmKeys,
+  });
+  row = cloudDatabases(batch, doc.databases ?? [], section("db"), row);
+  row = cloudLoadBalancers(batch, doc.loadBalancers ?? [], section("lb"), row);
+  if (doc.dns?.length) row += dnsRecords(batch, doc.dns, { tag: "azure", label: "Azure" }, row);
+  if (row === 0)
     batch.errors.push({ row: 0, message: "No Azure VMs found (expected `az vm list -d` output)." });
 }
 
@@ -1036,8 +1372,13 @@ function aws(batch: ImportBatch, data: unknown) {
   const doc = (data ?? {}) as {
     Reservations?: { Instances?: Ec2Instance[] }[];
     DBInstances?: RdsInstance[];
+    /** ELBv2 load balancers (M27, integration only); targets name instance ids. */
+    LoadBalancers?: CloudLoadBalancer[];
+    /** Route 53 records (M27, integration only). */
+    dns?: DnsRecord[];
   };
   let row = 0;
+  const instanceKeys = new Set<string>();
   for (const reservation of doc.Reservations ?? []) {
     for (const inst of reservation.Instances ?? []) {
       row++;
@@ -1047,7 +1388,7 @@ function aws(batch: ImportBatch, data: unknown) {
         batch.warnings.push(`Skipped terminated instance ${inst.InstanceId}.`);
         continue;
       }
-      add(batch, row, {
+      const created = add(batch, row, {
         id: inst.InstanceId,
         name: tags.Name || tags.name || inst.InstanceId,
         type: "VM",
@@ -1065,6 +1406,7 @@ function aws(batch: ImportBatch, data: unknown) {
         ips: [inst.PrivateIpAddress, inst.PublicIpAddress].filter(Boolean),
         tags: ["aws", ...t.tags],
       });
+      if (created) instanceKeys.add(created.key);
     }
   }
   for (const db of doc.DBInstances ?? []) {
@@ -1088,5 +1430,18 @@ function aws(batch: ImportBatch, data: unknown) {
       tags: ["aws", "rds", ...t.tags],
     });
   }
+  row = cloudLoadBalancers(
+    batch,
+    doc.LoadBalancers ?? [],
+    {
+      label: "AWS",
+      tag: "aws",
+      key: (arn) => `elb/${arn}`.toLowerCase(),
+      serverKey: (id) => id.toLowerCase(),
+      serverKeys: instanceKeys,
+    },
+    row,
+  );
+  if (doc.dns?.length) row += dnsRecords(batch, doc.dns, { tag: "aws", label: "Route 53" }, row);
   if (row === 0) batch.errors.push({ row: 0, message: "No EC2 instances or RDS databases found." });
 }

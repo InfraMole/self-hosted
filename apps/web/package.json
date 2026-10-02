@@ -23,7 +23,9 @@
   },
   "dependencies": {
     "@aws-sdk/client-ec2": "^3.1141.0",
+    "@aws-sdk/client-elastic-load-balancing-v2": "^3.1144.0",
     "@aws-sdk/client-rds": "^3.1141.0",
+    "@aws-sdk/client-route-53": "^3.1144.0",
     "@better-auth/passkey": "1.7.6",
     "@depmap/graph": "workspace:*",
     "@prisma/adapter-pg": "7.10.0",

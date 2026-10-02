@@ -38,12 +38,12 @@ confirms them, and impact results always say how certain each path is.
 
 ## Architecture
 
-| Component                     | What it does                                                                                                                     |
-| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| **InfraMole server**          | The web application and API, a PostgreSQL database, and Caddy for HTTPS. Runs in Docker.                                         |
-| **Agent** (`inframole-agent`) | One binary per server. Reports host facts, services, listening ports and aggregated TCP connections every 5 minutes over HTTPS.  |
-| **Integrations**              | Read-only API tokens for Azure, AWS, Cloudflare and (Preview) Hetzner, DigitalOcean, Scaleway, OVHcloud, Google Cloud, Clouding. |
-| **Importers**                 | CSV, JSON, docker-compose and exports from Proxmox, Azure, AWS and Cloudflare.                                                   |
+| Component                     | What it does                                                                                                                                                                                                                   |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **InfraMole server**          | The web application and API, a PostgreSQL database, and Caddy for HTTPS. Runs in Docker.                                                                                                                                       |
+| **Agent** (`inframole-agent`) | One binary per server. Reports host facts, services, listening ports and aggregated TCP connections every 5 minutes over HTTPS.                                                                                                |
+| **Integrations**              | Read-only API tokens for Azure, AWS, Cloudflare and (Preview) Google Cloud, Hetzner, DigitalOcean, Scaleway, OVHcloud, Clouding, Vultr, Akamai, IONOS, Oracle Cloud, Tailscale; Proxmox, TrueNAS and Synology on your network. |
+| **Importers**                 | CSV, JSON, docker-compose and exports from Proxmox, Azure, AWS and Cloudflare.                                                                                                                                                 |
 
 ## Self-hosted today, Cloud later
 

@@ -40,6 +40,8 @@ export const importRequestSchema = z.object({
       "cloud",
       "hypervisor",
       "kubernetes",
+      "tailscale",
+      "storage",
     ])
     .default("auto"),
   project: z.string().trim().max(64).optional(),

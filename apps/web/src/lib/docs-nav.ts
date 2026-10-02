@@ -76,7 +76,7 @@ const NAV: (Titled & { pages: (Titled & { slug: string })[] })[] = [
       { slug: "manual/map-and-impact", title: "Map and impact", es: "Mapa e impacto" },
       { slug: "manual/changes", title: "Changes", es: "Cambios" },
       { slug: "manual/imports", title: "Import files", es: "Importar ficheros" },
-      { slug: "manual/integrations", title: "Cloud integrations", es: "Integraciones en la nube" },
+      { slug: "manual/integrations", title: "Integrations", es: "Integraciones" },
       {
         slug: "manual/members-and-security",
         title: "Members and security",

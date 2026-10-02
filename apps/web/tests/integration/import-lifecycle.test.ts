@@ -251,3 +251,64 @@ describe("bulk archive / delete", () => {
     await expect(archiveResources(vctx, [mine[2]!.id])).rejects.toBeInstanceOf(ForbiddenError);
   });
 });
+
+describe("tailscale enrichment (M27)", () => {
+  it("adds tailnet addresses to an existing machine without taking it over", async () => {
+    const user = await createTestUser("Owner");
+    const ws = await createWorkspace(user.id, { name: "Tail" });
+    const ctx = (await findWorkspaceContextForUser(user.id, ws.slug))!;
+    const app = await createResource(ctx, {
+      name: "APP01",
+      type: "SERVER",
+      tags: ["windows"],
+      metadata: { ipAddresses: ["10.0.0.21"] },
+    });
+    let devices = [
+      { nodeId: "n1", name: "app01.tail.ts.net", hostname: "app01", addresses: ["100.64.0.1"] },
+      {
+        nodeId: "n2",
+        name: "nas.tail.ts.net",
+        hostname: "nas",
+        addresses: ["100.64.0.2"],
+        tags: ["tag:server"],
+      },
+      { nodeId: "n3", name: "laptop.tail.ts.net", hostname: "laptop", addresses: ["100.64.0.3"] },
+    ];
+    const deps: ProviderDeps = {
+      http: async () => ({
+        status: 200,
+        headers: new Headers(),
+        text: JSON.stringify({ devices }),
+      }),
+    };
+    const { id } = await createIntegration(ctx, {
+      kind: "TAILSCALE",
+      name: "Tailnet",
+      config: { create: "tagged" },
+      secret: { secret: "tskey-api-kXYZ-abcdefghijk" },
+    });
+    const first = await syncIntegration(ctx, id, deps);
+    expect(first.ok).toBe(true);
+    const rows = await adminDb().resource.findMany({
+      where: { workspaceId: ctx.workspaceId },
+      orderBy: { name: "asc" },
+    });
+    expect(rows.map((r) => [r.name, r.type, r.sourceRef === null])).toEqual([
+      ["APP01", "SERVER", true], // still a person's resource
+      ["nas", "SERVER", false], // created by the integration
+    ]);
+    const enriched = rows.find((r) => r.id === app.id)!;
+    expect((enriched.metadata as { ipAddresses: string[] }).ipAddresses).toEqual([
+      "10.0.0.21",
+      "100.64.0.1",
+    ]);
+    expect(enriched.tags).toEqual(["windows", "tailscale"]);
+
+    // The device leaves the tailnet: the enriched machine is never marked stale.
+    devices = devices.filter((d) => d.nodeId === "n2");
+    await syncIntegration(ctx, id, deps);
+    expect((await adminDb().resource.findUniqueOrThrow({ where: { id: app.id } })).status).toBe(
+      "ACTIVE",
+    );
+  });
+});

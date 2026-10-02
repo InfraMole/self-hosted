@@ -10,7 +10,9 @@ the AGPL. See TRADEMARKS.md.
 This software includes third-party components under their own licences:
 
 - @aws-sdk/client-ec2 3.1141.0 — Apache-2.0
+- @aws-sdk/client-elastic-load-balancing-v2 3.1144.0 — Apache-2.0
 - @aws-sdk/client-rds 3.1141.0 — Apache-2.0
+- @aws-sdk/client-route-53 3.1144.0 — Apache-2.0
 - @aws-sdk/core 3.978.1 — Apache-2.0
 - @aws-sdk/credential-provider-env 3.972.72 — Apache-2.0
 - @aws-sdk/credential-provider-http 3.972.74 — Apache-2.0
@@ -22,6 +24,7 @@ This software includes third-party components under their own licences:
 - @aws-sdk/credential-provider-web-identity 3.972.78 — Apache-2.0
 - @aws-sdk/middleware-sdk-ec2 3.972.60 — Apache-2.0
 - @aws-sdk/middleware-sdk-rds 3.972.60 — Apache-2.0
+- @aws-sdk/middleware-sdk-route53 3.972.27 — Apache-2.0
 - @aws-sdk/nested-clients 3.997.46 — Apache-2.0
 - @aws-sdk/signature-v4-multi-region 3.996.47 — Apache-2.0
 - @aws-sdk/token-providers 3.1138.0 — Apache-2.0

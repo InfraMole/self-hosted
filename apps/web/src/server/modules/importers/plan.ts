@@ -117,10 +117,50 @@ export function planImport(
     byNameType.set(k, [...(byNameType.get(k) ?? []), r]);
   }
 
-  const resources: PlannedResource[] = batch.resources.map((res) => {
+  const short = (s?: string | null) => s?.toLowerCase().split(".")[0];
+  const machines = existing.filter((r) => r.type === "SERVER" || r.type === "VM");
+  const kept: ImportBatch["resources"] = [];
+  const planned: PlannedResource[] = [];
+  for (const res of batch.resources) {
     const externalId = `${batch.format}:${res.key}`;
     let target = byExternal.get(`IMPORT|${externalId}`) ?? null;
     let matchedBy: PlannedResource["matchedBy"] = target ? "externalId" : null;
+    let input = res.input;
+    let provided = res.provided;
+    if (!target && res.enrich) {
+      // Same machine under any type: by name or host name, short forms compared.
+      const names = new Set(
+        [res.input.name, res.input.metadata?.hostname].map(short).filter(Boolean),
+      );
+      const found = machines.filter((r) =>
+        [r.name, r.metadata.hostname, r.metadata.fqdn].some((n) => names.has(short(n))),
+      );
+      if (found.length === 1) {
+        target = found[0]!;
+        matchedBy = "name";
+        // Only add: the machine keeps its own IPs, tags and everything else.
+        const union = (a: readonly string[] = [], b: readonly string[] = []) => [
+          ...new Set([...a, ...b]),
+        ];
+        input = {
+          ...res.input,
+          type: target.type as ResourceInput["type"],
+          tags: union(target.tags, res.input.tags),
+          metadata: {
+            ...res.input.metadata,
+            ipAddresses: union(target.metadata.ipAddresses, res.input.metadata?.ipAddresses),
+          },
+        };
+        provided = res.provided.filter((f) => f === "ipAddresses" || f === "tags");
+      } else if (!res.enrich.create) {
+        warnings.push(
+          found.length > 1
+            ? `Row ${res.row}: ${res.input.name} matches several resources — skipped.`
+            : `Row ${res.row}: ${res.input.name} is not in the Library — skipped.`,
+        );
+        continue;
+      }
+    }
     if (!target) {
       const candidates = byNameType.get(`${res.input.name.toLowerCase()}|${res.input.type}`) ?? [];
       if (candidates.length === 1) {
@@ -130,7 +170,6 @@ export function planImport(
     }
     // A VM/container that runs the agent is already in the Library as the
     // agent's SERVER host: same machine, so match it and keep its type.
-    let provided = res.provided;
     if (!target && (res.input.type === "VM" || res.input.type === "CONTAINER")) {
       // By VM name, else by the guest's host name (short form: agents report short names).
       const guestName = res.input.metadata?.hostname?.split(".")[0]?.toLowerCase();
@@ -145,26 +184,28 @@ export function planImport(
       }
     }
     const changes = target
-      ? provided.filter((f) => !same(currentValue(target!, f), newValue(res.input, f))).sort()
+      ? provided.filter((f) => !same(currentValue(target!, f), newValue(input, f))).sort()
       : [];
-    return {
+    kept.push(res);
+    planned.push({
       row: res.row,
       externalId,
-      name: res.input.name,
-      type: res.input.type,
+      name: input.name,
+      type: input.type,
       action: !target ? "create" : changes.length ? "update" : "unchanged",
       targetId: target?.id ?? null,
       matchedBy,
       changes,
-      input: res.input,
+      input,
       provided,
-    };
-  });
+    });
+  }
+  const resources = planned;
 
   // Resolve relationship endpoints: batch key or name, then existing name.
   const inBatch = new Map<string, PlannedResource>();
   for (const [i, r] of resources.entries()) {
-    const key = batch.resources[i]!.key;
+    const key = kept[i]!.key;
     inBatch.set(key.toLowerCase(), r);
     inBatch.set(r.name.toLowerCase(), r);
   }

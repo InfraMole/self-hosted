@@ -24,7 +24,9 @@ export type ImportFormat =
   | "workloads"
   | "cloud"
   | "hypervisor"
-  | "kubernetes";
+  | "kubernetes"
+  | "tailscale"
+  | "storage";
 
 export const IMPORT_LIMITS = { bytes: 1024 * 1024, resources: 2000, relationships: 5000 } as const;
 
@@ -49,6 +51,13 @@ export interface ImportResource {
   key: string;
   input: ResourceInput;
   provided: ProvidedField[];
+  /**
+   * Enrichment (Tailscale, M27): match an existing machine (SERVER / VM) by
+   * name or host name whatever its type, and only ADD this row's IPs and tags
+   * to it. Without a match, created only when `create` is true; otherwise
+   * skipped with a warning.
+   */
+  enrich?: { create: boolean };
 }
 
 export interface ImportRelationship {
@@ -103,7 +112,9 @@ export function parseImport(
     format === "workloads" ||
     format === "cloud" ||
     format === "hypervisor" ||
-    format === "kubernetes"
+    format === "kubernetes" ||
+    format === "tailscale" ||
+    format === "storage"
       ? parseJsonOrPlatform(text, format)
       : format === "csv"
         ? parseCsvImport(text)

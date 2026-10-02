@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { z } from "zod";
+import { parseCidrs } from "./safe-fetch";
 
 /**
  * The only place that reads process.env (see docs/ARCHITECTURE.md §8).
@@ -28,6 +29,20 @@ const envSchema = z.object({
   /** Previous key, still accepted for decryption during rotation. */
   CREDENTIALS_ENCRYPTION_KEY_PREVIOUS: optional(base64Key),
   CREDENTIALS_KEY_VERSION: z.coerce.number().int().min(1).default(1),
+  /**
+   * Private networks that local-source integrations (Proxmox, TrueNAS,
+   * Synology) may reach, e.g. "192.168.1.0/24,10.0.0.0/16" (M27, ADR-042).
+   * Self-hosted only; empty = local sources reach public addresses only.
+   */
+  INTEGRATIONS_PRIVATE_NETWORKS: optional(
+    z.string().superRefine((v, ctx) => {
+      try {
+        parseCidrs(v);
+      } catch (error) {
+        ctx.addIssue({ code: "custom", message: (error as Error).message });
+      }
+    }),
+  ),
   /** Bearer secret for /api/cron/* (scheduled integration sync). */
   CRON_SECRET: optional(z.string().min(32, "must be at least 32 characters")),
 
@@ -106,6 +121,10 @@ export function parseEnv(source: Record<string, string | undefined>): Env {
     throw new Error(`Invalid environment configuration:\n${issues.join("\n")}`);
   }
   const env = result.data;
+  if (env.EDITION === "cloud" && env.INTEGRATIONS_PRIVATE_NETWORKS)
+    throw new Error(
+      "Invalid environment configuration:\n  INTEGRATIONS_PRIVATE_NETWORKS: not allowed on EDITION=cloud (a hosted service must never reach its own private network)",
+    );
   if (env.NODE_ENV === "production" && !isHttpsOrLocalhost(env.BETTER_AUTH_URL)) {
     throw new Error(
       "Invalid environment configuration:\n  BETTER_AUTH_URL: must be https:// in production (http allowed only for localhost)",

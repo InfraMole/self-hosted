@@ -46,6 +46,8 @@ export const TECHS = {
   "hyper-v": { label: "Hyper-V", mono: "HV", category: "platform" },
   "xcp-ng": { label: "XCP-ng", mono: "XCP", category: "platform" },
   proxmox: { label: "Proxmox VE", mono: "PVE", category: "platform" },
+  truenas: { label: "TrueNAS", mono: "TN", category: "platform" },
+  synology: { label: "Synology DSM", mono: "SYN", category: "platform" },
   // Clouds
   aws: { label: "AWS", mono: "AWS", category: "cloud" },
   azure: { label: "Azure", mono: "AZ", category: "cloud" },
@@ -55,6 +57,10 @@ export const TECHS = {
   scaleway: { label: "Scaleway", mono: "SCW", category: "cloud" },
   ovhcloud: { label: "OVHcloud", mono: "OVH", category: "cloud" },
   clouding: { label: "Clouding", mono: "CLD", category: "cloud" },
+  vultr: { label: "Vultr", mono: "VLT", category: "cloud" },
+  linode: { label: "Akamai Cloud (Linode)", mono: "LIN", category: "cloud" },
+  ionos: { label: "IONOS Cloud", mono: "ION", category: "cloud" },
+  oci: { label: "Oracle Cloud", mono: "OCI", category: "cloud" },
   cloudflare: { label: "Cloudflare", mono: "CF", category: "cloud" },
   // Operating systems (servers without anything more specific)
   windows: { label: "Windows", mono: "WIN", category: "os" },
@@ -76,6 +82,8 @@ const ALIASES: Record<string, TechKey> = {
   xcpng: "xcp-ng",
   "google-cloud": "gcp",
   ovh: "ovhcloud",
+  akamai: "linode",
+  oracle: "oci",
 };
 
 const isTech = (s: string): s is TechKey => Object.hasOwn(TECHS, s);

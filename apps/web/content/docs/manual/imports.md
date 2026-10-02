@@ -79,7 +79,7 @@ aws rds describe-db-instances --output json > rds.json
 :::
 
 To keep them in sync automatically, use
-[Cloud integrations](/docs/manual/integrations) or the agent's
+[Integrations](/docs/manual/integrations) or the agent's
 [Proxmox inventory](/docs/agent/proxmox) instead.
 
 ## Limits

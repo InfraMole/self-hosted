@@ -25,11 +25,30 @@ import {
   runImport,
   type ImportResult,
 } from "@/server/modules/importers/importers";
-import { BlockedDestinationError, safeFetch } from "@/server/safe-fetch";
+import {
+  BlockedDestinationError,
+  RpcError,
+  parseCidrs,
+  safeFetch,
+  safeJsonRpc,
+} from "@/server/safe-fetch";
 import { INTEGRATION_KINDS } from "@/lib/integration-forms";
 import { IntegrationError, PROVIDERS, type ProviderDeps } from "./providers";
 
-const defaultDeps: ProviderDeps = { http: safeFetch };
+/** Networks local sources may reach (read on use: env is validated lazily). */
+const allowedNetworks = () => {
+  const v = getEnv().INTEGRATIONS_PRIVATE_NETWORKS;
+  return v ? parseCidrs(v) : [];
+};
+
+const defaultDeps: ProviderDeps = {
+  http: safeFetch,
+  local: {
+    http: (url, { pin, ...init } = {}) =>
+      safeFetch(url, { ...init, local: { allowed: allowedNetworks(), pin } }),
+    rpc: (url, pin) => safeJsonRpc(url, { allowed: allowedNetworks(), pin }),
+  },
+};
 
 /** Adds the workspace's machine IPs (Cloudflare "linked" records); explicit deps win. */
 function withLibrary(workspaceId: string, userId: string | null, deps: ProviderDeps): ProviderDeps {
@@ -303,6 +322,7 @@ export function safeMessage(error: unknown): string {
     error instanceof SecretDecryptError ||
     error instanceof SecretConfigError ||
     error instanceof BlockedDestinationError ||
+    error instanceof RpcError ||
     error instanceof ImportHasErrorsError ||
     error instanceof PlanLimitError
   ) {

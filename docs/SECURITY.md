@@ -59,7 +59,7 @@ ports, running software and who talks to whom. For an attacker that is a
 | T13 | Secrets in logs                                                   | Never log tokens, cookies, payload bodies; structured logs with redaction                                                                                                                                                      | ongoing                                                                                                                                                                                                                                                                                                                                                                                        |
 | T14 | SQL injection                                                     | Prisma parameterised queries; no raw SQL with string concatenation                                                                                                                                                             | ongoing                                                                                                                                                                                                                                                                                                                                                                                        |
 | T16 | Stored integration credentials leak (DB dump, logs)               | ADR-018 D: read-only scopes only, AES-256-GCM with tenant-bound AAD, key outside the DB (env) with rotation, never logged/returned, opt-in; prefer export upload (A) or agent collectors (C)                                   | ✅ `server/crypto.ts` + `modules/integrations` (sealed at rest, AAD bound to workspace + row, re-sealed on key rotation, secret never returned — only last-4 hint, ADMIN+, disabled without key). M23 (ADR-034): least-privilege guidance per provider; Clouding keys cannot be read-only (stated in the form); provider hosts are constants — Google `token_uri` from the key file is ignored |
-| T17 | SSRF through server-side integration sync                         | https only, public endpoints only (block private/link-local/metadata ranges), timeouts, response caps                                                                                                                          | ✅ `server/safe-fetch.ts` (https only, public destinations checked at connect time — DNS-rebinding safe —, no redirects, timeout, size cap)                                                                                                                                                                                                                                                    |
+| T17 | SSRF through server-side integration sync                         | https only, public endpoints only (block private/link-local/metadata ranges), timeouts, response caps                                                                                                                          | ✅ `server/safe-fetch.ts` (https only, public destinations checked at connect time — DNS-rebinding safe —, no redirects, timeout, size cap). M27 (ADR-042): local sources only may also reach `INTEGRATIONS_PRIVATE_NETWORKS` (self-hosted, refused on cloud); loopback / link-local / multicast always refused; self-signed certificates only by SHA-256 pin, checked before the request      |
 | T18 | Agent collector credential theft on the host                      | Token only in a separate private file (Unix mode checked, Windows ACL documented), read-only PVEAuditor role, never sent to Depmap, collectors only enabled locally (server cannot configure them), TLS verified, no redirects | ✅ M8b (`agent/internal/inventory`); M24 (ADR-035): same for vCenter password / Xen Orchestra token files (read-only roles documented), vSphere login faults never echoed, Hyper-V via a fixed read-only PowerShell script (full path, nothing interpolated, mutating verbs forbidden by a test)                                                                                               |
 | T19 | Invitation link forwarded / leaked                                | Token hashed, 7-day expiry, single use, revocable; bound to the invited email (must sign in with it); email masked on the page; `Referrer-Policy: no-referrer` on `/invite`; accept rate-limited per user                      | ✅ M8b (`modules/members`)                                                                                                                                                                                                                                                                                                                                                                     |
 | T20 | Privilege escalation through role management                      | ADMIN cannot grant/change/remove OWNER; at least one OWNER always; invitations never downgrade; every check server-side and tenant-scoped (tests)                                                                              | ✅ M8b                                                                                                                                                                                                                                                                                                                                                                                         |
@@ -235,7 +235,30 @@ last IP, expired sessions and tokens) is deleted, not kept "just in case".
   owner of a workspace with other members. Sessions, accounts, 2FA and
   passkeys go with the user.
 
-## 5j. Saved map views (M26 phase 3, ADR-041)
+## 5s. More sources (M27, ADR-042)
+
+- **Local network access is opt-in and narrow**: `INTEGRATIONS_PRIVATE_NETWORKS`
+  is empty by default, validated (CIDR, /8 or longer), refused with
+  `EDITION=cloud`. Only the PROXMOX / TRUENAS / SYNOLOGY providers receive
+  `deps.local`; every other provider keeps the public-only dispatcher.
+  Loopback, 0.0.0.0/8, 169.254/16 (cloud metadata), fe80::/10 and multicast
+  are refused even when listed. Checks run on every resolved address at
+  connect time (DNS rebinding) and on IP literals before connecting.
+- **TLS**: CA verification by default; a pinned SHA-256 fingerprint replaces
+  it for one integration, compared after the handshake and before the
+  request (tested against a real self-signed server). No option disables
+  verification.
+- **Credentials**: Synology passwords travel only in the login POST body,
+  never in URLs; the session is logged out after each sync. TrueNAS API keys
+  are sent once per WebSocket session (`auth.login_with_api_key`). Proxmox
+  tokens are PVEAuditor; TrueNAS Read-Only Administrator; Oracle Cloud keys
+  sign each request (the private key never leaves the server).
+- **Tailscale** enrichment only adds addresses / tags to matched machines;
+  it never takes ownership (no retirement or stale marking by it).
+- **Least privilege** per new provider is in the forms and docs; Vultr keys
+  cannot be read-only (sub-account + IP restriction recommended).
+
+## 5r. Saved map views (M26 phase 3, ADR-041)
 
 - `saved_view` is a tenant table with RLS; module functions use
   `tenantDb(ctx)` and filter by `workspaceId` (overwrite / delete by id

@@ -27,7 +27,7 @@ The empty Library shows three ways to start. Use any of them:
   [Install the agent](/docs/agent/install).
 - **Connect a cloud** in **Settings › Integrations** (Azure, AWS,
   Cloudflare, Hetzner, DigitalOcean…) with a read-only token. See
-  [Cloud integrations](/docs/manual/integrations).
+  [Integrations](/docs/manual/integrations).
 - **Import a file**: a CSV with your servers, a docker-compose file or a
   Proxmox export. See [Import files](/docs/manual/imports).
 

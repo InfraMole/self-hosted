@@ -56,7 +56,25 @@ docker compose up -d
 docker compose ps
 ```
 
+### Borra las imágenes antiguas
+
+Cada versión descarga imágenes nuevas (unos 700 MB) y las antiguas se quedan
+en el disco hasta que las borras. Tras unas cuantas actualizaciones pueden
+llenar un servidor pequeño, y el siguiente `docker compose pull` falla con
+_no space left on device_. Cuando la nueva versión ya esté funcionando:
+
+```sh
+docker image prune -af
+```
+
+Solo borra imágenes que ningún contenedor usa; la versión en marcha se
+conserva. `docker system df` muestra cuánto ocupan las imágenes.
+
 :::
+
+Si una descarga falla con _no space left on device_, tu versión actual sigue
+funcionando (`up -d` no llegó a ejecutarse): ejecuta `docker image prune -af`
+y vuelve a descargar.
 
 ## Fijar una versión o volver atrás
 

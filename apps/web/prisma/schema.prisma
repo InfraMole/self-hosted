@@ -647,6 +647,16 @@ enum IntegrationKind {
   OVHCLOUD
   GOOGLE_CLOUD
   CLOUDING
+  /// M27 (ADR-042): more clouds, and Tailscale (enriches machines with tailnet IPs).
+  VULTR
+  LINODE
+  IONOS
+  ORACLE_CLOUD
+  TAILSCALE
+  /// M27 local sources: need INTEGRATIONS_PRIVATE_NETWORKS to reach a private network.
+  PROXMOX
+  TRUENAS
+  SYNOLOGY
 }
 
 model Integration {

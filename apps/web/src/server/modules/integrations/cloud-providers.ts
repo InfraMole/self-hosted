@@ -13,25 +13,34 @@
  */
 import { createHash, createSign } from "node:crypto";
 import { z } from "zod";
-import type {
-  CloudDatabase,
-  CloudInventory,
-  CloudLoadBalancer,
-  CloudServer,
+import {
+  absoluteName,
+  type CloudDatabase,
+  type CloudInventory,
+  type CloudLoadBalancer,
+  type CloudServer,
+  type DnsRecord,
 } from "@/server/modules/importers/parse-platforms";
 import type { SafeResponse } from "@/server/safe-fetch";
 import {
+  DNS_LIMITS,
   IntegrationError,
+  dnsMode,
   last4,
+  mapLimit,
+  selectDns,
+  strings,
   type ExportResult,
+  type DnsMode,
   type Http,
   type Provider,
+  type ProviderDeps,
 } from "./provider-base";
 
-const MAX_PAGES = 50;
+export const MAX_PAGES = 50;
 
 /** Error text from the usual API error shapes, bounded. */
-function apiMessage(body: unknown, status: number): string {
+export function apiMessage(body: unknown, status: number): string {
   const b = (body ?? {}) as Record<string, unknown>;
   const err = b.error as Record<string, unknown> | string | undefined;
   const candidates = [
@@ -45,9 +54,9 @@ function apiMessage(body: unknown, status: number): string {
   return (msg ?? `HTTP ${status}`).slice(0, 200);
 }
 
-class ForbiddenSection extends IntegrationError {}
+export class ForbiddenSection extends IntegrationError {}
 
-function parseBody(res: SafeResponse, provider: string): unknown {
+export function parseBody(res: SafeResponse, provider: string): unknown {
   try {
     return res.text ? JSON.parse(res.text) : {};
   } catch {
@@ -55,7 +64,7 @@ function parseBody(res: SafeResponse, provider: string): unknown {
   }
 }
 
-async function getJson<T>(
+export async function getJson<T>(
   http: Http,
   provider: string,
   url: string,
@@ -73,7 +82,7 @@ async function getJson<T>(
 }
 
 /** Optional sections: a credential without access to them still imports the rest. */
-async function optional<T>(fn: () => Promise<T[]>): Promise<T[]> {
+export async function optional<T>(fn: () => Promise<T[]>): Promise<T[]> {
   try {
     return await fn();
   } catch (error) {
@@ -82,12 +91,23 @@ async function optional<T>(fn: () => Promise<T[]>): Promise<T[]> {
   }
 }
 
-const out = (inventory: CloudInventory): ExportResult => ({
+export const out = (inventory: CloudInventory): ExportResult => ({
   format: "cloud",
   text: JSON.stringify(inventory),
 });
 
-const labelsFromTags = (tags: unknown): Record<string, string> =>
+/** The inventory plus its DNS records when the integration's DNS option is on. */
+export async function withInventoryDns(
+  mode: DnsMode,
+  deps: ProviderDeps,
+  inventory: CloudInventory,
+  read: () => Promise<DnsRecord[]>,
+): Promise<ExportResult> {
+  const dns = await inventoryDns(mode, inventory, deps, read);
+  return out(dns ? { ...inventory, dns } : inventory);
+}
+
+export const labelsFromTags = (tags: unknown): Record<string, string> =>
   Object.fromEntries(
     (Array.isArray(tags) ? tags : [])
       .filter((t): t is string => typeof t === "string" && t.length > 0)
@@ -97,13 +117,41 @@ const labelsFromTags = (tags: unknown): Record<string, string> =>
       }),
   );
 
-/** Non-empty strings, first occurrence kept. */
-const strings = (xs: unknown[]): string[] => [
-  ...new Set(xs.filter((x): x is string => typeof x === "string" && x.length > 0)),
-];
-
-const token = z.string().trim().min(20).max(512);
+export const token = z.string().trim().min(20).max(512);
 const noConfig = z.object({}).strip();
+/** Providers whose DNS can be read with the same credential (M27). */
+export const withDns = z.object({ dns: dnsMode });
+
+/** DNS records of this inventory's mode, linked to its own servers / LBs / DBs too. */
+async function inventoryDns(
+  mode: DnsMode,
+  inv: Omit<CloudInventory, "provider">,
+  deps: ProviderDeps,
+  read: () => Promise<DnsRecord[]>,
+): Promise<DnsRecord[] | undefined> {
+  if (mode === "off") return undefined;
+  const records = (await read()).slice(0, DNS_LIMITS.records);
+  return selectDns(mode, records, deps, {
+    ips: [
+      ...inv.servers.flatMap((s) => s.ips ?? []),
+      ...(inv.loadBalancers ?? []).flatMap((l) => l.ips ?? []),
+      ...(inv.databases ?? []).flatMap((d) => d.ips ?? []),
+    ],
+    hosts: [
+      ...(inv.databases ?? []).map((d) => d.hostname),
+      ...(inv.loadBalancers ?? []).map((l) => l.hostname),
+    ],
+  });
+}
+
+/** Zone-relative records (Hetzner, DigitalOcean, OVHcloud) → absolute names. */
+const record = (zone: string, name: string, type: string, value: string): DnsRecord => ({
+  zone,
+  name: absoluteName(name, zone),
+  type: type.toUpperCase(),
+  // A / AAAA values are addresses; CNAME targets may be relative to the zone.
+  content: type.toUpperCase() === "CNAME" ? absoluteName(value, zone) : value.trim(),
+});
 
 // ───────────────────────── Hetzner Cloud ─────────────────────────
 
@@ -169,44 +217,71 @@ function hetznerTargets(targets: HzTarget[] = []): { server?: string; ip?: strin
   );
 }
 
-export const hetzner: Provider<z.infer<typeof noConfig>, { apiToken: string }> = {
-  configSchema: noConfig,
+export const hetzner: Provider<z.infer<typeof withDns>, { apiToken: string }> = {
+  configSchema: withDns,
   secretSchema: z.object({ apiToken: token }),
   hint: (s) => last4(s.apiToken),
-  async fetchExport(_config, { apiToken }, { http }) {
+  async fetchExport(config, { apiToken }, deps) {
+    const { http } = deps;
     const servers = await hetznerList<HzServer>(http, apiToken, "/servers", "servers");
     const lbs = await optional(() =>
       hetznerList<HzLoadBalancer>(http, apiToken, "/load_balancers", "load_balancers"),
     );
-    return out({
-      provider: "hetzner",
-      servers: servers.map((s): CloudServer => ({
-        id: String(s.id),
-        name: s.name,
-        region: s.datacenter?.location?.name,
-        size: s.server_type?.name,
-        os:
-          s.image?.description ??
-          ([s.image?.os_flavor, s.image?.os_version].filter(Boolean).join(" ") || undefined),
-        status: s.status,
-        // IPv6 is a /64 network on Hetzner servers, not an address: left out.
-        ips: strings([s.public_net?.ipv4?.ip, ...(s.private_net ?? []).map((n) => n.ip)]),
-        labels: s.labels,
-      })),
-      loadBalancers: lbs.map((lb): CloudLoadBalancer => ({
-        id: String(lb.id),
-        name: lb.name,
-        region: lb.location?.name,
-        ips: strings([
-          lb.public_net?.ipv4?.ip,
-          lb.public_net?.ipv6?.ip,
-          ...(lb.private_net ?? []).map((n) => n.ip),
-        ]),
-        ports: (lb.services ?? []).map((s) => s.listen_port).filter((p): p is number => !!p),
-        targets: hetznerTargets(lb.targets),
-        labels: lb.labels,
-      })),
-    });
+    return withInventoryDns(
+      config.dns,
+      deps,
+      {
+        provider: "hetzner",
+        servers: servers.map((s): CloudServer => ({
+          id: String(s.id),
+          name: s.name,
+          region: s.datacenter?.location?.name,
+          size: s.server_type?.name,
+          os:
+            s.image?.description ??
+            ([s.image?.os_flavor, s.image?.os_version].filter(Boolean).join(" ") || undefined),
+          status: s.status,
+          // IPv6 is a /64 network on Hetzner servers, not an address: left out.
+          ips: strings([s.public_net?.ipv4?.ip, ...(s.private_net ?? []).map((n) => n.ip)]),
+          labels: s.labels,
+        })),
+        loadBalancers: lbs.map((lb): CloudLoadBalancer => ({
+          id: String(lb.id),
+          name: lb.name,
+          region: lb.location?.name,
+          ips: strings([
+            lb.public_net?.ipv4?.ip,
+            lb.public_net?.ipv6?.ip,
+            ...(lb.private_net ?? []).map((n) => n.ip),
+          ]),
+          ports: (lb.services ?? []).map((s) => s.listen_port).filter((p): p is number => !!p),
+          targets: hetznerTargets(lb.targets),
+          labels: lb.labels,
+        })),
+      },
+      async () => {
+        // DNS zones live in the Cloud API (Hetzner Console) since 2025.
+        const zones = await hetznerList<{ id: number; name: string }>(
+          http,
+          apiToken,
+          "/zones",
+          "zones",
+        );
+        const records: DnsRecord[] = [];
+        for (const zone of zones.slice(0, DNS_LIMITS.zones)) {
+          const sets = await hetznerList<{
+            name: string;
+            type: string;
+            records?: { value?: string }[];
+          }>(http, apiToken, `/zones/${zone.id}/rrsets`, "rrsets");
+          for (const set of sets)
+            for (const r of set.records ?? [])
+              if (r.value) records.push(record(zone.name, set.name, set.type, r.value));
+          if (records.length >= DNS_LIMITS.records) break;
+        }
+        return records;
+      },
+    );
   },
 };
 
@@ -274,51 +349,73 @@ async function doList<T>(http: Http, apiToken: string, path: string, field: stri
   return items;
 }
 
-export const digitalocean: Provider<z.infer<typeof noConfig>, { apiToken: string }> = {
-  configSchema: noConfig,
+export const digitalocean: Provider<z.infer<typeof withDns>, { apiToken: string }> = {
+  configSchema: withDns,
   secretSchema: z.object({ apiToken: token }),
   hint: (s) => last4(s.apiToken),
-  async fetchExport(_config, { apiToken }, { http }) {
+  async fetchExport(config, { apiToken }, deps) {
+    const { http } = deps;
     const droplets = await doList<DoDroplet>(http, apiToken, "/droplets", "droplets");
     const lbs = await optional(() =>
       doList<DoLoadBalancer>(http, apiToken, "/load_balancers", "load_balancers"),
     );
     const dbs = await optional(() => doList<DoDatabase>(http, apiToken, "/databases", "databases"));
-    return out({
-      provider: "digitalocean",
-      servers: droplets.map((d): CloudServer => ({
-        id: String(d.id),
-        name: d.name,
-        region: d.region?.slug,
-        size: d.size_slug,
-        os: [d.image?.distribution, d.image?.name].filter(Boolean).join(" ") || undefined,
-        status: d.status,
-        ips: strings([
-          ...(d.networks?.v4 ?? []).map((n) => n.ip_address),
-          ...(d.networks?.v6 ?? []).map((n) => n.ip_address),
-        ]),
-        labels: labelsFromTags(d.tags),
-      })),
-      loadBalancers: lbs.map((lb): CloudLoadBalancer => ({
-        id: lb.id,
-        name: lb.name,
-        region: lb.region?.slug,
-        ips: strings([lb.ip, lb.ipv6]),
-        ports: (lb.forwarding_rules ?? []).map((r) => r.entry_port).filter((p): p is number => !!p),
-        targets: (lb.droplet_ids ?? []).map((id) => ({ server: String(id) })),
-      })),
-      databases: dbs.map((db): CloudDatabase => ({
-        id: db.id,
-        name: db.name,
-        engine: DO_ENGINES[db.engine ?? ""] ?? db.engine,
-        version: db.version,
-        region: db.region,
-        size: db.size,
-        hostname: db.private_connection?.host ?? db.connection?.host,
-        port: db.connection?.port,
-        labels: labelsFromTags(db.tags),
-      })),
-    });
+    return withInventoryDns(
+      config.dns,
+      deps,
+      {
+        provider: "digitalocean",
+        servers: droplets.map((d): CloudServer => ({
+          id: String(d.id),
+          name: d.name,
+          region: d.region?.slug,
+          size: d.size_slug,
+          os: [d.image?.distribution, d.image?.name].filter(Boolean).join(" ") || undefined,
+          status: d.status,
+          ips: strings([
+            ...(d.networks?.v4 ?? []).map((n) => n.ip_address),
+            ...(d.networks?.v6 ?? []).map((n) => n.ip_address),
+          ]),
+          labels: labelsFromTags(d.tags),
+        })),
+        loadBalancers: lbs.map((lb): CloudLoadBalancer => ({
+          id: lb.id,
+          name: lb.name,
+          region: lb.region?.slug,
+          ips: strings([lb.ip, lb.ipv6]),
+          ports: (lb.forwarding_rules ?? [])
+            .map((r) => r.entry_port)
+            .filter((p): p is number => !!p),
+          targets: (lb.droplet_ids ?? []).map((id) => ({ server: String(id) })),
+        })),
+        databases: dbs.map((db): CloudDatabase => ({
+          id: db.id,
+          name: db.name,
+          engine: DO_ENGINES[db.engine ?? ""] ?? db.engine,
+          version: db.version,
+          region: db.region,
+          size: db.size,
+          hostname: db.private_connection?.host ?? db.connection?.host,
+          port: db.connection?.port,
+          labels: labelsFromTags(db.tags),
+        })),
+      },
+      async () => {
+        const domains = await doList<{ name: string }>(http, apiToken, "/domains", "domains");
+        const records: DnsRecord[] = [];
+        for (const d of domains.slice(0, DNS_LIMITS.zones)) {
+          const recs = await doList<{ type: string; name: string; data: string }>(
+            http,
+            apiToken,
+            `/domains/${encodeURIComponent(d.name)}/records`,
+            "domain_records",
+          );
+          for (const r of recs) records.push(record(d.name, r.name, r.type, r.data));
+          if (records.length >= DNS_LIMITS.records) break;
+        }
+        return records;
+      },
+    );
   },
 };
 
@@ -507,6 +604,7 @@ export const OVH_ENDPOINTS = {
 
 const ovhConfig = z.object({
   endpoint: z.enum(["ovh-eu", "ovh-ca", "ovh-us"]).default("ovh-eu"),
+  dns: dnsMode,
   /** Public Cloud project; empty = every project the key can read. */
   projectId: z
     .string()
@@ -564,7 +662,8 @@ export const ovhcloud: Provider<z.infer<typeof ovhConfig>, z.infer<typeof ovhSec
   configSchema: ovhConfig,
   secretSchema: ovhSecret,
   hint: (s) => last4(s.consumerKey),
-  async fetchExport(config, secret, { http }) {
+  async fetchExport(config, secret, deps) {
+    const { http } = deps;
     const base = OVH_ENDPOINTS[config.endpoint];
     const timeRes = await http(`${base}/auth/time`);
     const serverTime = Number(timeRes.text);
@@ -639,7 +738,31 @@ export const ovhcloud: Provider<z.infer<typeof ovhConfig>, z.infer<typeof ovhSec
         ips: strings([d.ip]),
       });
     }
-    return out({ provider: "ovhcloud", servers });
+    return withInventoryDns(config.dns, deps, { provider: "ovhcloud", servers }, async () => {
+      const zones = (await get<string[]>("/domain/zone")).slice(0, DNS_LIMITS.zones);
+      const records: DnsRecord[] = [];
+      for (const zone of zones) {
+        const z = encodeURIComponent(zone);
+        const ids = (
+          await Promise.all(
+            ["A", "AAAA", "CNAME"].map((t) =>
+              get<number[]>(`/domain/zone/${z}/record?fieldType=${t}`),
+            ),
+          )
+        )
+          .flat()
+          .slice(0, DNS_LIMITS.records - records.length);
+        // One request per record: a few at a time.
+        const recs = await mapLimit(ids, 8, (id) =>
+          get<{ subDomain?: string; fieldType: string; target: string }>(
+            `/domain/zone/${z}/record/${id}`,
+          ),
+        );
+        for (const r of recs) records.push(record(zone, r.subDomain ?? "", r.fieldType, r.target));
+        if (records.length >= DNS_LIMITS.records) break;
+      }
+      return records;
+    });
   },
 };
 
