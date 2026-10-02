@@ -1,7 +1,18 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+import Image from "next/image";
 import Link from "next/link";
 import {
+  Boxes,
+  Building2,
+  Check,
   EyeOff,
+  FileUp,
+  Home,
+  Radar,
+  Server,
+  Siren,
+  Waypoints,
+  Wrench,
   FileDown,
   KeyRound,
   Layers,
@@ -21,7 +32,6 @@ import {
 import { localePath, type Locale } from "@/lib/i18n";
 import { LISTED_LEGAL_DOCS, legalTitle } from "@/lib/legal";
 import { SITE_COPY, type SiteCopy } from "./copy";
-import { ImpactPreview } from "./impact-preview";
 import { LanguageSuggestion, LanguageSwitch } from "./language";
 
 /**
@@ -64,13 +74,15 @@ export function Landing({ locale = "en", ...options }: LandingOptions & { locale
       <SiteHeader locale={locale} />
       <main className="flex-1">
         <Hero {...props} />
-        <section className="mx-auto max-w-6xl px-4 pb-20 sm:px-6">
-          <ImpactPreview />
-        </section>
+        <Proof {...props} />
         <HowItWorks {...props} />
+        <MapSection {...props} />
+        <Sources {...props} />
+        <UseCases {...props} />
         <Honesty {...props} />
         <Security {...props} />
         <Pricing {...props} />
+        <Faq {...props} />
         <FinalCta {...props} />
       </main>
       <SiteFooter locale={locale} />
@@ -92,9 +104,12 @@ export function SiteHeader({ locale = "en" }: { locale?: Locale }) {
         <Link href={href("/")} aria-label={t.nav.home}>
           <Logo className="text-[15px] [&_img]:size-6" />
         </Link>
-        <nav className="text-muted hidden items-center gap-6 text-sm md:flex">
+        <nav className="text-muted hidden items-center gap-6 text-sm lg:flex">
           <Link href={href("/#how")} className="hover:text-foreground">
             {t.nav.how}
+          </Link>
+          <Link href={href("/#map")} className="hover:text-foreground">
+            {t.nav.map}
           </Link>
           <Link href={href("/#security")} className="hover:text-foreground">
             {t.nav.security}
@@ -102,9 +117,15 @@ export function SiteHeader({ locale = "en" }: { locale?: Locale }) {
           <Link href={href("/#pricing")} className="hover:text-foreground">
             {t.nav.pricing}
           </Link>
+          <Link href={href("/#faq")} className="hover:text-foreground">
+            {t.nav.faq}
+          </Link>
           <Link href={href("/docs")} className="hover:text-foreground">
             {t.nav.docs}
           </Link>
+          <a href={GITHUB} className="hover:text-foreground">
+            GitHub
+          </a>
         </nav>
         <div className="flex items-center gap-2">
           <LanguageSwitch label={t.language.switchTo} title={t.language.switchLabel} />
@@ -119,6 +140,8 @@ export function SiteHeader({ locale = "en" }: { locale?: Locale }) {
     </header>
   );
 }
+
+const GITHUB = "https://github.com/InfraMole/self-hosted";
 
 const technicalValues = ["prod-web-01", "10.20.4.15", "Azure / rg-production", "SQL-PROD-02"];
 
@@ -154,7 +177,10 @@ function Hero({ cloudSignup, demo, inDemo, locale, t }: LandingOptions & Localiz
           </Button>
         </div>
         <p className="text-subtle mt-4 text-xs">
-          {cloudSignup ? t.hero.trialNote(CLOUD_TRIAL_DAYS) : t.hero.freeNote}
+          {cloudSignup ? t.hero.trialNote(CLOUD_TRIAL_DAYS) : t.hero.freeNote}{" "}
+          <a href={GITHUB} className="text-accent hover:underline">
+            {t.hero.sourceCode} →
+          </a>
         </p>
         <ul className="mt-10 flex flex-wrap gap-2" aria-label={t.hero.mapsLabel}>
           {technicalValues.map((v) => (
@@ -170,6 +196,165 @@ function Hero({ cloudSignup, demo, inDemo, locale, t }: LandingOptions & Localiz
       <div className="relative mx-auto w-full max-w-md lg:max-w-none">
         <div className="bg-brand-lavender/45 absolute inset-x-6 bottom-2 h-2/3 rounded-full blur-3xl" />
         <Mascot priority className="relative h-auto w-full" />
+      </div>
+    </section>
+  );
+}
+
+/** A real screenshot of the public demo (no brand logos: ADR-038). */
+function Proof({ t }: Localized) {
+  return (
+    <section className="mx-auto max-w-6xl px-4 pb-20 sm:px-6">
+      <figure>
+        <div className="border-border shadow-brand-ink/25 overflow-hidden rounded-xl border bg-[#0a0b10] shadow-2xl">
+          <Image
+            src="/landing/impact.webp"
+            alt={t.hero.proofAlt}
+            width={1600}
+            height={1283}
+            priority
+            sizes="(min-width: 1152px) 1104px, 100vw"
+            className="h-auto w-full"
+          />
+        </div>
+        <figcaption className="text-muted mt-3 text-center text-sm">
+          {t.hero.proofCaption}
+        </figcaption>
+      </figure>
+    </section>
+  );
+}
+
+const MAP_ICONS: LucideIcon[] = [Waypoints, Boxes, Radar, FileDown];
+
+function MapSection({ t }: Localized) {
+  return (
+    <section id="map" className="mx-auto max-w-6xl scroll-mt-14 px-4 py-20 sm:px-6">
+      <SectionTitle eyebrow={t.map.eyebrow} title={t.map.title} />
+      <p className="text-muted mt-4 max-w-2xl leading-relaxed">{t.map.body}</p>
+      <ul className="mt-10 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+        {t.map.points.map((point, i) => {
+          const Icon = MAP_ICONS[i] ?? Waypoints;
+          return (
+            <li key={point.title}>
+              <Icon className="text-accent size-5" aria-hidden />
+              <h3 className="mt-3 font-semibold">{point.title}</h3>
+              <p className="text-muted mt-1.5 text-sm leading-relaxed">{point.body}</p>
+            </li>
+          );
+        })}
+      </ul>
+      <div className="border-border mt-10 overflow-hidden rounded-xl border bg-[#0a0b10]">
+        <Image
+          src="/landing/map.webp"
+          alt={t.map.alt}
+          width={1600}
+          height={947}
+          sizes="(min-width: 1152px) 1104px, 100vw"
+          className="h-auto w-full"
+        />
+      </div>
+    </section>
+  );
+}
+
+const SOURCE_ICONS: LucideIcon[] = [Server, KeyRound, FileUp];
+
+function Sources({ locale, t }: Localized) {
+  return (
+    <section className="border-border bg-surface border-y">
+      <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
+        <SectionTitle eyebrow={t.sources.eyebrow} title={t.sources.title} />
+        <div className="mt-12 grid gap-8 lg:grid-cols-3">
+          {t.sources.groups.map((group, i) => {
+            const Icon = SOURCE_ICONS[i] ?? Server;
+            return (
+              <div key={group.title}>
+                <Icon className="text-accent size-5" aria-hidden />
+                <h3 className="mt-3 font-semibold">{group.title}</h3>
+                <p className="text-subtle mt-0.5 text-xs">{group.note}</p>
+                <ul className="text-muted mt-4 space-y-2 text-sm">
+                  {group.items.map((item) => (
+                    <li key={item} className="flex gap-2">
+                      <Check className="text-accent mt-0.5 size-3.5 shrink-0" aria-hidden />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })}
+        </div>
+        <p className="text-muted mt-10 text-sm">
+          {t.sources.more} ·{" "}
+          <Link
+            href={localePath(locale, "/docs/manual/integrations")}
+            className="text-accent font-medium hover:underline"
+          >
+            {t.sources.moreLink}
+          </Link>
+        </p>
+      </div>
+    </section>
+  );
+}
+
+const USE_CASE_ICONS: LucideIcon[] = [Wrench, Siren, Building2, Home];
+
+function UseCases({ t }: Localized) {
+  return (
+    <section className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
+      <SectionTitle eyebrow={t.useCases.eyebrow} title={t.useCases.title} />
+      <ul className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {t.useCases.items.map((item, i) => {
+          const Icon = USE_CASE_ICONS[i] ?? Wrench;
+          return (
+            <li key={item.title} className="border-border bg-surface rounded-xl border p-5">
+              <Icon className="text-accent size-5" aria-hidden />
+              <h3 className="mt-3 font-semibold">{item.title}</h3>
+              <p className="text-muted mt-1.5 text-sm leading-relaxed">{item.body}</p>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
+/** `code` spans in answers (`inframole-agent dry-run`). */
+function withCode(text: string) {
+  return text.split(/(`[^`]+`)/).map((part, i) =>
+    part.startsWith("`") ? (
+      <code key={i} className="text-foreground font-mono text-[13px]">
+        {part.slice(1, -1)}
+      </code>
+    ) : (
+      part
+    ),
+  );
+}
+
+function Faq({ t }: Localized) {
+  return (
+    <section id="faq" className="border-border bg-surface scroll-mt-14 border-t">
+      <div className="mx-auto max-w-3xl px-4 py-20 sm:px-6">
+        <SectionTitle eyebrow={t.faq.eyebrow} title={t.faq.title} />
+        <div className="divide-border border-border mt-10 divide-y border-y">
+          {t.faq.items.map((item) => (
+            <details key={item.q} className="group py-4">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-medium">
+                {item.q}
+                <span
+                  aria-hidden
+                  className="text-accent font-mono text-lg transition-transform group-open:rotate-45"
+                >
+                  +
+                </span>
+              </summary>
+              <p className="text-muted mt-3 leading-relaxed">{withCode(item.a)}</p>
+            </details>
+          ))}
+        </div>
       </div>
     </section>
   );

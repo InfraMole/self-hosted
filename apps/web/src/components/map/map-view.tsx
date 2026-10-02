@@ -363,8 +363,9 @@ function MapCanvas({
     setFlowNodes,
   ]);
 
-  // Framing: only when the set of visible resources changes (filters, focus,
-  // impact) — expanding or collapsing a group keeps the current view. Reads
+  // Framing: when the set of visible resources changes (filters, focus,
+  // impact) or after Expand all / Collapse all — toggling one box keeps the
+  // current view. Reads
   // the latest layout through a ref so re-renders cannot cancel it.
   const latest = useRef({ display, positions, layout, sizeOf });
   useEffect(() => {
@@ -414,7 +415,7 @@ function MapCanvas({
     };
     frame = requestAnimationFrame(show);
     return () => cancelAnimationFrame(frame);
-  }, [visibleIds, store, setViewport]);
+  }, [visibleIds, groupMode, store, setViewport]);
 
   // Selection / focus styling without touching positions.
   useEffect(() => {

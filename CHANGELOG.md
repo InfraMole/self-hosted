@@ -5,6 +5,18 @@ images). The agent has its own changelog in the InfraMole/agent repository.
 To update an installation, see
 [Upgrade guide](https://inframole.com/docs/operations/upgrade).
 
+## 0.18.1 — 2026-10-02
+
+### Changed
+
+- Website: real screenshots of the map and of an impact, what InfraMole
+  discovers, when it helps, and frequently asked questions.
+
+### Fixed
+
+- Map: **Expand all** / **Collapse all** re-frame the view, so the map no
+  longer ends up off screen.
+
 ## 0.18.0 — 2026-10-02
 
 ### Added

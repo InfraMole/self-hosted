@@ -11,7 +11,9 @@ const en = {
   nav: {
     home: "InfraMole home",
     how: "How it works",
+    map: "The map",
     security: "Security",
+    faq: "FAQ",
     pricing: "Pricing",
     docs: "Docs",
     signIn: "Sign in",
@@ -31,6 +33,129 @@ const en = {
     freeNote:
       "Free and open source (AGPLv3). Up and running on your own server in about ten minutes.",
     mapsLabel: "The kind of things it maps",
+    sourceCode: "Source code on GitHub",
+    proofCaption:
+      "A real screenshot of the public demo: everything that could be affected if the SQL01 server fails — solid lines confirmed by a person, dashed ones detected by the agent.",
+    proofAlt:
+      "InfraMole impact view: SQL01 with its databases at the bottom, and the applications, containers, sites and domains above it that could be affected.",
+  },
+  map: {
+    eyebrow: "The map",
+    title: "Your infrastructure, drawn for you — and readable",
+    body: "Nobody draws anything. The map is built from what InfraMole knows, in layers you can read at a glance.",
+    points: [
+      {
+        title: "In layers",
+        body: "Entry points and domains on top, then applications and data, then servers and hosts.",
+      },
+      {
+        title: "Servers as boxes",
+        body: "What runs on a server or hypervisor is drawn inside it. Collapse a box to see the big picture.",
+      },
+      {
+        title: "Ask “what if?”",
+        body: "Pick any resource and see what could be affected if it fails, with how sure each link is.",
+      },
+      {
+        title: "Save and share",
+        body: "Save views with their filters and positions, share them by link, export PNG or PDF.",
+      },
+    ],
+    alt: "InfraMole map of the demo: a CDN and domains on top, applications in the middle, servers, hypervisors and Kubernetes nodes below, and the directory service at the bottom.",
+  },
+  sources: {
+    eyebrow: "What it discovers",
+    title: "Start with what you already have",
+    groups: [
+      {
+        title: "The agent",
+        note: "Windows and Linux · read-only · outbound HTTPS only",
+        items: [
+          "Hosts, services, listening ports and the connections between them",
+          "IIS sites and SQL Server databases",
+          "nginx and Apache sites, PostgreSQL and MySQL databases",
+          "Docker containers and Compose projects",
+          "Reverse-proxy targets: nginx, Apache, HAProxy, Traefik, IIS",
+          "Kubernetes nodes and workloads",
+        ],
+      },
+      {
+        title: "Integrations",
+        note: "Read-only tokens, encrypted at rest",
+        items: [
+          "Azure: virtual machines, load balancers, databases, DNS",
+          "AWS: EC2, RDS, load balancers, Route 53",
+          "Cloudflare: DNS records and what they point to",
+        ],
+      },
+      {
+        title: "Files",
+        note: "Reviewed before anything is saved",
+        items: [
+          "CSV or JSON from your spreadsheet or another tool",
+          "docker-compose files",
+          "Proxmox, Azure, AWS and Cloudflare exports",
+        ],
+      },
+    ],
+    more: "More clouds, DNS providers, hypervisors and NAS are in preview",
+    moreLink: "See all integrations →",
+  },
+  useCases: {
+    eyebrow: "When it helps",
+    title: "For the moments you need to know what depends on what",
+    items: [
+      {
+        title: "Before a change",
+        body: "Patching SQL01 tonight? See what could be affected — and who to warn — before, not after.",
+      },
+      {
+        title: "During an outage",
+        body: "Something is down. See what else depends on it, and how sure each link is, in seconds.",
+      },
+      {
+        title: "Taking over a network",
+        body: "A new client or a network nobody documented: install the agent and have a map the same day.",
+      },
+      {
+        title: "Your homelab",
+        body: "Proxmox, Docker and a NAS: finally a picture of what runs where — self-hosted and free.",
+      },
+    ],
+  },
+  faq: {
+    eyebrow: "Questions",
+    title: "Frequently asked",
+    items: [
+      {
+        q: "Is it a monitoring tool?",
+        a: "No. There are no alerts, metrics or uptime checks. InfraMole maps what you have and what depends on what — use it next to your monitoring, not instead of it.",
+      },
+      {
+        q: "What does the agent send, and can it run commands?",
+        a: "Host facts, services, listening ports and aggregated connections, plus the workloads listed above. Never passwords, file contents, command lines or environment variables. It has no command channel, and `inframole-agent dry-run` prints exactly what it would send.",
+      },
+      {
+        q: "Does it need inbound ports or a VPN?",
+        a: "No. The agent only makes outbound HTTPS requests to your InfraMole server.",
+      },
+      {
+        q: "Where is my data?",
+        a: "On your server. Self-hosted InfraMole sends nothing to us — no telemetry, no licence check. It only talks to the providers you connect and your mail server.",
+      },
+      {
+        q: "How many servers can I map?",
+        a: "Community has no limit on servers or VMs — one workspace per installation. A small server (2 GB RAM) is enough for about a hundred servers.",
+      },
+      {
+        q: "What does it run on?",
+        a: "Docker Compose on Linux (recommended), or Docker Desktop on Windows and macOS for a trial — x86-64 or ARM64. Setup takes about ten minutes.",
+      },
+      {
+        q: "What is the licence?",
+        a: "AGPL-3.0: free to use, study and modify. Organisations that cannot accept the AGPL can get a commercial licence.",
+      },
+    ],
   },
   how: {
     eyebrow: "Install → Discover → Understand",
@@ -38,7 +163,7 @@ const en = {
     steps: [
       {
         title: "Install",
-        body: "Run one small read-only agent per server — a single signed binary for Windows or Linux. Or bring what you already have: Proxmox, Azure, AWS, Cloudflare, Docker Compose or a CSV.",
+        body: "Run one small read-only agent per server — a single signed binary for Windows or Linux. Or bring what you already have: Azure, AWS, Cloudflare, Proxmox, Docker Compose or a CSV.",
       },
       {
         title: "Discover",
@@ -133,7 +258,7 @@ const en = {
     history: (days: number) => `${days} days change history`,
     cloudCommon: [
       "Agents",
-      "Azure, AWS and Cloudflare discovery",
+      "Azure, AWS and Cloudflare integrations",
       "Applications, databases, containers, domains and discovered services unlimited",
     ],
     startTrial: "Start free trial",
@@ -154,10 +279,10 @@ const en = {
     unlimited: ["", "Unlimited", " servers and VMs"],
     workspaces: (n: number) => `${n} workspace${n === 1 ? "" : "s"}`,
     lines: [
-      "Discovery with agents, dependency map, dependencies and impact analysis",
-      "Azure, AWS and Cloudflare discovery",
+      "Agents for Windows and Linux, dependency map and impact analysis",
+      "Azure, AWS and Cloudflare integrations; CSV, Compose and platform imports",
       "Two-factor authentication, passkeys and audit log",
-      "Docker Compose deployment",
+      "Docker Compose deployment, x86-64 and ARM64",
     ],
     installGuide: "Install guide →",
     sourceCode: "Source code →",
@@ -201,7 +326,9 @@ const es: SiteCopy = {
   nav: {
     home: "Inicio de InfraMole",
     how: "Cómo funciona",
+    map: "El mapa",
     security: "Seguridad",
+    faq: "Preguntas",
     pricing: "Precios",
     docs: "Documentación",
     signIn: "Iniciar sesión",
@@ -221,6 +348,129 @@ const es: SiteCopy = {
     freeNote:
       "Gratis y de código abierto (AGPLv3). Funcionando en tu propio servidor en unos diez minutos.",
     mapsLabel: "El tipo de cosas que mapea",
+    sourceCode: "Código fuente en GitHub",
+    proofCaption:
+      "Captura real de la demo pública: todo lo que podría verse afectado si falla el servidor SQL01 — las líneas continuas las ha confirmado una persona; las discontinuas, el agente.",
+    proofAlt:
+      "Vista de impacto de InfraMole: SQL01 con sus bases de datos abajo y, encima, las aplicaciones, contenedores, sitios y dominios que podrían verse afectados.",
+  },
+  map: {
+    eyebrow: "El mapa",
+    title: "Tu infraestructura, dibujada para ti — y legible",
+    body: "Nadie dibuja nada. El mapa se construye con lo que InfraMole sabe, en capas que se leen de un vistazo.",
+    points: [
+      {
+        title: "Por capas",
+        body: "Arriba los puntos de entrada y dominios; después aplicaciones y datos; abajo servidores y hosts.",
+      },
+      {
+        title: "Servidores como cajas",
+        body: "Lo que se ejecuta en un servidor o hipervisor se dibuja dentro. Pliega una caja para ver el conjunto.",
+      },
+      {
+        title: "Pregunta «¿y si…?»",
+        body: "Elige cualquier recurso y mira qué podría verse afectado si falla, con la certeza de cada relación.",
+      },
+      {
+        title: "Guarda y comparte",
+        body: "Guarda vistas con sus filtros y posiciones, compártelas por enlace y expórtalas en PNG o PDF.",
+      },
+    ],
+    alt: "Mapa de InfraMole de la demo: una CDN y dominios arriba, aplicaciones en medio, servidores, hipervisores y nodos de Kubernetes debajo y el servicio de directorio abajo del todo.",
+  },
+  sources: {
+    eyebrow: "Qué descubre",
+    title: "Empieza con lo que ya tienes",
+    groups: [
+      {
+        title: "El agente",
+        note: "Windows y Linux · solo lectura · solo HTTPS saliente",
+        items: [
+          "Equipos, servicios, puertos en escucha y las conexiones entre ellos",
+          "Sitios de IIS y bases de datos de SQL Server",
+          "Sitios de nginx y Apache, bases de datos PostgreSQL y MySQL",
+          "Contenedores Docker y proyectos Compose",
+          "Destinos de proxies inversos: nginx, Apache, HAProxy, Traefik, IIS",
+          "Nodos y cargas de trabajo de Kubernetes",
+        ],
+      },
+      {
+        title: "Integraciones",
+        note: "Tokens de solo lectura, cifrados en reposo",
+        items: [
+          "Azure: máquinas virtuales, balanceadores, bases de datos, DNS",
+          "AWS: EC2, RDS, balanceadores, Route 53",
+          "Cloudflare: registros DNS y a qué apuntan",
+        ],
+      },
+      {
+        title: "Ficheros",
+        note: "Se revisan antes de guardar nada",
+        items: [
+          "CSV o JSON de tu hoja de cálculo u otra herramienta",
+          "Ficheros docker-compose",
+          "Exportaciones de Proxmox, Azure, AWS y Cloudflare",
+        ],
+      },
+    ],
+    more: "Más nubes, proveedores DNS, hipervisores y NAS están en preview",
+    moreLink: "Ver todas las integraciones →",
+  },
+  useCases: {
+    eyebrow: "Cuándo ayuda",
+    title: "Para los momentos en que necesitas saber qué depende de qué",
+    items: [
+      {
+        title: "Antes de un cambio",
+        body: "¿Parcheas SQL01 esta noche? Mira qué podría verse afectado — y a quién avisar — antes, no después.",
+      },
+      {
+        title: "Durante una caída",
+        body: "Algo no funciona. Mira qué más depende de ello, y con qué certeza, en segundos.",
+      },
+      {
+        title: "Al heredar una red",
+        body: "Un cliente nuevo o una red que nadie documentó: instala el agente y ten un mapa el mismo día.",
+      },
+      {
+        title: "Tu homelab",
+        body: "Proxmox, Docker y un NAS: por fin una imagen de qué se ejecuta dónde — autoalojado y gratis.",
+      },
+    ],
+  },
+  faq: {
+    eyebrow: "Preguntas",
+    title: "Preguntas frecuentes",
+    items: [
+      {
+        q: "¿Es una herramienta de monitorización?",
+        a: "No. No hay alertas, métricas ni comprobaciones de disponibilidad. InfraMole mapea lo que tienes y qué depende de qué — úsalo junto a tu monitorización, no en su lugar.",
+      },
+      {
+        q: "¿Qué envía el agente? ¿Puede ejecutar órdenes?",
+        a: "Datos del equipo, servicios, puertos en escucha y conexiones agregadas, más las cargas de trabajo de arriba. Nunca contraseñas, contenido de ficheros, líneas de comandos ni variables de entorno. No tiene canal de órdenes, e `inframole-agent dry-run` muestra exactamente lo que enviaría.",
+      },
+      {
+        q: "¿Necesita puertos de entrada o una VPN?",
+        a: "No. El agente solo hace peticiones HTTPS salientes a tu servidor de InfraMole.",
+      },
+      {
+        q: "¿Dónde están mis datos?",
+        a: "En tu servidor. InfraMole autoalojado no nos envía nada — ni telemetría ni comprobación de licencia. Solo habla con los proveedores que conectes y con tu servidor de correo.",
+      },
+      {
+        q: "¿Cuántos servidores puedo mapear?",
+        a: "Community no tiene límite de servidores ni de máquinas virtuales — un espacio de trabajo por instalación. Un servidor pequeño (2 GB de RAM) basta para unos cien servidores.",
+      },
+      {
+        q: "¿Dónde se instala?",
+        a: "Docker Compose en Linux (recomendado), o Docker Desktop en Windows y macOS para probarlo — x86-64 o ARM64. La instalación lleva unos diez minutos.",
+      },
+      {
+        q: "¿Qué licencia tiene?",
+        a: "AGPL-3.0: libre para usar, estudiar y modificar. Las organizaciones que no pueden aceptar la AGPL pueden obtener una licencia comercial.",
+      },
+    ],
   },
   how: {
     eyebrow: "Instalar → Descubrir → Entender",
@@ -326,7 +576,7 @@ const es: SiteCopy = {
     history: (days: number) => `${days} días de historial de cambios`,
     cloudCommon: [
       "Agentes",
-      "Descubrimiento en Azure, AWS y Cloudflare",
+      "Integraciones con Azure, AWS y Cloudflare",
       "Aplicaciones, bases de datos, contenedores, dominios y servicios descubiertos ilimitados",
     ],
     startTrial: "Prueba gratis",
@@ -347,10 +597,10 @@ const es: SiteCopy = {
     unlimited: ["Servidores y máquinas virtuales ", "ilimitados", ""],
     workspaces: (n: number) => `${n} espacio${n === 1 ? "" : "s"} de trabajo`,
     lines: [
-      "Descubrimiento con agentes, mapa de dependencias, dependencias y análisis de impacto",
-      "Descubrimiento en Azure, AWS y Cloudflare",
+      "Agentes para Windows y Linux, mapa de dependencias y análisis de impacto",
+      "Integraciones con Azure, AWS y Cloudflare; importación de CSV, Compose y plataformas",
       "Autenticación en dos pasos, llaves de acceso y registro de auditoría",
-      "Despliegue con Docker Compose",
+      "Despliegue con Docker Compose, x86-64 y ARM64",
     ],
     installGuide: "Guía de instalación →",
     sourceCode: "Código fuente →",
