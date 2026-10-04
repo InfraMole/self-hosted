@@ -68,11 +68,7 @@ function isNotFound(error: unknown): boolean {
 
 // ───────────────────────── Reads (any member) ─────────────────────────
 
-export async function listResources(
-  ctx: WorkspaceContext,
-  rawFilters: unknown = {},
-): Promise<ResourceView[]> {
-  const filters: ResourceFilters = resourceFiltersSchema.parse(rawFilters);
+function libraryWhere(ctx: WorkspaceContext, filters: ResourceFilters) {
   const where: Prisma.ResourceWhereInput = {
     workspaceId: ctx.workspaceId,
     type: filters.type,
@@ -92,12 +88,112 @@ export async function listResources(
       { metadata: { path: ["ipAddresses"], array_contains: [q] } },
     ];
   }
+  return where;
+}
+
+export async function listResources(
+  ctx: WorkspaceContext,
+  rawFilters: unknown = {},
+): Promise<ResourceView[]> {
+  const where = libraryWhere(ctx, resourceFiltersSchema.parse(rawFilters));
   const resources = await tenantDb(ctx).resource.findMany({
     where,
     orderBy: [{ name: "asc" }, { createdAt: "asc" }],
     take: LIST_LIMIT,
   });
   return resources.map(toView);
+}
+
+// ───────────────────────── Library pages (M31, ADR-045) ─────────────────────────
+
+export const LIBRARY_PAGE_SIZE = 100;
+export const LIBRARY_SORTS = [
+  "name",
+  "type",
+  "environment",
+  "criticality",
+  "status",
+  "owner",
+  "updated",
+] as const;
+export type LibrarySort = (typeof LIBRARY_SORTS)[number];
+
+/** Filters + sort + page from the Library URL; anything invalid falls back to the default. */
+export const libraryQuerySchema = resourceFiltersSchema.extend({
+  sort: z.enum(LIBRARY_SORTS).optional().catch(undefined),
+  dir: z.enum(["asc", "desc"]).optional().catch(undefined),
+  page: z.coerce.number().int().min(1).max(1_000_000).optional().catch(undefined),
+});
+
+/** Most useful first when a column is clicked: newest, most critical. */
+export const defaultDirection = (sort: LibrarySort): "asc" | "desc" =>
+  sort === "updated" || sort === "criticality" ? "desc" : "asc";
+
+export interface LibraryPage {
+  rows: ResourceView[];
+  total: number;
+  page: number;
+  pages: number;
+  pageSize: number;
+  sort: LibrarySort;
+  dir: "asc" | "desc";
+}
+
+/**
+ * One page of the Library, sorted on the server. Enum columns sort by their
+ * declared order (criticality LOW → CRITICAL); empty values always last; ties
+ * by name then id, so pages never overlap.
+ */
+export async function listResourcesPage(
+  ctx: WorkspaceContext,
+  rawQuery: unknown = {},
+): Promise<LibraryPage> {
+  const query = libraryQuerySchema.parse(rawQuery);
+  const sort = query.sort ?? "name";
+  const dir = query.dir ?? defaultDirection(sort);
+  const where = libraryWhere(ctx, query);
+  const db = tenantDb(ctx);
+  const total = await db.resource.count({ where });
+  const pages = Math.max(1, Math.ceil(total / LIBRARY_PAGE_SIZE));
+  const page = Math.min(query.page ?? 1, pages);
+  const nullable = (field: "environment" | "criticality" | "owner") =>
+    ({ [field]: { sort: dir, nulls: "last" } }) as Prisma.ResourceOrderByWithRelationInput;
+  const primary: Prisma.ResourceOrderByWithRelationInput =
+    sort === "environment" || sort === "criticality" || sort === "owner"
+      ? nullable(sort)
+      : sort === "updated"
+        ? { updatedAt: dir }
+        : { [sort]: dir };
+  const rows = await db.resource.findMany({
+    where,
+    orderBy: [primary, { name: "asc" }, { id: "asc" }],
+    skip: (page - 1) * LIBRARY_PAGE_SIZE,
+    take: LIBRARY_PAGE_SIZE,
+  });
+  return { rows: rows.map(toView), total, page, pages, pageSize: LIBRARY_PAGE_SIZE, sort, dir };
+}
+
+/**
+ * Resources already called `name` (case-insensitive, any status), other than
+ * `exceptId` — the Library warns before a duplicate is created (M31).
+ */
+export async function findSameName(
+  ctx: WorkspaceContext,
+  name: string,
+  exceptId?: string | null,
+): Promise<{ id: string; name: string; status: Resource["status"] }[]> {
+  const trimmed = name.trim();
+  if (!trimmed) return [];
+  return tenantDb(ctx).resource.findMany({
+    where: {
+      workspaceId: ctx.workspaceId,
+      name: { equals: trimmed, mode: "insensitive" },
+      ...(exceptId ? { id: { not: exceptId } } : {}),
+    },
+    select: { id: true, name: true, status: true },
+    orderBy: { createdAt: "asc" },
+    take: 3,
+  });
 }
 
 export async function getResource(ctx: WorkspaceContext, id: string): Promise<ResourceView | null> {

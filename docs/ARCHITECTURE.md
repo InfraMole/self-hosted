@@ -145,6 +145,7 @@ relationship id).
 | `/api/agent/v1/enroll` | Agent enrollment (token → per-agent secret) — M5 |
 | `/api/agent/v1/report` | Agent reports (bearer secret) — M5 |
 | `/api/v1/workspace`, `/api/v1/resources`, `/api/v1/resources/{id}`, `/api/v1/resources/{id}/impact`, `/api/v1/relationships`, `/api/v1/path` | Read-only API (GET, bearer `dmp_api_` token → VIEWER context of its workspace; 300/min per token) — M30 |
+| `/share/[token]` | Public read-only map of one saved view (no session; `resolveShare` → subset without IPs / owners / notes; noindex, no-referrer, 120/min per IP) — M31 |
 | `/api/cron/integrations` | POST, `Authorization: Bearer $CRON_SECRET`; syncs due integrations (404 when unset) — M8b |
 | `/api/cron/maintenance` | POST, same bearer guard (`server/cron.ts`); enforces the retention policy — M8c |
 | `/api/cron/digest` | POST, same guard; sends the weekly digests due (Mondays from 06:00 UTC, ≤ 200 per run) — M21 |
@@ -429,3 +430,18 @@ Path: `@depmap/graph` `findPath` / `pathSteps` / `describePath`; map path
 view in `map-view.tsx` (`pathEnds`, `PathBanner`), inspector "Path to…"
 reuses `MapFind`. Mass deployment templates: `agent/deploy/` (exported with
 the agent repository); guide `content/docs/agent/mass-deployment.md`.
+
+## Bring your inventory, large inventories, share the map (M31)
+
+Library: `resources.ts#listResourcesPage` (sort / dir / page, 100 per
+page, `LIBRARY_SORTS`), `findSameName` (duplicate warning in
+`resources/actions.ts#saveResourceAction`, `confirmDuplicate=1` to
+proceed), `ResourceTable` `SortHeader`. Share links:
+`server/modules/map/shares.ts`, `lib/map-subset.ts` (pure, shared with
+`map-view.tsx`: `candidateEdgesOf`, `visibleIdsOf`, `viewSubset`),
+`app/share/[token]/page.tsx`, `components/map/{shared-map,share-view-dialog}.tsx`,
+`MapView` `shared` / `shareView` props. Other tools:
+`integrations/other-tools.ts` (`netbox`, `zabbix`, `prtg` + pure
+`netboxInventory` / `zabbixInventory` / `prtgInventory`; recorded fixtures
+in `integrations/fixtures/`), import format `inventory`
+(`parse-platforms.ts#inventory`; declared links → suggestions).

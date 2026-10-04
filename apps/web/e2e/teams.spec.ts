@@ -58,3 +58,38 @@ test("an admin creates a read-only API token, uses it and revokes it", async ({
   await expect(page.locator("#api").getByText("revoked")).toBeVisible();
   expect((await request.get("/api/v1/workspace", { headers: auth })).status()).toBe(401);
 });
+
+test("an admin shares a saved view with a public read-only link", async ({ page, browser }) => {
+  await page.goto(`${w}/map`);
+  await expect(page.locator(".react-flow__node").first()).toBeVisible();
+  await page.getByRole("button", { name: /^Views/ }).click();
+  await page.getByLabel("New view name").fill("For the board");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page).toHaveURL(/view=/);
+  await page.reload();
+  await page.locator("button[aria-expanded]").filter({ hasText: "For the board" }).click();
+  await page.getByRole("button", { name: "Public link to For the board" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("button", { name: "Create link" }).click();
+  const url = (await dialog.locator("pre").textContent())!.trim();
+  expect(url).toMatch(/\/share\/dmp_shr_[A-Za-z0-9_-]{43}$/);
+
+  // A visitor without an account: the view, read-only, without IP addresses.
+  const visitor = await browser.newContext();
+  const pub = await visitor.newPage();
+  await pub.goto(url);
+  await expect(pub.getByRole("heading", { name: "For the board" })).toBeVisible();
+  await expect(pub.locator(".react-flow__node").filter({ hasText: "SQL01" }).first()).toBeVisible();
+  await expect(pub.getByText("10.0.0.40")).toHaveCount(0);
+  await pub.locator(".react-flow__node").filter({ hasText: "shop.example.com" }).first().click();
+  await expect(pub.getByRole("complementary", { name: "shop.example.com details" })).toBeVisible();
+  await expect(pub.getByRole("link", { name: "Open" })).toHaveCount(0);
+
+  // Revoked: the link stops working.
+  await page.goto(`${w}/settings`);
+  await page.getByRole("button", { name: "Revoke public link to For the board" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Revoke" }).click();
+  await expect(page.locator("#shares").getByText("revoked")).toBeVisible();
+  expect((await pub.goto(url))?.status()).toBe(404);
+  await visitor.close();
+});

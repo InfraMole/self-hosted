@@ -235,6 +235,33 @@ last IP, expired sessions and tokens) is deleted, not kept "just in case".
   owner of a workspace with other members. Sessions, accounts, 2FA and
   passkeys go with the user.
 
+## 5v. Public map links and other tools (M31, ADR-045)
+
+- Share links: `dmp_shr_` + 32 random bytes, only sha256 stored, URL shown
+  once, expiry 7 / 30 / 90 days or never, revocable, ≤ 25 active, ADMIN+
+  only (they publish data outside the workspace), audited
+  (`share.created` / `share.revoked`), deleted 90 days after ending, and
+  with their view.
+- `/share/<token>` needs no session. Lookup by hash through
+  `systemDb("public map link by token hash")`, then everything scoped to
+  the link's workspace. The server applies the view with
+  `lib/map-subset.ts#viewSubset` and sends **only that subset**, with
+  `ipAddresses: []`, `owner` / `ownerContact: null` and relationship
+  `note: null` (notes often hold IPs). No links into the workspace, no
+  saved-view actions. `robots: noindex`, `referrer: no-referrer`, 120
+  requests / min per IP. Malformed, unknown, revoked, expired → 404.
+- What a link reveals (names, types, environments, the shape of the graph)
+  is stated in the create dialog.
+- NetBox / Zabbix / PRTG integrations reuse the local-source transport
+  (§5r/5s): https only, certificate pin, private networks only when
+  allowed. Tokens are sealed like every integration secret. Zabbix uses the
+  `Authorization` header from 6.4 and the `auth` field before;
+  `apiinfo.version` is called unauthenticated. PRTG's API v1 only accepts
+  the token as a query parameter — documented, https enforced, and
+  `safeFetch` errors never include the URL.
+- Library duplicate check (`findSameName`) is scoped by workspace like
+  every query.
+
 ## 5u. Read-only API and mass deployment (M30, ADR-044)
 
 - API tokens: `dmp_api_` + 32 random bytes, only sha256 stored, shown once,
@@ -426,7 +453,7 @@ last IP, expired sessions and tokens) is deleted, not kept "just in case".
 ## 6. Secret handling conventions
 
 - Generate with `crypto.randomBytes(32)` → base64url, prefixed for
-  identification (`dmp_enr_…`, `dmp_agt_…`, `dmp_inv_…`, `dmp_api_…`).
+  identification (`dmp_enr_…`, `dmp_agt_…`, `dmp_inv_…`, `dmp_api_…`, `dmp_shr_…`).
 - Store `sha256(secret)` + a short non-secret prefix for lookup/UI.
 - Compare with `crypto.timingSafeEqual`.
 - Show once at creation; never retrievable later.

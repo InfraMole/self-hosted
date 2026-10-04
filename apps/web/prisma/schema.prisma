@@ -112,6 +112,7 @@ model Workspace {
   discoveryRules   DiscoveryRule[]
   savedViews       SavedView[]
   apiTokens        ApiToken[]
+  mapShares        MapShare[]
   integrations     Integration[]
   invitations      Invitation[]
   auditEvents      AuditEvent[]
@@ -632,9 +633,35 @@ model SavedView {
   createdById String?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+  shares      MapShare[]
 
   @@unique([workspaceId, name])
+  @@unique([workspaceId, id])
   @@map("saved_view")
+}
+
+/// A public, read-only link to one saved view (M31, ADR-045). Only the
+/// sha256 of the token is stored; the URL is shown once. Deleting the view
+/// deletes its links.
+model MapShare {
+  id           String    @id @default(cuid())
+  workspaceId  String
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  savedViewId  String
+  savedView    SavedView @relation(fields: [workspaceId, savedViewId], references: [workspaceId, id], onDelete: Cascade)
+  tokenHash    String    @unique
+  /// First characters of the token, safe to display.
+  prefix       String
+  /// null = does not expire.
+  expiresAt    DateTime?
+  revokedAt    DateTime?
+  /// Written at most every few minutes.
+  lastViewedAt DateTime?
+  createdById  String
+  createdAt    DateTime  @default(now())
+
+  @@index([workspaceId, createdAt])
+  @@map("map_share")
 }
 
 // ───────────────────────────── Read-only API (M30, ADR-044) ─────────────────────────────
@@ -686,6 +713,10 @@ enum IntegrationKind {
   PROXMOX
   TRUENAS
   SYNOLOGY
+  /// M31 (ADR-045): other tools' inventories, same local-source rules.
+  NETBOX
+  ZABBIX
+  PRTG
 }
 
 model Integration {

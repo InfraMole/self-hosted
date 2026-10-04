@@ -27,6 +27,7 @@ export function LibraryFilters({
     const next = new URLSearchParams(params.toString());
     if (value) next.set(key, value);
     else next.delete(key);
+    next.delete("page"); // other filters, other pages
     const qs = next.toString();
     startTransition(() => router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false }));
   }

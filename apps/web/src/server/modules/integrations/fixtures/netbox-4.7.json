@@ -1,0 +1,438 @@
+{
+  "_comment": "Recorded from NetBox 4.7.2 (netboxcommunity/netbox), reduced to the fields InfraMole reads.",
+  "devices": [
+    {
+      "id": 4,
+      "name": "nas01",
+      "status": {
+        "value": "active"
+      },
+      "role": {
+        "id": 3,
+        "name": "Storage",
+        "slug": "storage"
+      },
+      "device_type": {
+        "id": 3,
+        "manufacturer": {
+          "id": 3,
+          "name": "Synology",
+          "slug": "synology"
+        },
+        "model": "RS1221+",
+        "slug": "rs1221"
+      },
+      "platform": null,
+      "site": {
+        "id": 1,
+        "name": "DC Madrid",
+        "slug": "dc-madrid"
+      },
+      "tenant": {
+        "id": 1,
+        "name": "Acme Corp",
+        "slug": "acme"
+      },
+      "cluster": null,
+      "primary_ip4": {
+        "id": 4,
+        "address": "10.10.0.20/24"
+      },
+      "primary_ip6": null,
+      "tags": [],
+      "description": ""
+    },
+    {
+      "id": 5,
+      "name": "srv-new",
+      "status": {
+        "value": "planned"
+      },
+      "role": {
+        "id": 1,
+        "name": "Server",
+        "slug": "server"
+      },
+      "device_type": {
+        "id": 1,
+        "manufacturer": {
+          "id": 1,
+          "name": "Dell",
+          "slug": "dell"
+        },
+        "model": "PowerEdge R650",
+        "slug": "r650"
+      },
+      "platform": {
+        "id": 1,
+        "name": "Ubuntu 24.04",
+        "slug": "ubuntu-2404"
+      },
+      "site": {
+        "id": 1,
+        "name": "DC Madrid",
+        "slug": "dc-madrid"
+      },
+      "tenant": {
+        "id": 1,
+        "name": "Acme Corp",
+        "slug": "acme"
+      },
+      "cluster": null,
+      "primary_ip4": null,
+      "primary_ip6": null,
+      "tags": [],
+      "description": ""
+    },
+    {
+      "id": 1,
+      "name": "srv01",
+      "status": {
+        "value": "active"
+      },
+      "role": {
+        "id": 1,
+        "name": "Server",
+        "slug": "server"
+      },
+      "device_type": {
+        "id": 1,
+        "manufacturer": {
+          "id": 1,
+          "name": "Dell",
+          "slug": "dell"
+        },
+        "model": "PowerEdge R650",
+        "slug": "r650"
+      },
+      "platform": {
+        "id": 1,
+        "name": "Ubuntu 24.04",
+        "slug": "ubuntu-2404"
+      },
+      "site": {
+        "id": 1,
+        "name": "DC Madrid",
+        "slug": "dc-madrid"
+      },
+      "tenant": {
+        "id": 1,
+        "name": "Acme Corp",
+        "slug": "acme"
+      },
+      "cluster": {
+        "id": 1,
+        "name": "prod-cluster"
+      },
+      "primary_ip4": {
+        "id": 1,
+        "address": "10.10.0.11/24"
+      },
+      "primary_ip6": null,
+      "tags": [
+        {
+          "id": 1,
+          "name": "production",
+          "slug": "production"
+        }
+      ],
+      "description": ""
+    },
+    {
+      "id": 2,
+      "name": "srv02",
+      "status": {
+        "value": "active"
+      },
+      "role": {
+        "id": 1,
+        "name": "Server",
+        "slug": "server"
+      },
+      "device_type": {
+        "id": 1,
+        "manufacturer": {
+          "id": 1,
+          "name": "Dell",
+          "slug": "dell"
+        },
+        "model": "PowerEdge R650",
+        "slug": "r650"
+      },
+      "platform": {
+        "id": 1,
+        "name": "Ubuntu 24.04",
+        "slug": "ubuntu-2404"
+      },
+      "site": {
+        "id": 1,
+        "name": "DC Madrid",
+        "slug": "dc-madrid"
+      },
+      "tenant": {
+        "id": 1,
+        "name": "Acme Corp",
+        "slug": "acme"
+      },
+      "cluster": null,
+      "primary_ip4": {
+        "id": 3,
+        "address": "10.10.0.12/24"
+      },
+      "primary_ip6": null,
+      "tags": [],
+      "description": ""
+    },
+    {
+      "id": 3,
+      "name": "sw01",
+      "status": {
+        "value": "active"
+      },
+      "role": {
+        "id": 2,
+        "name": "Access switch",
+        "slug": "access-switch"
+      },
+      "device_type": {
+        "id": 2,
+        "manufacturer": {
+          "id": 2,
+          "name": "Cisco",
+          "slug": "cisco"
+        },
+        "model": "Catalyst 9300",
+        "slug": "c9300"
+      },
+      "platform": null,
+      "site": {
+        "id": 1,
+        "name": "DC Madrid",
+        "slug": "dc-madrid"
+      },
+      "tenant": {
+        "id": 1,
+        "name": "Acme Corp",
+        "slug": "acme"
+      },
+      "cluster": null,
+      "primary_ip4": null,
+      "primary_ip6": null,
+      "tags": [],
+      "description": ""
+    }
+  ],
+  "vms": [
+    {
+      "id": 2,
+      "name": "old-vm",
+      "status": {
+        "value": "decommissioning"
+      },
+      "role": null,
+      "platform": null,
+      "site": null,
+      "tenant": null,
+      "cluster": {
+        "id": 1,
+        "name": "prod-cluster"
+      },
+      "device": null,
+      "primary_ip4": null,
+      "primary_ip6": null,
+      "tags": [],
+      "description": ""
+    },
+    {
+      "id": 1,
+      "name": "web-vm",
+      "status": {
+        "value": "active"
+      },
+      "role": null,
+      "platform": {
+        "id": 1,
+        "name": "Ubuntu 24.04",
+        "slug": "ubuntu-2404"
+      },
+      "site": {
+        "id": 1,
+        "name": "DC Madrid",
+        "slug": "dc-madrid"
+      },
+      "tenant": null,
+      "cluster": {
+        "id": 1,
+        "name": "prod-cluster"
+      },
+      "device": {
+        "id": 1,
+        "name": "srv01"
+      },
+      "primary_ip4": {
+        "id": 5,
+        "address": "10.10.0.31/24"
+      },
+      "primary_ip6": null,
+      "tags": [
+        {
+          "id": 1,
+          "name": "production",
+          "slug": "production"
+        }
+      ],
+      "description": ""
+    }
+  ],
+  "ips": [
+    {
+      "address": "10.10.0.11/24",
+      "assigned_object_type": "dcim.interface",
+      "assigned_object": {
+        "id": 1,
+        "device": {
+          "id": 1,
+          "name": "srv01"
+        },
+        "name": "eth0"
+      }
+    },
+    {
+      "address": "10.10.0.12/24",
+      "assigned_object_type": "dcim.interface",
+      "assigned_object": {
+        "id": 3,
+        "device": {
+          "id": 2,
+          "name": "srv02"
+        },
+        "name": "eth0"
+      }
+    },
+    {
+      "address": "10.10.0.20/24",
+      "assigned_object_type": "dcim.interface",
+      "assigned_object": {
+        "id": 7,
+        "device": {
+          "id": 4,
+          "name": "nas01"
+        },
+        "name": "lan1"
+      }
+    },
+    {
+      "address": "10.10.0.31/24",
+      "assigned_object_type": "virtualization.vminterface",
+      "assigned_object": {
+        "id": 1,
+        "virtual_machine": {
+          "id": 1,
+          "name": "web-vm"
+        },
+        "name": "eth0"
+      }
+    },
+    {
+      "address": "192.168.50.11/24",
+      "assigned_object_type": "dcim.interface",
+      "assigned_object": {
+        "id": 2,
+        "device": {
+          "id": 1,
+          "name": "srv01"
+        },
+        "name": "eth1"
+      }
+    }
+  ],
+  "cables": [
+    {
+      "id": 1,
+      "a_terminations": [
+        {
+          "object_type": "dcim.interface",
+          "object": {
+            "id": 1,
+            "device": {
+              "id": 1,
+              "name": "srv01"
+            },
+            "name": "eth0"
+          }
+        }
+      ],
+      "b_terminations": [
+        {
+          "object_type": "dcim.interface",
+          "object": {
+            "id": 4,
+            "device": {
+              "id": 3,
+              "name": "sw01"
+            },
+            "name": "Gi1/0/1"
+          }
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "a_terminations": [
+        {
+          "object_type": "dcim.interface",
+          "object": {
+            "id": 3,
+            "device": {
+              "id": 2,
+              "name": "srv02"
+            },
+            "name": "eth0"
+          }
+        }
+      ],
+      "b_terminations": [
+        {
+          "object_type": "dcim.interface",
+          "object": {
+            "id": 5,
+            "device": {
+              "id": 3,
+              "name": "sw01"
+            },
+            "name": "Gi1/0/2"
+          }
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "a_terminations": [
+        {
+          "object_type": "dcim.interface",
+          "object": {
+            "id": 7,
+            "device": {
+              "id": 4,
+              "name": "nas01"
+            },
+            "name": "lan1"
+          }
+        }
+      ],
+      "b_terminations": [
+        {
+          "object_type": "dcim.interface",
+          "object": {
+            "id": 6,
+            "device": {
+              "id": 3,
+              "name": "sw01"
+            },
+            "name": "Gi1/0/3"
+          }
+        }
+      ]
+    }
+  ]
+}

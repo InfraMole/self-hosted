@@ -40,12 +40,20 @@ Alt+Enter shows it on the map. Filters narrow by type, environment, status and *
 who created the resource: a person, an agent, an integration or a file
 import.
 
+**Sort** by clicking a column header (click again to reverse it). Large
+inventories are split into pages of 100; the count and **Next** /
+**Previous** are under the table. Filters, sorting and the page are in the
+address, so a link opens the same list.
+
 ## Add and edit
 
 - **Add resource** opens a form; only the name and type are required.
 - Click a resource to open its page: **Overview** (details, observed
   connections), **Dependencies** (relationships in both directions) and
   **Activity** (every change, with who made it).
+- If a resource with the same name already exists (in any case, even
+  archived), InfraMole shows it and asks before creating another one —
+  **Create anyway** when two of them are legitimate (two clients' `web01`).
 - Members, admins and owners can edit; viewers can only read.
 
 ## Owners
@@ -60,7 +68,7 @@ resources at once with **Set owner…** (below), or with `owner` /
 ## Bulk actions
 
 Tick rows to **archive**, **delete** or **set the owner** of several
-resources at once (up to 500).
+resources at once (up to 500). The selection is per page.
 Deleting also removes their relationships; the delete dialog offers
 **Archive instead**.
 

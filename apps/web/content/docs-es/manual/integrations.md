@@ -11,6 +11,8 @@ owners del espacio de trabajo en **Settings › Integrations**.
 - **DNS y red**: Cloudflare y Tailscale.
 - **Fuentes locales**: Proxmox VE, TrueNAS y Synology, que el servidor de
   InfraMole lee a través de sus API (ver [Fuentes locales](#fuentes-locales)).
+- **Otras herramientas**: NetBox, Zabbix y PRTG — trae el inventario que ya
+  tienes allí (ver [Otras herramientas](#otras-herramientas)).
 
 :::note Cómo se protegen las credenciales
 Las credenciales se cifran en reposo (AES-256-GCM) en cuanto las guardas y
@@ -234,6 +236,28 @@ Las máquinas conectadas al NAS solo las ve una cuenta de administrador. No
 la uses salvo que lo necesites.
 :::
 
+**Otras herramientas** — se alcanzan como las fuentes locales.
+
+:::tabs
+@tab NetBox
+
+**Admin › Users** (o tu perfil) **› API tokens › Add**: un token de un
+usuario que pueda ver dispositivos, máquinas virtuales, direcciones IP y
+cables, con **Write enabled** desactivado. Valen los dos formatos: el token
+clásico de 40 caracteres y los `nbt_…` de NetBox 4.5+. También NetBox Cloud.
+@tab Zabbix
+
+**Users › API tokens › Create API token** para un usuario cuyo rol pueda
+leer los grupos de hosts que quieres importar (basta un rol **User**).
+Zabbix 6.0 o posterior. La URL es la del frontend de Zabbix, con su ruta si
+la tiene (por ejemplo `https://zabbix.example.lan/zabbix`).
+@tab PRTG
+
+**Setup › Account settings › API keys › Add API key**, acceso **Read**
+(PRTG 22.1 o posterior). La API de PRTG espera la clave en la dirección de
+la petición: usa https.
+:::
+
 ### Añade la integración
 
 En **Settings › Integrations › Add integration**, elige el proveedor, dale
@@ -245,8 +269,8 @@ hora a 7 días) y pega los valores. Algunos proveedores tienen opciones:
 - **Devices not in the Library** (Tailscale) — ver [Tailscale](#tailscale).
 
 :::note Integraciones en Preview
-Todo salvo Cloudflare y las máquinas virtuales / bases de datos de Azure y
-AWS está marcado como **Preview** — incluidos sus balanceadores, las bases
+Todo salvo Cloudflare, NetBox, Zabbix y las máquinas virtuales / bases de
+datos de Azure y AWS está marcado como **Preview** — incluidos sus balanceadores, las bases
 de datos gestionadas (Azure) y los registros DNS: están
 hechas a partir de la documentación de la API de cada proveedor y probadas
 con respuestas grabadas, pero todavía no con una cuenta real. Usa primero
@@ -326,6 +350,33 @@ openssl s_client -connect pve.example.lan:8006 </dev/null 2>/dev/null \
 renueve el certificado, actualiza la huella. Déjala vacía si el certificado
 es de una autoridad de confianza.
 
+## Otras herramientas
+
+Si ya tienes un inventario en **NetBox**, o monitorizas tus máquinas con
+**Zabbix** o **PRTG**, InfraMole puede partir de ahí en vez de empezar de
+cero. Como las fuentes locales, las llama el servidor de InfraMole: un
+NetBox, Zabbix o PRTG en una red privada necesita
+`INTEGRATIONS_PRIVATE_NETWORKS` y, con un certificado autofirmado, su
+huella ([Fuentes locales](#fuentes-locales)). Un NetBox Cloud público
+funciona en cualquier sitio, también en InfraMole Cloud.
+
+- **NetBox**: dispositivos y máquinas virtuales con sus direcciones IP,
+  plataforma (como sistema operativo), sitio, tenant, clúster, rol y
+  etiquetas. El equipo de red (switches, routers, firewalls, puntos de
+  acceso…) pasa a ser un recurso de red; el almacenamiento, de
+  almacenamiento. Una VM colocada en un dispositivo se dibuja sobre él, y un
+  **cable** entre una máquina y un equipo de red hace que la máquina
+  _dependa_ de él. Se omite lo planificado, en desmantelamiento o en
+  inventario.
+- **Zabbix**: los hosts monitorizados (los desactivados se omiten), las IP y
+  nombres DNS de sus interfaces, el sistema operativo y la **persona de
+  contacto** del inventario del host (como [responsable](/es/docs/manual/library#responsables)),
+  los grupos y las etiquetas. Un host solo con interfaces SNMP es equipo de
+  red. Una **dependencia de triggers** entre dos hosts («APP01 unreachable»
+  depende de «core-sw1 unreachable») se importa como **sugerencia**: alguien
+  la declaró, tú la confirmas.
+- **PRTG** (Preview): dispositivos con su dirección, grupo y sonda.
+
 ## Qué se importa
 
 | Proveedor           | Recursos                                                                                                                                     | Relaciones                                                                                                                                                |
@@ -347,6 +398,9 @@ es de una autoridad de confianza.
 | Proxmox VE          | Nodos, VM y contenedores, con IP del nodo, de los contenedores y del agente invitado                                                         | Cada VM / contenedor _hosted by_ su nodo                                                                                                                  |
 | TrueNAS             | El NAS; recursos SMB, exportaciones NFS y targets iSCSI                                                                                      | Cada recurso _runs on_ el NAS; las máquinas conectadas a un recurso cuando se lee se **sugieren** como _stores data in_ él                                |
 | Synology            | El NAS y sus carpetas compartidas                                                                                                            | Cada carpeta _runs on_ el NAS; con una cuenta de administrador, las máquinas conectadas cuando se lee se **sugieren** como _stores data in_ el NAS        |
+| NetBox              | Dispositivos y máquinas virtuales (IP, plataforma, sitio / tenant / clúster / rol / etiquetas)                                               | La VM _hosted by_ su dispositivo; la máquina _depends on_ el equipo de red al que está cableada                                                           |
+| Zabbix              | Hosts monitorizados (IP y DNS de interfaces, SO, contacto como responsable, grupos, etiquetas)                                               | Dependencias de triggers entre hosts, como **sugerencias**                                                                                                |
+| PRTG                | Dispositivos (dirección, grupo, sonda)                                                                                                       | —                                                                                                                                                         |
 
 Los recursos importados empiezan como **Discovered**. Las etiquetas
 llamadas `env` o `environment` fijan el entorno. Los backends de los

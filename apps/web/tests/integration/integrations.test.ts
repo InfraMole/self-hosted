@@ -17,6 +17,8 @@ import {
   createWorkspace,
   findWorkspaceContextForUser,
 } from "@/server/modules/workspaces/workspaces";
+import netboxFixture from "@/server/modules/integrations/fixtures/netbox-4.7.json";
+import zabbixFixture from "@/server/modules/integrations/fixtures/zabbix-7.0.json";
 import { adminDb, createTestUser, resetDatabase } from "./helpers";
 
 beforeEach(resetDatabase);
@@ -244,5 +246,100 @@ describe("cloud integrations (M23)", () => {
     const after = await listResources(ctx, {});
     expect(after.find((r) => r.name === "web-2")!.status).toBe("STALE");
     expect(after.find((r) => r.name === "web-1")!.status).toBe("DISCOVERED");
+  });
+});
+
+describe("other tools' inventories (M31): NetBox and Zabbix, recorded responses", () => {
+  /** Answers like the recorded NetBox 4.7.2 / Zabbix 7.0.31, on a "local" network. */
+  const fakeTools = (): ProviderDeps => ({
+    http: async () => {
+      throw new Error("public http not expected");
+    },
+    local: {
+      rpc: async () => {
+        throw new Error("rpc not expected");
+      },
+      http: async (url, init = {}) => {
+        const ok = (body: unknown) => ({
+          status: 200,
+          headers: new Headers(),
+          text: JSON.stringify(body),
+        });
+        if (url.includes("/api_jsonrpc.php")) {
+          const { method, params } = JSON.parse(init.body!) as {
+            method: string;
+            params: { triggerids?: string[] };
+          };
+          if (method === "apiinfo.version") return ok({ result: "7.0.31" });
+          if (method === "host.get") return ok({ result: zabbixFixture.hosts });
+          return ok({
+            result: params.triggerids ? zabbixFixture.dependencyTriggers : zabbixFixture.triggers,
+          });
+        }
+        const path = new URL(url).pathname;
+        const results =
+          path === "/api/dcim/devices/"
+            ? netboxFixture.devices
+            : path === "/api/virtualization/virtual-machines/"
+              ? netboxFixture.vms
+              : path === "/api/ipam/ip-addresses/"
+                ? netboxFixture.ips
+                : netboxFixture.cables;
+        return ok({
+          results: new URL(url).searchParams.get("offset") === "0" ? results : [],
+          next: null,
+        });
+      },
+    },
+  });
+
+  it("imports both, confirms facts, suggests declared dependencies, and re-syncs idempotently", async () => {
+    const ctx = await ownerContext("Acme");
+    const nb = await createIntegration(ctx, {
+      kind: "NETBOX",
+      name: "NetBox",
+      config: { url: "https://netbox.lan" },
+      secret: { token: "0123456789abcdef0123456789abcdef01234567" },
+    });
+    const zbx = await createIntegration(ctx, {
+      kind: "ZABBIX",
+      name: "Zabbix",
+      config: { url: "https://zabbix.lan/zabbix" },
+      secret: { token: "e30406131580e88f2216e59ba737aaba" },
+    });
+    expect(nb.secretHint).toBe("4567");
+    for (let round = 0; round < 2; round++) {
+      expect(await syncIntegration(ctx, nb.id, fakeTools())).toMatchObject({ ok: true });
+      expect(await syncIntegration(ctx, zbx.id, fakeTools())).toMatchObject({ ok: true });
+    }
+    const names = (await listResources(ctx, {})).map((r) => r.name).sort();
+    expect(names).toEqual([
+      "APP01 – billing",
+      "Zabbix server",
+      "build-vm",
+      "core-sw1",
+      "db01",
+      "nas01",
+      "srv01",
+      "srv02",
+      "sw01",
+      "web-vm",
+    ]);
+    const rels = await adminDb().relationship.findMany({
+      where: { workspaceId: ctx.workspaceId },
+      include: { from: true, to: true },
+    });
+    const row = (from: string, to: string) =>
+      rels.filter((r) => r.from.name === from && r.to.name === to).map((r) => [r.type, r.status]);
+    expect(row("srv01", "web-vm")).toEqual([["HOSTS", "CONFIRMED"]]);
+    expect(row("srv01", "sw01")).toEqual([["DEPENDS_ON", "CONFIRMED"]]);
+    expect(row("APP01 – billing", "db01")).toEqual([["DEPENDS_ON", "UNCONFIRMED"]]);
+    expect(rels).toHaveLength(7); // the second sync added nothing
+    const app = (await listResources(ctx, { q: "APP01" }))[0]!;
+    expect([app.owner, app.ownerContact, app.status]).toEqual([
+      "Billing team",
+      "billing@corp.lan",
+      "DISCOVERED",
+    ]);
   });
 });

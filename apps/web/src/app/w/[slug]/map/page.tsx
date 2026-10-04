@@ -10,7 +10,7 @@ import { hasRole } from "@/server/authz";
 import { getWorkspaceGraph } from "@/server/modules/map/map";
 import { listSavedViews } from "@/server/modules/map/views";
 import { requireWorkspace } from "@/server/tenancy";
-import { deleteViewAction, saveViewAction } from "./actions";
+import { deleteViewAction, saveViewAction, shareViewAction } from "./actions";
 
 export const metadata: Metadata = { title: "Map" };
 
@@ -59,6 +59,9 @@ export default async function MapPage({ params, searchParams }: PageProps<"/w/[s
             canEditViews={hasRole(ctx.role, "MEMBER")}
             saveView={saveViewAction.bind(null, ctx.workspaceSlug)}
             deleteView={deleteViewAction.bind(null, ctx.workspaceSlug)}
+            shareView={
+              hasRole(ctx.role, "ADMIN") ? shareViewAction.bind(null, ctx.workspaceSlug) : undefined
+            }
           />
         </div>
       )}

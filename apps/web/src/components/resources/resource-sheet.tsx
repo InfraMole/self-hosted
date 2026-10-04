@@ -2,7 +2,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
+import Link from "next/link";
 import type { ResourceFormState } from "@/app/w/[slug]/resources/actions";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogTrigger, SheetContent } from "@/components/ui/dialog";
@@ -44,10 +45,23 @@ export function ResourceSheet({
     if (next) setState({});
   }
 
+  const form = useRef<HTMLFormElement>(null);
+
   // Manual submit (not <form action>) so React does not reset the fields on errors.
   function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const formData = new FormData(event.currentTarget);
+    submit(new FormData(event.currentTarget));
+  }
+
+  /** Same name exists (M31): save anyway once the user has seen it. */
+  function saveAnyway() {
+    if (!form.current) return;
+    const formData = new FormData(form.current);
+    formData.set("confirmDuplicate", "1");
+    submit(formData);
+  }
+
+  function submit(formData: FormData) {
     startTransition(async () => {
       const result = await action(formData);
       setState(result);
@@ -68,6 +82,7 @@ export function ResourceSheet({
         description="No passwords or secrets — this is a map, not a vault."
       >
         <form
+          ref={form}
           onSubmit={onSubmit}
           onChange={(e) => {
             // Clear a field's error as soon as the user edits it.
@@ -75,6 +90,7 @@ export function ResourceSheet({
             if (state.fieldErrors?.[name]) {
               setState((s) => ({ ...s, fieldErrors: { ...s.fieldErrors, [name]: "" } }));
             }
+            if (name === "name" && state.duplicates) setState((s) => ({ ...s, duplicates: [] }));
           }}
           className="flex min-h-0 flex-1 flex-col"
           noValidate
@@ -251,6 +267,38 @@ export function ResourceSheet({
             </Section>
           </div>
 
+          {state.duplicates && state.duplicates.length > 0 && (
+            <div
+              role="alert"
+              className="border-warning/40 bg-surface-2 mx-5 mb-3 rounded-md border px-3 py-2.5 text-xs"
+            >
+              <p className="text-warning font-medium">
+                {state.duplicates.length === 1
+                  ? "A resource with this name already exists:"
+                  : "Resources with this name already exist:"}
+              </p>
+              <ul className="mt-1 space-y-0.5">
+                {state.duplicates.map((d) => (
+                  <li key={d.id}>
+                    <Link
+                      href={`/w/${workspaceSlug}/resources/${d.id}`}
+                      target="_blank"
+                      className="font-mono hover:underline"
+                    >
+                      {d.name}
+                    </Link>
+                    {d.status === "ARCHIVED" && <span className="text-subtle"> (archived)</span>}
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-2 flex items-center gap-2">
+                <Button type="button" size="sm" variant="secondary" onClick={saveAnyway}>
+                  {mode === "create" ? "Create anyway" : "Save anyway"}
+                </Button>
+                <span className="text-muted">or change the name.</span>
+              </div>
+            </div>
+          )}
           <div className="border-border flex items-center justify-between gap-3 border-t px-5 py-3">
             <p role="alert" className="text-danger min-w-0 text-xs leading-snug">
               {state.error ??

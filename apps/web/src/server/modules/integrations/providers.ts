@@ -39,6 +39,7 @@ import {
 } from "./cloud-providers";
 import { ionos, linode, oracleCloud, vultr } from "./more-clouds";
 import { tailscale } from "./tailscale";
+import { netbox, prtg, zabbix } from "./other-tools";
 import { proxmox, synology, truenas } from "./local-sources";
 
 export * from "./provider-base";
@@ -685,5 +686,8 @@ export const PROVIDERS = {
   PROXMOX: proxmox,
   TRUENAS: truenas,
   SYNOLOGY: synology,
+  NETBOX: netbox,
+  ZABBIX: zabbix,
+  PRTG: prtg,
 } as const;
 export type ProviderKind = keyof typeof PROVIDERS;

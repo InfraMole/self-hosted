@@ -10,6 +10,8 @@ import {
   ResourceNotFoundError,
   createResource,
   deleteResource,
+  findSameName,
+  getResource,
   updateResource,
 } from "@/server/modules/resources/resources";
 import {
@@ -24,6 +26,8 @@ export interface ResourceFormState {
   resourceId?: string;
   error?: string;
   fieldErrors?: Record<string, string>;
+  /** Same name already used (M31): the form asks before saving anyway. */
+  duplicates?: { id: string; name: string; status: string }[];
 }
 
 /** Create (resourceId = null) or update a resource. Bound with slug/id by the page. */
@@ -35,6 +39,17 @@ export async function saveResourceAction(
   const ctx = await requireWorkspace(slug);
   const parsed = resourceInputSchema.safeParse(resourceFormToInput(formData));
   if (!parsed.success) return { fieldErrors: fieldErrors(parsed.error) };
+
+  // A warning, never a block: two "web01" of different clients are legitimate.
+  if (formData.get("confirmDuplicate") !== "1") {
+    const current = resourceId ? await getResource(ctx, resourceId) : null;
+    const renamed =
+      !current || current.name.toLowerCase() !== parsed.data.name.trim().toLowerCase();
+    if (renamed) {
+      const duplicates = await findSameName(ctx, parsed.data.name, resourceId);
+      if (duplicates.length) return { duplicates };
+    }
+  }
 
   try {
     const resource = resourceId

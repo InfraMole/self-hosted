@@ -11,6 +11,7 @@
  *            clouds (Hetzner, DigitalOcean, Scaleway, OVHcloud, Google Cloud,
  *            Clouding — M23, ADR-034); see `CloudInventory`.
  */
+import type { RelationshipType } from "@depmap/graph";
 import type { ImportBatch, ImportFormat, RowError } from "./parse";
 import { buildResourceRow } from "./parse";
 
@@ -24,7 +25,8 @@ export type PlatformFormat =
   | "hypervisor"
   | "kubernetes"
   | "tailscale"
-  | "storage";
+  | "storage"
+  | "inventory";
 
 /** Detects a platform export inside already-parsed JSON (null = generic JSON). */
 export function detectPlatform(data: unknown): PlatformFormat | null {
@@ -72,6 +74,7 @@ export function parsePlatform(format: PlatformFormat, data: unknown): ImportBatc
   else if (format === "kubernetes") kubernetes(batch, data);
   else if (format === "tailscale") tailscale(batch, data);
   else if (format === "storage") storage(batch, data);
+  else if (format === "inventory") inventory(batch, data);
   else aws(batch, data);
   return batch;
 }
@@ -948,6 +951,89 @@ function storage(batch: ImportBatch, data: unknown) {
       optional: true,
     });
   }
+}
+
+// ───────────────────────── Other tools' inventories (M31) ─────────────────────────
+
+export const INVENTORY_SOURCES = {
+  netbox: { label: "NetBox", tag: "netbox" },
+  zabbix: { label: "Zabbix", tag: "zabbix" },
+  prtg: { label: "PRTG", tag: "prtg" },
+} as const;
+
+export interface InventoryItem {
+  /** Stable id within the source (device/42, vm/7, host 10084…). */
+  id: string;
+  name: string;
+  type: string;
+  description?: string;
+  environment?: string;
+  hostname?: string;
+  fqdn?: string;
+  os?: string;
+  ips?: string[];
+  tags?: string[];
+  owner?: string;
+  ownerContact?: string;
+}
+
+export interface InventoryInput {
+  source: keyof typeof INVENTORY_SOURCES;
+  items: InventoryItem[];
+  /**
+   * Links between items. `declared` = a dependency someone configured in the
+   * other tool (Zabbix trigger dependencies): imported as a suggestion to
+   * review. Otherwise a fact the tool records (VM placement, a cable).
+   */
+  links?: { from: string; to: string; type: RelationshipType; note: string; declared?: boolean }[];
+}
+
+/** NetBox / Zabbix / PRTG through one normalised document (ADR-045). */
+function inventory(batch: ImportBatch, data: unknown) {
+  const inv = (data ?? {}) as Partial<InventoryInput>;
+  const src = inv.source && INVENTORY_SOURCES[inv.source];
+  if (!src) {
+    batch.errors.push({ row: 0, message: "Unknown inventory source." });
+    return;
+  }
+  const key = (id: string) => `${src.tag}/${id}`.toLowerCase();
+  const created = new Set<string>();
+  let row = 0;
+  for (const item of inv.items ?? []) {
+    row++;
+    const ok = add(batch, row, {
+      id: key(item.id),
+      name: item.name,
+      type: item.type,
+      environment: item.environment,
+      description: item.description,
+      hostname: item.hostname,
+      fqdn: item.fqdn,
+      os: item.os,
+      ips: [...new Set(item.ips ?? [])],
+      owner: item.owner,
+      owner_contact: item.ownerContact,
+      tags: [...new Set([src.tag, ...(item.tags ?? []).map(cleanTag).filter(Boolean)])].slice(
+        0,
+        20,
+      ),
+    });
+    if (ok) created.add(key(item.id));
+  }
+  for (const link of inv.links ?? []) {
+    const from = key(link.from);
+    const to = key(link.to);
+    if (from === to || !created.has(from) || !created.has(to)) continue;
+    batch.relationships.push({
+      row: 0,
+      from,
+      to,
+      type: link.type,
+      note: link.note,
+      suggested: !!link.declared,
+    });
+  }
+  if (row === 0) batch.warnings.push(`Nothing found in ${src.label}.`);
 }
 
 // ───────────────────────── Hypervisors (M24) ─────────────────────────

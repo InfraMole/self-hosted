@@ -42,6 +42,7 @@ export const importRequestSchema = z.object({
       "kubernetes",
       "tailscale",
       "storage",
+      "inventory",
     ])
     .default("auto"),
   project: z.string().trim().max(64).optional(),
@@ -195,7 +196,8 @@ export async function runImport(
     source === "workloads" ||
     source === "cloud" ||
     source === "hypervisor" ||
-    source === "kubernetes"
+    source === "kubernetes" ||
+    source === "inventory"
       ? "DISCOVERED"
       : "ACTIVE";
   let suggestions = 0;

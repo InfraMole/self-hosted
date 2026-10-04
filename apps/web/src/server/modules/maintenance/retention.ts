@@ -21,6 +21,7 @@ export const RETENTION = {
   endedInvitationDays: 30, // after accepted / revoked / expired (they hold emails)
   endedEnrollmentTokenDays: 90, // after revoked / expired
   endedApiTokenDays: 90, // read-only API tokens (M30), after revoked / expired
+  endedShareDays: 90, // public map links (M31), after revoked / expired
   revokedAgentDays: 90, // revoked agents keep their last IP until then
   suggestionDays: 30, // unreviewed agent suggestions not observed since (M15)
 } as const;
@@ -38,6 +39,7 @@ export async function runRetention(now = new Date()) {
     enrollmentTokens,
     agents,
     apiTokens,
+    shares,
   ] = await Promise.all([
     db.observation.deleteMany({
       where: { receivedAt: { lt: before(RETENTION.observationDays) } },
@@ -76,6 +78,14 @@ export async function runRetention(now = new Date()) {
         ],
       },
     }),
+    db.mapShare.deleteMany({
+      where: {
+        OR: [
+          { revokedAt: { lt: before(RETENTION.endedShareDays) } },
+          { expiresAt: { lt: before(RETENTION.endedShareDays) } },
+        ],
+      },
+    }),
   ]);
   // Auth tables (no RLS): expired sessions and verification / reset tokens.
   const [sessions, verifications] = await Promise.all([
@@ -92,6 +102,7 @@ export async function runRetention(now = new Date()) {
     invitations: invitations.count,
     enrollmentTokens: enrollmentTokens.count,
     apiTokens: apiTokens.count,
+    shares: shares.count,
     agents: agents.count,
     sessions: sessions.count,
     verifications: verifications.count,

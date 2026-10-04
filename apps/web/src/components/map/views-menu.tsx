@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { Bookmark, Check, ChevronDown, Trash2 } from "lucide-react";
+import { Bookmark, Check, ChevronDown, Link2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { SavedViewState, SavedViewSummary, ViewActionResult } from "@/lib/map-view-state";
@@ -24,6 +24,8 @@ interface Props {
     state: SavedViewState;
   }) => Promise<ViewActionResult>;
   onDelete: (id: string) => Promise<ViewActionResult>;
+  /** Admins: open the public-link dialog for a view (M31). */
+  onShare?: (view: SavedViewSummary) => void;
 }
 
 /** Saved map views (M26 phase 3, ADR-041): shared with the workspace. */
@@ -37,6 +39,7 @@ export function ViewsMenu({
   onSaved,
   onSave,
   onDelete,
+  onShare,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
@@ -116,6 +119,20 @@ export function ViewsMenu({
                   />
                   <span className="truncate">{v.name}</span>
                 </button>
+                {onShare && (
+                  <button
+                    type="button"
+                    aria-label={`Public link to ${v.name}`}
+                    title="Public read-only link"
+                    onClick={() => {
+                      onShare(v);
+                      setOpen(false);
+                    }}
+                    className="text-subtle hover:text-accent rounded p-1 opacity-0 group-hover:opacity-100 focus:opacity-100"
+                  >
+                    <Link2 className="size-3.5" />
+                  </button>
+                )}
                 {canEdit && (
                   <button
                     type="button"

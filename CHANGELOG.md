@@ -5,6 +5,25 @@ images). The agent has its own changelog in the InfraMole/agent repository.
 To update an installation, see
 [Upgrade guide](https://inframole.com/docs/operations/upgrade).
 
+## 0.21.0 — 2026-10-04
+
+### Added
+
+- **Bring your inventory**: integrations for **NetBox** and **Zabbix** —
+  devices, VMs and hosts with their IPs, OS, groups and tags; a VM on its
+  host, a machine depending on the switch it is cabled to (NetBox); Zabbix
+  points of contact as owners and trigger dependencies as suggestions to
+  review. **PRTG** devices in preview. Self-signed certificates are
+  accepted by pinning their fingerprint, like Proxmox.
+- **Public links to a map view**: share a saved view with someone without
+  an account, read-only. IP addresses, owners, notes and anything outside
+  the view are never shown; links expire when you choose and can be
+  revoked in Settings.
+- **Library for large inventories**: pages of 100 instead of a 500-row
+  cap, sorting by any column, an Owner column.
+- Creating or renaming a resource to a name that already exists asks
+  first, with a link to the existing one.
+
 ## 0.20.0 — 2026-10-02
 
 ### Added

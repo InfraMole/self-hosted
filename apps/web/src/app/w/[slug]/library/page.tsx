@@ -12,7 +12,11 @@ import { ResourceTable } from "@/components/resources/resource-table";
 import { RetireSourceBanner } from "@/components/resources/retire-source";
 import { Button } from "@/components/ui/button";
 import { hasRole } from "@/server/authz";
-import { LIST_LIMIT, listResources } from "@/server/modules/resources/resources";
+import {
+  LIBRARY_SORTS,
+  defaultDirection,
+  listResourcesPage,
+} from "@/server/modules/resources/resources";
 import { listSources } from "@/server/modules/resources/sources";
 import { markStaleHosts } from "@/server/modules/discovery/staleness";
 import { getFirstStepsFacts } from "@/server/modules/workspaces/first-steps";
@@ -36,12 +40,23 @@ export default async function LibraryPage({
   const ctx = await requireWorkspace(slug);
   await markStaleHosts(ctx.workspaceId); // throttled (ADR-016)
   const filters = await searchParams;
-  const [resources, sources, firstSteps] = await Promise.all([
-    listResources(ctx, filters),
+  const [library, sources, firstSteps] = await Promise.all([
+    listResourcesPage(ctx, filters),
     listSources(ctx),
     getFirstStepsFacts(ctx),
   ]);
+  const resources = library.rows;
   const canWrite = hasRole(ctx.role, "MEMBER");
+  /** The current URL with some parameters replaced (pagination links). */
+  const href = (changes: Record<string, string | null>) => {
+    const next = new URLSearchParams();
+    for (const [k, v] of Object.entries(filters)) if (typeof v === "string" && v) next.set(k, v);
+    for (const [k, v] of Object.entries(changes))
+      if (v === null) next.delete(k);
+      else next.set(k, v);
+    const qs = next.toString();
+    return `/w/${ctx.workspaceSlug}/library${qs ? `?${qs}` : ""}`;
+  };
   const filtered = ["q", "type", "environment", "status", "source"].some((k) => filters[k]);
   const activeSource = sources.find((s) => s.ref === filters.source);
   // Outcome of a retirement ("12.3" = deleted.archived): numbers only, nothing reflected.
@@ -88,7 +103,7 @@ export default async function LibraryPage({
         }
       />
       <div className="flex flex-1 flex-col gap-4 p-6">
-        {resources.length === 0 && !filtered ? (
+        {library.total === 0 && !filtered ? (
           <GettingStarted slug={ctx.workspaceSlug} role={ctx.role} addButton={addButton} />
         ) : (
           <>
@@ -127,6 +142,13 @@ export default async function LibraryPage({
               />
             ) : (
               <ResourceTable
+                // A new page, sort or filter starts with nothing selected.
+                key={`${library.page}|${library.sort}|${library.dir}|${["q", "type", "environment", "status", "source"].map((k) => filters[k] ?? "").join("|")}`}
+                sort={{
+                  sort: library.sort,
+                  dir: library.dir,
+                  defaults: Object.fromEntries(LIBRARY_SORTS.map((c) => [c, defaultDirection(c)])),
+                }}
                 slug={ctx.workspaceSlug}
                 canWrite={canWrite}
                 archiveAction={archiveResourcesAction.bind(null, ctx.workspaceSlug)}
@@ -142,14 +164,49 @@ export default async function LibraryPage({
                   ips: r.metadata.ipAddresses ?? [],
                   updatedAt: r.updatedAt,
                   sourceLabel: r.sourceLabel,
+                  owner: r.owner,
                   tech: resolveTech(r.tags, r.metadata.os),
                 }))}
               />
             )}
-            <p className="text-subtle text-xs">
-              {resources.length} resource{resources.length === 1 ? "" : "s"}
-              {resources.length >= LIST_LIMIT && ` (showing the first ${LIST_LIMIT})`}
-            </p>
+            <nav
+              aria-label="Pages"
+              className="text-subtle flex flex-wrap items-center gap-3 text-xs"
+            >
+              <span>
+                {library.total === 0
+                  ? "0 resources"
+                  : library.pages === 1
+                    ? `${library.total} resource${library.total === 1 ? "" : "s"}`
+                    : `${(library.page - 1) * library.pageSize + 1}–${Math.min(
+                        library.page * library.pageSize,
+                        library.total,
+                      )} of ${library.total} resources`}
+              </span>
+              {library.pages > 1 && (
+                <span className="flex items-center gap-1">
+                  {library.page > 1 ? (
+                    <Link
+                      href={href({ page: library.page === 2 ? null : String(library.page - 1) })}
+                      className="border-border hover:text-foreground rounded border px-2 py-0.5"
+                    >
+                      ← Previous
+                    </Link>
+                  ) : null}
+                  <span className="px-1 font-mono">
+                    {library.page} / {library.pages}
+                  </span>
+                  {library.page < library.pages ? (
+                    <Link
+                      href={href({ page: String(library.page + 1) })}
+                      className="border-border hover:text-foreground rounded border px-2 py-0.5"
+                    >
+                      Next →
+                    </Link>
+                  ) : null}
+                </span>
+              )}
+            </nav>
           </>
         )}
       </div>

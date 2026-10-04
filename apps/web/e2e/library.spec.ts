@@ -49,3 +49,23 @@ test("a resource page shows its relationships", async ({ page }) => {
   for (const name of ["shop", "billing", "SQL01", "NAS01"])
     await expect(page.getByRole("main").getByText(name, { exact: true }).first()).toBeVisible();
 });
+
+test("sorts by column and warns before creating a duplicate name", async ({ page }) => {
+  await page.goto(library);
+  await page.getByRole("link", { name: "Criticality", exact: true }).click();
+  await expect(page).toHaveURL(/sort=criticality&dir=desc/);
+  await expect(page.locator("tbody tr").first()).toContainText("SQL01");
+  await page.getByRole("link", { name: "Criticality", exact: true }).click();
+  await expect(page).toHaveURL(/sort=criticality&dir=asc/);
+
+  await page.getByRole("button", { name: "Add resource" }).click();
+  const sheet = page.getByRole("dialog");
+  await sheet.locator("#name").fill("BILLING");
+  await sheet.locator("#type").selectOption("APPLICATION");
+  await sheet.getByRole("button", { name: "Create resource" }).click();
+  await expect(sheet.getByText("A resource with this name already exists:")).toBeVisible();
+  await expect(sheet.getByRole("link", { name: "billing" })).toBeVisible();
+  await expect(sheet.getByRole("button", { name: "Create anyway" })).toBeVisible();
+  await sheet.getByRole("button", { name: "Cancel" }).click();
+  await expect(sheet).toBeHidden();
+});

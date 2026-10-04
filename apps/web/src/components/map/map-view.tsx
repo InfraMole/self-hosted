@@ -35,7 +35,6 @@ import {
   edgeConfidence,
   findPath,
   impact,
-  neighbourhood,
   perspective,
   type Direction,
 } from "@depmap/graph";
@@ -44,6 +43,7 @@ import { Select } from "@/components/ui/select";
 import { ENVIRONMENTS, RESOURCE_TYPES, entries } from "@/lib/resource-presentation";
 import { cn } from "@/lib/utils";
 import { markFirstStep } from "@/lib/first-steps";
+import { candidateEdgesOf, visibleIdsOf } from "@/lib/map-subset";
 import { buildScene, exportFileName, type ExportImpact } from "@/lib/map-export/scene";
 import {
   sameViewState,
@@ -59,6 +59,7 @@ import { containment, displayGraph, hubs, nestedLayout, withPins, type Pin } fro
 import { MapFind } from "./map-find";
 import { MapInspector } from "./map-inspector";
 import { GroupNode, ResourceNode, type ImpactLevel, type ResourceFlowNode } from "./resource-node";
+import { ShareViewDialog, type ShareResult } from "./share-view-dialog";
 import { ViewsMenu } from "./views-menu";
 
 /** Below this zoom node names are unreadable: large maps open on their main group instead. */
@@ -107,6 +108,13 @@ interface Props {
     state: SavedViewState;
   }) => Promise<ViewActionResult>;
   deleteView: (id: string) => Promise<ViewActionResult>;
+  /** Admins: create a public link to a saved view (M31). */
+  shareView?: (viewId: string, expiresInDays: number) => Promise<ShareResult>;
+  /**
+   * Public share page (M31): no links into the workspace, no saved views, no
+   * URL rewriting; the data is already the view's subset, without IPs or owners.
+   */
+  shared?: boolean;
 }
 
 export function MapView(props: Props) {
@@ -127,6 +135,8 @@ function MapCanvas({
   views,
   initialViewId,
   canEditViews,
+  shareView,
+  shared = false,
   saveView,
   deleteView,
 }: Props) {
@@ -187,55 +197,39 @@ function MapCanvas({
   );
 
   // Edges allowed by the confidence / informational toggles.
+  // What the view shows: the same pure functions a public share link uses (lib/map-subset.ts).
   const candidateEdges = useMemo(
     () =>
-      edges.filter((e) => {
-        const confidence = edgeConfidence(e.status, e.origin);
-        if (!confidence) return false;
-        if (pathResult) return pathEdgeIds.has(e.id);
-        // Impact mode shows every propagating edge (confidence is drawn, not filtered).
-        if (impactLevels) return dependencyDirection(e) !== null;
-        if (confidence !== "confirmed" && !showUnconfirmed) return false;
-        if (!showInformational && dependencyDirection(e) === null) return false;
-        return true;
+      candidateEdgesOf(edges, {
+        showUnconfirmed,
+        showInformational,
+        impact: !!impactLevels,
+        pathEdgeIds: pathResult ? pathEdgeIds : null,
       }),
     [edges, showUnconfirmed, showInformational, impactLevels, pathResult, pathEdgeIds],
   );
 
-  const visibleIds = useMemo(() => {
-    if (pathResult) return pathResult.path;
-    if (impactLevels) return nodes.filter((n) => impactLevels.has(n.id)).map((n) => n.id);
-    const hood =
-      focus && byId.has(focus.id)
-        ? neighbourhood(candidateEdges, focus.id, {
-            depth: focus.depth,
-            direction: focus.direction,
-            // Informational links are context for the focus itself, only in "both" view.
-            includeRelated: showInformational && focus.direction === "both",
-          })
-        : null;
-    return nodes
-      .filter((n) => {
-        if (hood) {
-          if (!hood.has(n.id)) return false;
-          if (n.id === focus?.id) return true; // the focus is always shown
-        }
-        return (
-          (!typeFilter || n.type === typeFilter) && (!envFilter || n.environment === envFilter)
-        );
-      })
-      .map((n) => n.id);
-  }, [
-    nodes,
-    byId,
-    candidateEdges,
-    focus,
-    typeFilter,
-    envFilter,
-    showInformational,
-    impactLevels,
-    pathResult,
-  ]);
+  const visibleIds = useMemo(
+    () =>
+      visibleIdsOf(nodes, candidateEdges, {
+        type: typeFilter || null,
+        environment: envFilter || null,
+        showInformational,
+        focus,
+        impactIds: impactLevels ? new Set(impactLevels.keys()) : null,
+        path: pathResult?.path ?? null,
+      }),
+    [
+      nodes,
+      candidateEdges,
+      focus,
+      typeFilter,
+      envFilter,
+      showInformational,
+      impactLevels,
+      pathResult,
+    ],
+  );
 
   const visibleEdges = useMemo(() => {
     const ids = new Set(visibleIds);
@@ -573,13 +567,16 @@ function MapCanvas({
   );
 
   // First steps (M28): this viewer has seen the map, and an impact.
-  useEffect(() => markFirstStep(workspaceSlug, "map"), [workspaceSlug]);
   useEffect(() => {
-    if (impactLevels) markFirstStep(workspaceSlug, "impact");
-  }, [workspaceSlug, impactLevels]);
+    if (!shared) markFirstStep(workspaceSlug, "map");
+  }, [workspaceSlug, shared]);
+  useEffect(() => {
+    if (impactLevels && !shared) markFirstStep(workspaceSlug, "impact");
+  }, [workspaceSlug, impactLevels, shared]);
 
   // Keep ?view= / ?focus= / ?impact= in the URL so a view can be shared.
   useEffect(() => {
+    if (shared) return;
     const url = new URL(window.location.href);
     if (activeViewId) url.searchParams.set("view", activeViewId);
     else url.searchParams.delete("view");
@@ -588,7 +585,8 @@ function MapCanvas({
     if (impactId) url.searchParams.set("impact", impactId);
     else url.searchParams.delete("impact");
     window.history.replaceState(null, "", url);
-  }, [focus, impactId, activeViewId]);
+  }, [focus, impactId, activeViewId, shared]);
+  const [sharing, setSharing] = useState<SavedViewSummary | null>(null);
 
   // Saved views (M26 phase 3, ADR-041).
   const currentState = useMemo<SavedViewState>(
@@ -993,22 +991,32 @@ function MapCanvas({
             </button>
           )}
           <MapFind nodes={nodes} onFind={findOnMap} />
-          <ViewsMenu
-            views={views}
-            activeId={activeViewId}
-            modified={viewModified}
-            canEdit={canEditViews}
-            current={() => currentState}
-            onApply={applyView}
-            onSaved={setActiveViewId}
-            onSave={saveView}
-            onDelete={deleteView}
-          />
+          {!shared && (
+            <ViewsMenu
+              views={views}
+              activeId={activeViewId}
+              modified={viewModified}
+              canEdit={canEditViews}
+              current={() => currentState}
+              onApply={applyView}
+              onSaved={setActiveViewId}
+              onSave={saveView}
+              onDelete={deleteView}
+              onShare={shareView ? setSharing : undefined}
+            />
+          )}
           <ExportMenu onExport={exportView} />
         </div>
 
         <Legend />
-        {edges.length === 0 && !subset && (
+        {sharing && shareView && (
+          <ShareViewDialog
+            view={sharing}
+            onClose={() => setSharing(null)}
+            share={(days) => shareView(sharing.id, days)}
+          />
+        )}
+        {edges.length === 0 && !subset && !shared && (
           // Resources but nothing connecting them yet: say where lines come from.
           <div className="border-border bg-surface/95 pointer-events-auto absolute bottom-3 left-1/2 w-[min(32rem,calc(100%-2rem))] -translate-x-1/2 rounded-lg border px-4 py-3 text-xs backdrop-blur">
             <p className="text-foreground font-medium">No relationships yet</p>
@@ -1027,7 +1035,7 @@ function MapCanvas({
 
       {selected && (
         <MapInspector
-          workspaceSlug={workspaceSlug}
+          workspaceSlug={shared ? null : workspaceSlug}
           resource={selected}
           edges={candidateEdges}
           byId={byId}

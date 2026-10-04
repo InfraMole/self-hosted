@@ -22,6 +22,7 @@ import {
   type TokenState,
 } from "@/server/modules/agents/agents";
 import { listApiTokens, type ApiTokenState } from "@/server/modules/api/tokens";
+import { listShares } from "@/server/modules/map/shares";
 import { integrationsEnabled, listIntegrations } from "@/server/modules/integrations/integrations";
 import { INTEGRATION_FORMS } from "@/lib/integration-forms";
 import { listInvitations, listMembers } from "@/server/modules/members/members";
@@ -30,7 +31,7 @@ import { listSources } from "@/server/modules/resources/sources";
 import { requireWorkspace } from "@/server/tenancy";
 import { versionInfo } from "@/server/version";
 import { createTokenAction, revokeAgentAction, revokeTokenAction } from "./actions";
-import { createApiTokenAction, revokeApiTokenAction } from "./api-actions";
+import { createApiTokenAction, revokeApiTokenAction, revokeShareAction } from "./api-actions";
 import {
   createIntegrationAction,
   deleteIntegrationAction,
@@ -73,7 +74,7 @@ export default async function SettingsPage({ params }: PageProps<"/w/[slug]/sett
   await markStaleHosts(ctx.workspaceId); // throttled (ADR-016)
   const isAdmin = hasRole(ctx.role, "ADMIN");
   const isOwner = ctx.role === "OWNER";
-  const [agents, tokens, integrations, members, invitations, version, apiTokens] =
+  const [agents, tokens, integrations, members, invitations, version, apiTokens, shares] =
     await Promise.all([
       listAgents(ctx),
       isAdmin ? listEnrollmentTokens(ctx) : Promise.resolve([]),
@@ -82,6 +83,7 @@ export default async function SettingsPage({ params }: PageProps<"/w/[slug]/sett
       isAdmin ? listInvitations(ctx) : Promise.resolve([]),
       versionInfo(),
       isAdmin ? listApiTokens(ctx) : Promise.resolve([]),
+      isAdmin ? listShares(ctx) : Promise.resolve([]),
     ]);
   const assignable: Role[] = isOwner
     ? ["VIEWER", "MEMBER", "ADMIN", "OWNER"]
@@ -543,6 +545,62 @@ export default async function SettingsPage({ params }: PageProps<"/w/[slug]/sett
                           title={`Revoke API token “${t.name}”?`}
                           description="Scripts using it stop working immediately."
                           action={revokeApiTokenAction.bind(null, ctx.workspaceSlug, t.id)}
+                        />
+                      )}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+        )}
+
+        {isAdmin && (
+          <Card id="shares">
+            <CardHeader>
+              <CardTitle>Public map links</CardTitle>
+              <p className="text-muted mt-0.5 text-xs">
+                Read-only links to a saved view, for people without an account — no IP addresses,
+                owners or notes. Create one from the map: <em>Views</em> › link icon of a view.
+              </p>
+            </CardHeader>
+            {shares.length === 0 ? (
+              <CardContent className="text-subtle text-sm">No public links.</CardContent>
+            ) : (
+              <ul className="divide-border divide-y">
+                {shares.map((s) => (
+                  <li key={s.id} className="flex items-center gap-3 px-4 py-2">
+                    <Link
+                      href={`/w/${ctx.workspaceSlug}/map?view=${s.viewId}`}
+                      className="hover:text-accent min-w-0 flex-1 truncate text-sm"
+                    >
+                      {s.viewName}
+                    </Link>
+                    <span className="text-subtle font-mono text-xs">{s.prefix}…</span>
+                    <Badge className={API_TOKEN_STATE[s.state]}>{s.state}</Badge>
+                    <span
+                      className="text-muted w-28 text-right text-xs"
+                      title={s.lastViewedAt ? formatDateTime(s.lastViewedAt) : undefined}
+                    >
+                      {s.lastViewedAt ? `opened ${formatRelative(s.lastViewedAt)}` : "never opened"}
+                    </span>
+                    <span
+                      className="text-muted w-32 text-right text-xs"
+                      title={s.expiresAt ? formatDateTime(s.expiresAt) : undefined}
+                    >
+                      {s.state !== "active"
+                        ? ""
+                        : s.expiresAt
+                          ? `expires ${formatRelative(s.expiresAt)}`
+                          : "no expiry"}
+                    </span>
+                    <span className="w-16 text-right">
+                      {s.state === "active" && (
+                        <RevokeButton
+                          label={`Revoke public link to ${s.viewName}`}
+                          title={`Revoke the public link to “${s.viewName}”?`}
+                          description="Anyone using it sees “not found” from now on."
+                          action={revokeShareAction.bind(null, ctx.workspaceSlug, s.id)}
                         />
                       )}
                     </span>

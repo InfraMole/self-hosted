@@ -104,6 +104,7 @@ const en = {
           "Azure: virtual machines",
           "AWS: EC2 instances and RDS databases",
           "Cloudflare: DNS records and what they point to",
+          "NetBox and Zabbix: start from the inventory you already keep",
         ],
       },
       {
@@ -116,7 +117,7 @@ const en = {
         ],
       },
     ],
-    more: "More clouds, load balancers, DNS providers, hypervisors and NAS are in preview",
+    more: "More clouds, load balancers, DNS providers, hypervisors, NAS and PRTG are in preview",
     moreLink: "See all integrations →",
   },
   useCases: {
@@ -437,6 +438,7 @@ const es: SiteCopy = {
           "Azure: máquinas virtuales",
           "AWS: instancias EC2 y bases de datos RDS",
           "Cloudflare: registros DNS y a qué apuntan",
+          "NetBox y Zabbix: parte del inventario que ya tienes",
         ],
       },
       {
@@ -449,7 +451,7 @@ const es: SiteCopy = {
         ],
       },
     ],
-    more: "Más nubes, balanceadores, proveedores DNS, hipervisores y NAS están en preview",
+    more: "Más nubes, balanceadores, proveedores DNS, hipervisores, NAS y PRTG están en preview",
     moreLink: "Ver todas las integraciones →",
   },
   useCases: {

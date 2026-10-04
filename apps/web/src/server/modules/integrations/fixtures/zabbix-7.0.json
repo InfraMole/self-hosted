@@ -1,0 +1,318 @@
+{
+  "_comment": "Recorded from Zabbix 7.0.31 (zabbix/zabbix-web-nginx-pgsql), API responses of host.get and trigger.get as InfraMole calls them.",
+  "hosts": [
+    {
+      "hostid": "10683",
+      "host": "app01",
+      "name": "APP01 – billing",
+      "description": "",
+      "hostgroups": [
+        {
+          "name": "Linux servers"
+        }
+      ],
+      "inventory": {
+        "os": "Ubuntu 24.04 LTS",
+        "os_short": "Ubuntu 24.04",
+        "type": "",
+        "poc_1_name": "Billing team",
+        "poc_1_email": "billing@corp.lan"
+      },
+      "interfaces": [
+        {
+          "ip": "10.20.0.11",
+          "dns": "app01.corp.lan",
+          "type": "1",
+          "main": "1"
+        }
+      ],
+      "tags": [
+        {
+          "tag": "env",
+          "value": "production"
+        },
+        {
+          "tag": "service",
+          "value": "billing"
+        }
+      ]
+    },
+    {
+      "hostid": "10684",
+      "host": "db01",
+      "name": "db01",
+      "description": "",
+      "hostgroups": [
+        {
+          "name": "Linux servers"
+        }
+      ],
+      "inventory": {
+        "os": "Debian 12",
+        "os_short": "",
+        "type": "",
+        "poc_1_name": "",
+        "poc_1_email": ""
+      },
+      "interfaces": [
+        {
+          "ip": "10.20.0.21",
+          "dns": "",
+          "type": "1",
+          "main": "1"
+        }
+      ],
+      "tags": []
+    },
+    {
+      "hostid": "10685",
+      "host": "core-sw1",
+      "name": "core-sw1",
+      "description": "",
+      "hostgroups": [
+        {
+          "name": "Network devices"
+        }
+      ],
+      "inventory": [],
+      "interfaces": [
+        {
+          "ip": "10.20.0.1",
+          "dns": "",
+          "type": "2",
+          "main": "1"
+        }
+      ],
+      "tags": []
+    },
+    {
+      "hostid": "10686",
+      "host": "build-vm",
+      "name": "build-vm",
+      "description": "",
+      "hostgroups": [
+        {
+          "name": "Virtual machines"
+        }
+      ],
+      "inventory": [],
+      "interfaces": [
+        {
+          "ip": "10.20.0.51",
+          "dns": "",
+          "type": "1",
+          "main": "1"
+        }
+      ],
+      "tags": []
+    },
+    {
+      "hostid": "10084",
+      "host": "Zabbix server",
+      "name": "Zabbix server",
+      "description": "",
+      "hostgroups": [
+        {
+          "name": "Zabbix servers"
+        }
+      ],
+      "inventory": {
+        "os": "",
+        "os_short": "",
+        "type": "",
+        "poc_1_name": "",
+        "poc_1_email": ""
+      },
+      "interfaces": [
+        {
+          "ip": "127.0.0.1",
+          "dns": "",
+          "type": "1",
+          "main": "1"
+        }
+      ],
+      "tags": []
+    }
+  ],
+  "triggers": [
+    {
+      "triggerid": "22383",
+      "hosts": [
+        {
+          "hostid": "10084"
+        }
+      ],
+      "dependencies": [
+        {
+          "triggerid": "22392"
+        }
+      ]
+    },
+    {
+      "triggerid": "22384",
+      "hosts": [
+        {
+          "hostid": "10084"
+        }
+      ],
+      "dependencies": [
+        {
+          "triggerid": "22395"
+        }
+      ]
+    },
+    {
+      "triggerid": "22387",
+      "hosts": [
+        {
+          "hostid": "10084"
+        }
+      ],
+      "dependencies": [
+        {
+          "triggerid": "22385"
+        }
+      ]
+    },
+    {
+      "triggerid": "22389",
+      "hosts": [
+        {
+          "hostid": "10084"
+        }
+      ],
+      "dependencies": [
+        {
+          "triggerid": "22385"
+        },
+        {
+          "triggerid": "22387"
+        }
+      ]
+    },
+    {
+      "triggerid": "22390",
+      "hosts": [
+        {
+          "hostid": "10084"
+        }
+      ],
+      "dependencies": [
+        {
+          "triggerid": "22394"
+        }
+      ]
+    },
+    {
+      "triggerid": "22393",
+      "hosts": [
+        {
+          "hostid": "10084"
+        }
+      ],
+      "dependencies": [
+        {
+          "triggerid": "22390"
+        },
+        {
+          "triggerid": "22394"
+        }
+      ]
+    },
+    {
+      "triggerid": "25227",
+      "hosts": [
+        {
+          "hostid": "10683"
+        }
+      ],
+      "dependencies": [
+        {
+          "triggerid": "25228"
+        },
+        {
+          "triggerid": "25229"
+        }
+      ]
+    },
+    {
+      "triggerid": "25228",
+      "hosts": [
+        {
+          "hostid": "10684"
+        }
+      ],
+      "dependencies": [
+        {
+          "triggerid": "25229"
+        }
+      ]
+    }
+  ],
+  "dependencyTriggers": [
+    {
+      "triggerid": "22385",
+      "hosts": [
+        {
+          "hostid": "10084"
+        }
+      ]
+    },
+    {
+      "triggerid": "22387",
+      "hosts": [
+        {
+          "hostid": "10084"
+        }
+      ]
+    },
+    {
+      "triggerid": "22390",
+      "hosts": [
+        {
+          "hostid": "10084"
+        }
+      ]
+    },
+    {
+      "triggerid": "22392",
+      "hosts": [
+        {
+          "hostid": "10084"
+        }
+      ]
+    },
+    {
+      "triggerid": "22394",
+      "hosts": [
+        {
+          "hostid": "10084"
+        }
+      ]
+    },
+    {
+      "triggerid": "22395",
+      "hosts": [
+        {
+          "hostid": "10084"
+        }
+      ]
+    },
+    {
+      "triggerid": "25228",
+      "hosts": [
+        {
+          "hostid": "10684"
+        }
+      ]
+    },
+    {
+      "triggerid": "25229",
+      "hosts": [
+        {
+          "hostid": "10685"
+        }
+      ]
+    }
+  ]
+}

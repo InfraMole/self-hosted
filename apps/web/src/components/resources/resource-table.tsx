@@ -2,7 +2,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { ArrowDown, ArrowUp } from "lucide-react";
 import { useState, useTransition } from "react";
 import type {
   Criticality,
@@ -28,6 +29,7 @@ import {
 import { formatDateTime, formatRelative } from "@/lib/format";
 import { RESOURCE_TYPES } from "@/lib/resource-presentation";
 import type { ResourceTech } from "@/lib/tech";
+import { cn } from "@/lib/utils";
 
 export interface ResourceRow {
   id: string;
@@ -39,7 +41,16 @@ export interface ResourceRow {
   ips: string[];
   updatedAt: Date;
   sourceLabel: string | null;
+  owner?: string | null;
   tech?: ResourceTech;
+}
+
+/** Server-side sort of the Library (M31): the column and direction in the URL. */
+export interface TableSort {
+  sort: string;
+  dir: "asc" | "desc";
+  /** Direction a column starts with when it is clicked. */
+  defaults: Record<string, "asc" | "desc">;
 }
 
 type Action = (ids: string[]) => Promise<{ error?: string; message?: string }>;
@@ -56,6 +67,7 @@ export function ResourceTable({
   archiveAction,
   deleteAction,
   ownerAction,
+  sort,
 }: {
   slug: string;
   rows: ResourceRow[];
@@ -63,6 +75,7 @@ export function ResourceTable({
   archiveAction: Action;
   deleteAction: Action;
   ownerAction: OwnerAction;
+  sort?: TableSort;
 }) {
   const router = useRouter();
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -154,13 +167,14 @@ export function ResourceTable({
                   />
                 </th>
               )}
-              <th className="px-3 py-2 font-medium">Name</th>
-              <th className="px-3 py-2 font-medium">Type</th>
-              <th className="px-3 py-2 font-medium">Environment</th>
-              <th className="px-3 py-2 font-medium">Criticality</th>
+              <SortHeader column="name" label="Name" sort={sort} />
+              <SortHeader column="type" label="Type" sort={sort} />
+              <SortHeader column="environment" label="Environment" sort={sort} />
+              <SortHeader column="criticality" label="Criticality" sort={sort} />
               <th className="px-3 py-2 font-medium">IP addresses</th>
-              <th className="px-3 py-2 font-medium">Status</th>
-              <th className="px-3 py-2 text-right font-medium">Updated</th>
+              <SortHeader column="owner" label="Owner" sort={sort} />
+              <SortHeader column="status" label="Status" sort={sort} />
+              <SortHeader column="updated" label="Updated" sort={sort} align="right" />
             </tr>
           </thead>
           <tbody className="divide-border divide-y">
@@ -203,6 +217,12 @@ export function ResourceTable({
                 </td>
                 <td className="text-muted max-w-56 truncate px-3 font-mono text-xs">
                   {r.ips.join(", ") || <span className="text-subtle">—</span>}
+                </td>
+                <td
+                  className="text-muted max-w-40 truncate px-3 text-xs"
+                  title={r.owner ?? undefined}
+                >
+                  {r.owner || <span className="text-subtle">—</span>}
                 </td>
                 <td className="px-3">
                   <StatusBadge status={r.status} />
@@ -276,5 +296,50 @@ export function ResourceTable({
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+/** A column header that sorts the Library through the URL (first page, server-side). */
+function SortHeader({
+  column,
+  label,
+  sort,
+  align,
+}: {
+  column: string;
+  label: string;
+  sort?: TableSort;
+  align?: "right";
+}) {
+  const params = useSearchParams();
+  const pathname = usePathname();
+  if (!sort)
+    return (
+      <th className={cn("px-3 py-2 font-medium", align === "right" && "text-right")}>{label}</th>
+    );
+  const active = sort.sort === column;
+  const dir = active ? (sort.dir === "asc" ? "desc" : "asc") : (sort.defaults[column] ?? "asc");
+  const next = new URLSearchParams(params.toString());
+  next.set("sort", column);
+  next.set("dir", dir);
+  next.delete("page");
+  const Arrow = sort.dir === "asc" ? ArrowUp : ArrowDown;
+  return (
+    <th
+      className={cn("px-3 py-2 font-medium", align === "right" && "text-right")}
+      aria-sort={active ? (sort.dir === "asc" ? "ascending" : "descending") : undefined}
+    >
+      <Link
+        href={`${pathname}?${next.toString()}`}
+        scroll={false}
+        className={cn(
+          "hover:text-foreground inline-flex items-center gap-1",
+          active && "text-foreground",
+        )}
+      >
+        {label}
+        {active && <Arrow className="size-3" aria-hidden />}
+      </Link>
+    </th>
   );
 }

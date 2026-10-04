@@ -19,6 +19,9 @@ export const INTEGRATION_KINDS = [
   "PROXMOX",
   "TRUENAS",
   "SYNOLOGY",
+  "NETBOX",
+  "ZABBIX",
+  "PRTG",
 ] as const;
 export type IntegrationKindName = (typeof INTEGRATION_KINDS)[number];
 
@@ -63,6 +66,14 @@ const LOCAL_FIELDS = (placeholder: string): FieldDef[] => [
     optional: true,
   },
 ];
+
+/** Certificate pin of another tool's server (M31). */
+const TOOL_FINGERPRINT: FieldDef = {
+  name: "fingerprint",
+  label: "Certificate SHA-256 fingerprint (self-signed certificates)",
+  placeholder: "AB:CD:… — empty = a certificate from a trusted CA",
+  optional: true,
+};
 
 /**
  * DNS records read with the integration's own credential (M27). "Don't import"
@@ -370,5 +381,48 @@ export const INTEGRATION_FORMS: Record<IntegrationKindName, IntegrationForm> = {
       { name: "account", label: "Account" },
       { name: "password", label: "Password", secret: true },
     ],
+  },
+  NETBOX: {
+    label: "NetBox",
+    local: true,
+    permissions:
+      'A read-only API token (a v1 token, or a v2 "nbt_…" token on NetBox 4.5+) of a user who can view devices, virtual machines, IP addresses and cables. NetBox Cloud works too.',
+    imports:
+      "Devices and virtual machines with their IPs, platform, site, tenant, role and tags. A VM placed on a device is drawn on it; a cable between a machine and a switch, router or firewall makes the machine depend on it. Planned, decommissioning and inventory items are skipped.",
+    config: [
+      { name: "url", label: "URL", placeholder: "https://netbox.example.lan" },
+      TOOL_FINGERPRINT,
+    ],
+    secret: [{ name: "token", label: "API token", secret: true }],
+  },
+  ZABBIX: {
+    label: "Zabbix",
+    local: true,
+    permissions:
+      "An API token of a user with read access to the host groups to import (a User role is enough). Zabbix 6.0 or later.",
+    imports:
+      'Monitored hosts with their interface IPs and DNS names, OS and point of contact from the host inventory (as owner), host groups and tags. Trigger dependencies between hosts become suggestions to review ("A depends on B").',
+    config: [
+      {
+        name: "url",
+        label: "URL of the Zabbix frontend",
+        placeholder: "https://zabbix.example.lan/zabbix",
+      },
+      TOOL_FINGERPRINT,
+    ],
+    secret: [{ name: "token", label: "API token", secret: true }],
+  },
+  PRTG: {
+    label: "PRTG",
+    preview: true,
+    local: true,
+    permissions:
+      "An API token of a read-only PRTG user (PRTG 22.1 or later). The token is sent as PRTG's API expects it, in the request URL — use https.",
+    imports: "Devices with their address, group and probe (as tags).",
+    config: [
+      { name: "url", label: "URL", placeholder: "https://prtg.example.lan" },
+      TOOL_FINGERPRINT,
+    ],
+    secret: [{ name: "apiToken", label: "API token", secret: true }],
   },
 };

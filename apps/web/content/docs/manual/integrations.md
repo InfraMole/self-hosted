@@ -11,6 +11,8 @@ credentials. They are managed by workspace admins and owners in
 - **DNS and network**: Cloudflare and Tailscale.
 - **Local sources**: Proxmox VE, TrueNAS and Synology, read by the InfraMole
   server through their APIs (see [Local sources](#local-sources)).
+- **Other tools**: NetBox, Zabbix and PRTG — bring the inventory you already
+  keep there (see [Other tools](#other-tools)).
 
 :::note How credentials are protected
 Credentials are encrypted at rest (AES-256-GCM) as soon as you save them
@@ -232,6 +234,28 @@ Machines connected to the NAS are visible only to an administrator
 account. Leave that out unless you need it.
 :::
 
+**Other tools** — they are reached like local sources.
+
+:::tabs
+@tab NetBox
+
+**Admin › Users** (or your profile) **› API tokens › Add**: a token of a
+user who can view devices, virtual machines, IP addresses and cables, with
+**Write enabled** off. Both token formats work: the classic 40-character
+token and the `nbt_…` tokens of NetBox 4.5+. NetBox Cloud works too.
+@tab Zabbix
+
+**Users › API tokens › Create API token** for a user whose role can read
+the host groups to import (a **User** role is enough). Zabbix 6.0 or later.
+The URL is the address of the Zabbix frontend, with its path if it has one
+(for example `https://zabbix.example.lan/zabbix`).
+@tab PRTG
+
+**Setup › Account settings › API keys › Add API key**, access **Read**
+(PRTG 22.1 or later). PRTG's API expects the key in the request address:
+use https.
+:::
+
 ### Add the integration
 
 In **Settings › Integrations › Add integration**, choose the provider, give
@@ -243,8 +267,8 @@ to 7 days) and paste the values. Some providers have options:
 - **Devices not in the Library** (Tailscale) — see [Tailscale](#tailscale).
 
 :::note Preview integrations
-Everything except Cloudflare and the virtual machines / databases of
-Azure and AWS is marked **Preview** — including their load balancers,
+Everything except Cloudflare, NetBox, Zabbix and the virtual machines /
+databases of Azure and AWS is marked **Preview** — including their load balancers,
 managed databases (Azure) and DNS records: built
 from each provider's API documentation and tested against recorded
 responses, but not yet against a real account. Use **Test connection**
@@ -322,6 +346,32 @@ openssl s_client -connect pve.example.lan:8006 </dev/null 2>/dev/null \
 certificate is renewed, update the fingerprint. Leave it empty for a
 certificate from a trusted authority.
 
+## Other tools
+
+If you already keep an inventory in **NetBox**, or monitor your machines
+with **Zabbix** or **PRTG**, InfraMole can start from it instead of from
+zero. Like the local sources, they are called by the InfraMole server: a
+NetBox, Zabbix or PRTG on a private network needs
+`INTEGRATIONS_PRIVATE_NETWORKS` and, for a self-signed certificate, its
+fingerprint ([Local sources](#local-sources)). A public NetBox Cloud works
+anywhere, InfraMole Cloud included.
+
+- **NetBox**: devices and virtual machines with their IP addresses,
+  platform (as the OS), site, tenant, cluster, role and tags. Network gear
+  (switches, routers, firewalls, access points…) becomes a network
+  resource, storage a storage resource. A VM placed on a device is drawn
+  on it, and a **cable** between a machine and a network device makes the
+  machine _depend on_ it. Items that are planned, being decommissioned or
+  in inventory are skipped.
+- **Zabbix**: monitored hosts (disabled ones are skipped), the IPs and DNS
+  names of their interfaces, the OS and the **point of contact** of the host
+  inventory (as the [owner](/docs/manual/library#owners)), host groups and
+  tags. A host with only SNMP interfaces is network gear. A **trigger
+  dependency** between two hosts ("APP01 unreachable" depends on "core-sw1
+  unreachable") is imported as a **suggestion** — someone declared it, you
+  confirm it.
+- **PRTG** (Preview): devices with their address, group and probe.
+
 ## What is imported
 
 | Provider        | Resources                                                                                                                                | Relationships                                                                                                                                   |
@@ -343,6 +393,9 @@ certificate from a trusted authority.
 | Proxmox VE      | Nodes, VMs and containers, with node, container and guest-agent IPs                                                                      | Each VM / container _hosted by_ its node                                                                                                        |
 | TrueNAS         | The NAS; SMB shares, NFS exports and iSCSI targets                                                                                       | Each share _runs on_ the NAS; machines connected to a share when it is read are **suggested** as _storing data in_ it                           |
 | Synology        | The NAS and its shared folders                                                                                                           | Each folder _runs on_ the NAS; with an administrator account, machines connected when it is read are **suggested** as _storing data in_ the NAS |
+| NetBox          | Devices and virtual machines (IPs, platform, site / tenant / cluster / role / tags)                                                      | VM _hosted by_ its device; machine _depends on_ the network device it is cabled to                                                              |
+| Zabbix          | Monitored hosts (interface IPs and DNS, OS, point of contact as owner, groups, tags)                                                     | Trigger dependencies between hosts, as **suggestions**                                                                                          |
+| PRTG            | Devices (address, group, probe)                                                                                                          | —                                                                                                                                               |
 
 Imported resources start as **Discovered**. Tags or labels named like `env`
 or `environment` set the environment. Load balancer backends and placement

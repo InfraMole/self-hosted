@@ -6,7 +6,7 @@
  */
 import { createHash, randomBytes } from "node:crypto";
 
-export type SecretKind = "enrollment" | "agent" | "invitation" | "api";
+export type SecretKind = "enrollment" | "agent" | "invitation" | "api" | "share";
 
 const PREFIX: Record<SecretKind, string> = {
   enrollment: "dmp_enr_",
@@ -14,6 +14,8 @@ const PREFIX: Record<SecretKind, string> = {
   invitation: "dmp_inv_",
   /** Read-only API token (M30). */
   api: "dmp_api_",
+  /** Public read-only map link (M31). */
+  share: "dmp_shr_",
 };
 
 /** 32 bytes -> 43 base64url chars. */

@@ -26,7 +26,8 @@ export type ImportFormat =
   | "hypervisor"
   | "kubernetes"
   | "tailscale"
-  | "storage";
+  | "storage"
+  | "inventory";
 
 export const IMPORT_LIMITS = { bytes: 1024 * 1024, resources: 2000, relationships: 5000 } as const;
 
@@ -116,7 +117,8 @@ export function parseImport(
     format === "hypervisor" ||
     format === "kubernetes" ||
     format === "tailscale" ||
-    format === "storage"
+    format === "storage" ||
+    format === "inventory"
       ? parseJsonOrPlatform(text, format)
       : format === "csv"
         ? parseCsvImport(text)

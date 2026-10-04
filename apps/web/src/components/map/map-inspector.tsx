@@ -17,7 +17,8 @@ import type { MapEdge, MapNode } from "@/server/modules/map/map";
 import { MapFind } from "./map-find";
 
 interface Props {
-  workspaceSlug: string;
+  /** null on a public share page: no links into the workspace. */
+  workspaceSlug: string | null;
   resource: MapNode;
   edges: MapEdge[];
   byId: Map<string, MapNode>;
@@ -122,11 +123,13 @@ export function MapInspector({
         </dl>
 
         <div className="flex gap-2">
-          <Button size="sm" variant="secondary" asChild className="flex-1">
-            <Link href={`/w/${workspaceSlug}/resources/${r.id}`}>
-              <ExternalLink /> Open
-            </Link>
-          </Button>
+          {workspaceSlug && (
+            <Button size="sm" variant="secondary" asChild className="flex-1">
+              <Link href={`/w/${workspaceSlug}/resources/${r.id}`}>
+                <ExternalLink /> Open
+              </Link>
+            </Button>
+          )}
           <Button
             size="sm"
             variant={isFocus ? "outline" : "secondary"}

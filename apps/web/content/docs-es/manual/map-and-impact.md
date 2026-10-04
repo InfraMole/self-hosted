@@ -67,6 +67,15 @@ todo el workspace. Elige una vista en el mismo menú o comparte el enlace
 ofrece **Save changes**. Los miembros y superiores pueden guardar y borrar
 vistas; los lectores pueden abrirlas.
 
+**Enlaces públicos.** Los admins pueden compartir una vista guardada con
+alguien sin cuenta — dirección, un cliente, un auditor: **Views**, el icono
+de enlace junto a una vista, elige cuánto dura, **Create link**. Copia el
+enlace en ese momento: no se vuelve a mostrar. Quien lo abra ve esa vista
+tal como está ahora, solo lectura — nombres, tipos, entornos y cómo se
+unen; **nunca direcciones IP, responsables, contactos, notas ni nada fuera
+de la vista**. Los enlaces se listan y revocan en **Settings › Public map
+links**; borrar la vista borra sus enlaces.
+
 El estilo de las líneas sigue la
 [representación de la certeza](/es/docs/manual/relationships#cuanta-certeza-hay):
 continua para confirmadas, discontinua para detectadas, punteada para

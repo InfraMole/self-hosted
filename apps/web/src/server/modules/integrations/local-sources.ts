@@ -41,15 +41,15 @@ const fingerprint = z
   .regex(/^(([0-9a-f]{2}:?){31}[0-9a-f]{2})?$/i, "64 hexadecimal characters (SHA-256)")
   .optional();
 
-const localConfig = z.object({ url: baseUrl, fingerprint });
+export const localConfig = z.object({ url: baseUrl, fingerprint });
 
-function localOf(deps: ProviderDeps): LocalDeps {
+export function localOf(deps: ProviderDeps): LocalDeps {
   if (!deps.local) throw new IntegrationError("Local network access is not available here.");
   return deps.local;
 }
 
 /** Addresses worth keeping: no loopback / link-local, no prefix length. */
-const usableIps = (ips: (string | undefined)[]) =>
+export const usableIps = (ips: (string | undefined)[]) =>
   strings(
     ips
       .map((ip) => ip?.replace(/\/\d+$/, ""))

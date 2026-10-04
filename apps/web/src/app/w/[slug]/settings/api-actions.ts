@@ -10,6 +10,7 @@ import {
   createApiTokenSchema,
   revokeApiToken,
 } from "@/server/modules/api/tokens";
+import { ShareError, revokeShare } from "@/server/modules/map/shares";
 import { requireWorkspace } from "@/server/tenancy";
 
 export interface CreateApiTokenState {
@@ -55,6 +56,23 @@ export async function revokeApiTokenAction(
     await revokeApiToken(ctx, tokenId);
   } catch (error) {
     if (error instanceof ForbiddenError || error instanceof ApiTokenError)
+      return { error: error.message };
+    throw error;
+  }
+  revalidatePath(`/w/${ctx.workspaceSlug}/settings`);
+  return {};
+}
+
+/** Revoke a public map link (M31). */
+export async function revokeShareAction(
+  slug: string,
+  shareId: string,
+): Promise<{ error?: string }> {
+  const ctx = await requireWorkspace(slug);
+  try {
+    await revokeShare(ctx, shareId);
+  } catch (error) {
+    if (error instanceof ForbiddenError || error instanceof ShareError)
       return { error: error.message };
     throw error;
   }

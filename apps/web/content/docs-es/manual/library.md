@@ -42,6 +42,11 @@ en el mapa. Los filtros acotan por tipo,
 entorno, estado y **origen** — quién creó el recurso: una persona, un
 agente, una integración o una importación de fichero.
 
+**Ordena** pulsando la cabecera de una columna (otra vez para invertir).
+Los inventarios grandes se dividen en páginas de 100; el total y **Next** /
+**Previous** están bajo la tabla. Filtros, orden y página van en la
+dirección, así que un enlace abre la misma lista.
+
 ## Añadir y editar
 
 - **Add resource** abre un formulario; solo son obligatorios el nombre y el
@@ -49,6 +54,10 @@ agente, una integración o una importación de fichero.
 - Pulsa en un recurso para abrir su página: **Overview** (detalles,
   conexiones observadas), **Dependencies** (relaciones en ambos sentidos) y
   **Activity** (cada cambio, con quién lo hizo).
+- Si ya existe un recurso con el mismo nombre (sin distinguir mayúsculas,
+  aunque esté archivado), InfraMole lo muestra y pregunta antes de crear
+  otro — **Create anyway** cuando los dos son legítimos (el `web01` de dos
+  clientes).
 - Los miembros (member), admins y owners pueden editar; los viewers solo
   pueden leer.
 
@@ -65,7 +74,7 @@ recursos a la vez con **Set owner…** (abajo) o con las columnas `owner` /
 ## Acciones en bloque
 
 Marca filas para **archivar**, **borrar** o **asignar el responsable** de
-varios recursos a la vez (hasta 500). Al borrar también se eliminan sus relaciones; el diálogo de borrado
+varios recursos a la vez (hasta 500). La selección es por página. Al borrar también se eliminan sus relaciones; el diálogo de borrado
 ofrece **Archive instead** (archivar en su lugar).
 
 ## Recursos de un origen eliminado

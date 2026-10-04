@@ -64,6 +64,15 @@ in `?view=…`). When you change a view, the menu says _modified_ and offers
 **Save changes**. Members and above can save and delete views; viewers can
 open them.
 
+**Public links.** Admins can share a saved view with someone who has no
+account — management, a client, an auditor: **Views**, the link icon next
+to a view, choose how long it lasts, **Create link**. Copy the link then:
+it is not shown again. Whoever opens it sees that view as it is now, read
+only — names, types, environments and how they are linked; **IP
+addresses, owners, contacts, notes and everything outside the view are
+never shown**. Links are listed and revoked in **Settings › Public map
+links**; deleting the view deletes its links.
+
 Line styles follow the [certainty encoding](/docs/manual/relationships#how-certain-is-it):
 solid for confirmed, dashed for detected, dotted for inferred.
 
