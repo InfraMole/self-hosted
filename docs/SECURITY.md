@@ -235,6 +235,18 @@ last IP, expired sessions and tokens) is deleted, not kept "just in case".
   owner of a workspace with other members. Sessions, accounts, 2FA and
   passkeys go with the user.
 
+## 5w. Cloud readiness (M32, ADR-046)
+
+- Off-host backups: only encrypted dumps (age) are ever uploaded — the
+  script refuses otherwise; use a key limited to one bucket; the private
+  age key stays off the server, so the storage provider cannot read them.
+  The backup container gains egress (public network) for this.
+- Paused Cloud workspaces are deleted 60 days after the maintenance job
+  first sees them paused; notices go to owners only, plain text, with no
+  secrets; the deletion is audited with a SYSTEM actor (workspace-less row
+  kept). Community and Business never delete.
+- The landing does not offer a trial unless Stripe is configured.
+
 ## 5v. Public map links and other tools (M31, ADR-045)
 
 - Share links: `dmp_shr_` + 32 random bytes, only sha256 stored, URL shown

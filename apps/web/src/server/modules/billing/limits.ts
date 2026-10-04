@@ -7,6 +7,7 @@ import {
   CLOUD_TRIAL_DAYS,
   COMMUNITY_WORKSPACE_LIMIT,
   OVER_LIMIT_GRACE_DAYS,
+  PAUSED_RETENTION_DAYS,
   SELF_HOSTED_HISTORY_DAYS,
   type Edition,
   type Usage,
@@ -86,7 +87,7 @@ export async function getUsage(
       workspaceSubscription(workspaceId),
       tenantDb({ workspaceId }).workspace.findUniqueOrThrow({
         where: { id: workspaceId },
-        select: { trialEndsAt: true, createdAt: true, overLimitSince: true },
+        select: { trialEndsAt: true, createdAt: true, overLimitSince: true, pausedSince: true },
       }),
     ]);
     const base = { edition, nodes, scope: "workspace" as const };
@@ -115,6 +116,13 @@ export async function getUsage(
       historyDays: team.historyDays,
       trialEndsAt: ends.toISOString(),
       paused: ends <= now,
+      ...(ends <= now
+        ? {
+            deletesAt: new Date(
+              (ws.pausedSince ?? now).getTime() + PAUSED_RETENTION_DAYS * DAY,
+            ).toISOString(),
+          }
+        : {}),
     };
   }
   const nodes = await countInstance();

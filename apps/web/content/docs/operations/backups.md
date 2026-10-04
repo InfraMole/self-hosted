@@ -46,10 +46,32 @@ Then `docker compose up -d`. From the next night on, dumps are written as
 
 ## Copy backups off the server
 
-A backup on the same disk does not survive the loss of the server. Copy
-`./backups` elsewhere every day, for example with `rsync` to another
-machine, `restic` or `rclone` to object storage, or your NAS. Encrypted
-dumps (`.age`) are safe to store with third parties.
+A backup on the same disk does not survive the loss of the server. The
+backup service can upload every **encrypted** dump to S3-compatible object
+storage (AWS S3, Backblaze B2, Wasabi, Scaleway, OVHcloud, Cloudflare R2,
+your own MinIO or Garage…) and delete the copies older than
+`BACKUP_KEEP_DAYS` there too. Create a bucket and a key that can only read
+and write that bucket, then add to `.env`:
+
+```sh
+BACKUP_S3_ENDPOINT=https://s3.eu-central-003.backblazeb2.com
+BACKUP_S3_REGION=eu-central-003       # if your provider needs one
+BACKUP_S3_BUCKET=inframole-backups
+BACKUP_S3_PREFIX=prod                 # optional folder
+BACKUP_S3_ACCESS_KEY_ID=…
+BACKUP_S3_SECRET_ACCESS_KEY=…
+```
+
+and `docker compose up -d`. The log of the `backup` service says
+`uploaded … to …` after each dump. **Uploads need `BACKUP_AGE_RECIPIENT`**:
+InfraMole never sends an unencrypted dump off the server.
+
+To restore from the bucket, download the `.dump.age` file you need into
+`./backups` (with your provider's console or `rclone copy`) and follow
+[Restore](#restore).
+
+You can also copy `./backups` yourself — `rsync` to another machine,
+`restic`, or your NAS.
 
 ## Take a backup now
 

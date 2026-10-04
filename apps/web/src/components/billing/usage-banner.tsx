@@ -34,8 +34,9 @@ export function UsageBanner({ usage, billingHref }: { usage: Usage; billingHref:
 function bannerText(usage: Usage): { message: string; urgent: boolean } | null {
   if (usage.paused)
     return {
-      message:
-        "The free trial has ended: agents, imports and integrations are paused. Everything you mapped is still here.",
+      message: usage.deletesAt
+        ? `No active plan: agents, imports and integrations are paused. Without a plan, this workspace and its data will be deleted on ${usage.deletesAt.slice(0, 10)}.`
+        : "The free trial has ended: agents, imports and integrations are paused. Everything you mapped is still here.",
       urgent: true,
     };
   if (usage.plan === "cloud-trial" && usage.trialEndsAt) {

@@ -91,7 +91,7 @@ const en = {
         items: [
           "Hosts, services, listening ports and the connections between them",
           "IIS sites and SQL Server databases",
-          "nginx and Apache sites, PostgreSQL and MySQL databases",
+          "Nginx and Apache sites, PostgreSQL and MySQL databases",
           "Docker containers and Compose projects",
           "Reverse-proxy targets: nginx, Apache, HAProxy, Traefik, IIS",
           "Kubernetes nodes and workloads",
@@ -112,7 +112,7 @@ const en = {
         note: "Reviewed before anything is saved",
         items: [
           "CSV or JSON from your spreadsheet or another tool",
-          "docker-compose files",
+          "Docker Compose files",
           "Proxmox, Azure, AWS and Cloudflare exports",
         ],
       },
@@ -446,7 +446,7 @@ const es: SiteCopy = {
         note: "Se revisan antes de guardar nada",
         items: [
           "CSV o JSON de tu hoja de cálculo u otra herramienta",
-          "Ficheros docker-compose",
+          "Ficheros de Docker Compose",
           "Exportaciones de Proxmox, Azure, AWS y Cloudflare",
         ],
       },

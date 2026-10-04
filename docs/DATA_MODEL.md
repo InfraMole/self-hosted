@@ -34,14 +34,16 @@ Managed by Better Auth. `account.password` holds the password **hash**
 
 ### Workspace ✅
 
-| Field                | Notes                                                  |
-| -------------------- | ------------------------------------------------------ |
-| id                   | cuid                                                   |
-| name                 | 1–64 chars                                             |
-| slug                 | unique, URL-safe, `[a-z0-9-]{3,48}`                    |
-| trialEndsAt?         | Cloud: end of the Team trial (ADR-023)                 |
-| overLimitSince?      | Cloud paid tiers: start of the over-limit grace period |
-| createdAt, updatedAt |                                                        |
+| Field                | Notes                                                                                           |
+| -------------------- | ----------------------------------------------------------------------------------------------- |
+| id                   | cuid                                                                                            |
+| name                 | 1–64 chars                                                                                      |
+| slug                 | unique, URL-safe, `[a-z0-9-]{3,48}`                                                             |
+| trialEndsAt?         | Cloud: end of the Team trial (ADR-023)                                                          |
+| overLimitSince?      | Cloud paid tiers: start of the over-limit grace period                                          |
+| pausedSince?         | Cloud (M32): first seen paused by the maintenance job; deleted 60 days later, cleared on a plan |
+| pauseNoticesSent     | Cloud (M32): deletion notices emailed (0, 1 = 30 days left, 2 = 7 days left)                    |
+| createdAt, updatedAt |                                                                                                 |
 
 ### Membership ✅
 
@@ -415,6 +417,7 @@ opportunistic per-agent pruning on each report.
 | Change events (product history)       | 365 days (Cloud: the plan's 30 / 90 / 365 days)  | deleted                                                                                                                  |
 | Audit events                          | 365 days                                         | deleted (the trigger allows nothing earlier)                                                                             |
 | Invitations (hold an email)           | until 30 days after accepted / revoked / expired | deleted                                                                                                                  |
+| Paused Cloud workspaces (M32)         | 60 days after first seen paused (no active plan) | the whole workspace deleted; owners emailed 30 and 7 days before; audit row kept (SYSTEM)                                |
 | Enrollment tokens (hash only)         | until 90 days after revoked / expired            | deleted                                                                                                                  |
 | API tokens (hash only, M30)           | until 90 days after revoked / expired            | deleted                                                                                                                  |
 | Public map links (hash only, M31)     | until 90 days after revoked / expired            | deleted                                                                                                                  |

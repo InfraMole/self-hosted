@@ -3,6 +3,7 @@ import "server-only";
 import { redirect } from "next/navigation";
 import type { Locale } from "@/lib/i18n";
 import { getEnv } from "@/server/env";
+import { stripeConfigured } from "@/server/modules/billing/gateway";
 import { isDemoUser } from "@/server/modules/demo/demo";
 import { listWorkspacesForUser } from "@/server/modules/workspaces/workspaces";
 import { getSession } from "@/server/tenancy";
@@ -23,7 +24,8 @@ export async function HomePage({ locale }: { locale: Locale }) {
     return (
       <Landing
         locale={locale}
-        cloudSignup={env.EDITION === "cloud" && env.SIGNUP === "open"}
+        // A trial only when people can then pay for a plan (ADR-046).
+        cloudSignup={env.EDITION === "cloud" && env.SIGNUP === "open" && stripeConfigured(env)}
         demo={env.DEMO_MODE}
         inDemo={inDemo}
         showPrices={env.EDITION === "cloud"}

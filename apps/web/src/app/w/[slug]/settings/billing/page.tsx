@@ -135,7 +135,13 @@ function PlanStatus({ usage, level }: { usage: Usage; level: ReturnType<typeof u
       </span>
     );
   if (usage.paused)
-    return <span className="text-warning text-xs">Discovery paused — choose a plan</span>;
+    return (
+      <span className="text-warning text-xs">
+        Discovery paused — choose a plan
+        {usage.deletesAt &&
+          ` before ${usage.deletesAt.slice(0, 10)}, when this workspace is deleted`}
+      </span>
+    );
   if (usage.graceEndsAt)
     return (
       <span className="text-warning text-xs">

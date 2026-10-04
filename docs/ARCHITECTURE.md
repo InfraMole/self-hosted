@@ -445,3 +445,13 @@ proceed), `ResourceTable` `SortHeader`. Share links:
 `netboxInventory` / `zabbixInventory` / `prtgInventory`; recorded fixtures
 in `integrations/fixtures/`), import format `inventory`
 (`parse-platforms.ts#inventory`; declared links → suggestions).
+
+## Ready to open Cloud (M32)
+
+`server/modules/billing/paused.ts#retirePausedWorkspaces` (called by
+`/api/cron/maintenance` after `refreshOverLimit`; `getUsage` exposes
+`deletesAt`, shown by `UsageBanner` and the billing page).
+`deploy/scripts/backup-loop.sh` is the backup service (baked into the
+backup image with age + rclone; `BACKUP_S3_*`). The landing's
+`cloudSignup` needs `stripeConfigured()`. Opening runbook:
+`docs/DEPLOYMENT.md` §10c.

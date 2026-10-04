@@ -28,6 +28,10 @@ export const COMMUNITY_WORKSPACE_LIMIT = 1;
 
 /** Cloud: a new workspace gets the Team plan free for this long. No card needed. */
 export const CLOUD_TRIAL_DAYS = 14;
+/** A Cloud workspace paused this long is deleted (M32, ADR-046). */
+export const PAUSED_RETENTION_DAYS = 60;
+/** Owners are emailed when this many days remain before deletion. */
+export const PAUSE_NOTICE_DAYS_LEFT = [30, 7] as const;
 /** Paid Cloud plans: going over the server/VM limit is allowed this long. */
 export const OVER_LIMIT_GRACE_DAYS = 14;
 
@@ -90,6 +94,8 @@ export interface Usage {
   trialEndsAt?: string;
   /** Trial ended without a plan: discovery is paused, data stays readable. */
   paused: boolean;
+  /** Cloud, paused: when the workspace and its data will be deleted (ISO). */
+  deletesAt?: string;
   /** Over the limit on a paid plan: adding hosts is allowed until then (ISO). */
   graceEndsAt?: string;
   /** Short human explanation of where the limit comes from. */

@@ -99,6 +99,11 @@ model Workspace {
   /// Cloud paid plans: when the server/VM count first went over the limit
   /// (grace period start). Cleared by the maintenance job once back under.
   overLimitSince   DateTime?
+  /// Cloud (M32, ADR-046): first seen paused (no active plan) by the
+  /// maintenance job; deleted PAUSED_RETENTION_DAYS later. Cleared on a plan.
+  pausedSince      DateTime?
+  /// Deletion notices already emailed to owners (0, 1 = 30 days left, 2 = 7 days left).
+  pauseNoticesSent Int                    @default(0)
   createdAt        DateTime               @default(now())
   updatedAt        DateTime               @updatedAt
   memberships      Membership[]

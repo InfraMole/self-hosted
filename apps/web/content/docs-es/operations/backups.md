@@ -48,10 +48,33 @@ el disco.
 
 ## Sacar las copias del servidor
 
-Una copia en el mismo disco no sobrevive a la pérdida del servidor. Copia
-`./backups` a otro sitio cada día, por ejemplo con `rsync` a otra máquina,
-`restic` o `rclone` a un almacenamiento de objetos, o a tu NAS. Los volcados
-cifrados (`.age`) se pueden guardar con terceros sin riesgo.
+Una copia en el mismo disco no sobrevive a la pérdida del servidor. El
+servicio de copias puede subir cada volcado **cifrado** a un almacenamiento
+de objetos compatible con S3 (AWS S3, Backblaze B2, Wasabi, Scaleway,
+OVHcloud, Cloudflare R2, tu propio MinIO o Garage…) y borrar allí también las
+copias más antiguas que `BACKUP_KEEP_DAYS`. Crea un bucket y una clave que
+solo pueda leer y escribir en ese bucket, y añade a `.env`:
+
+```sh
+BACKUP_S3_ENDPOINT=https://s3.eu-central-003.backblazeb2.com
+BACKUP_S3_REGION=eu-central-003       # si tu proveedor la pide
+BACKUP_S3_BUCKET=inframole-backups
+BACKUP_S3_PREFIX=prod                 # carpeta, opcional
+BACKUP_S3_ACCESS_KEY_ID=…
+BACKUP_S3_SECRET_ACCESS_KEY=…
+```
+
+y `docker compose up -d`. El registro del servicio `backup` indica
+`uploaded … to …` tras cada volcado. **La subida necesita
+`BACKUP_AGE_RECIPIENT`**: InfraMole nunca saca del servidor un volcado sin
+cifrar.
+
+Para restaurar desde el bucket, descarga el `.dump.age` que necesites en
+`./backups` (con la consola de tu proveedor o `rclone copy`) y sigue
+[Restaurar](#restaurar).
+
+También puedes copiar `./backups` por tu cuenta — `rsync` a otra máquina,
+`restic` o tu NAS.
 
 ## Hacer una copia ahora
 

@@ -37,6 +37,9 @@ who is a member and with which role.
 - After the trial, a paid plan (Starter, Team or Scale) is needed to keep
   discovery running. Without one, the workspace is paused: agents, imports
   and integrations stop, and your data remains readable and exportable.
+- A workspace that stays paused for **60 days** is deleted with all its
+  data. Its owners are emailed 30 and 7 days before; choosing a plan at any
+  time stops the countdown. Export your data first if you want to keep it.
 - Plans are billed monthly in advance through our payment provider (Stripe).
   Prices exclude VAT where applicable. You can change or cancel your plan at
   any time in Settings › Billing; cancellation takes effect at the end of the

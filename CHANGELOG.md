@@ -5,6 +5,19 @@ images). The agent has its own changelog in the InfraMole/agent repository.
 To update an installation, see
 [Upgrade guide](https://inframole.com/docs/operations/upgrade).
 
+## 0.22.0 — 2026-10-04
+
+### Added
+
+- **Off-site backups**: the backup service can upload every encrypted
+  backup to S3-compatible storage (AWS S3, Backblaze B2, Wasabi, Scaleway,
+  OVHcloud, Cloudflare R2, MinIO…) and prune old copies there. Set
+  `BACKUP_S3_*` in `.env`; unencrypted backups are never uploaded.
+
+### Changed
+
+- Website: wording of two items in the list of what InfraMole collects.
+
 ## 0.21.0 — 2026-10-04
 
 ### Added
