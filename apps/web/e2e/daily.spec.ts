@@ -56,3 +56,19 @@ test("settings show which InfraMole is running", async ({ page }) => {
   await expect(page.getByText("InfraMole version")).toBeVisible();
   await expect(page.getByText("development build")).toBeVisible();
 });
+
+test("an installation without analytics loads none and allows no third-party origin", async ({
+  page,
+  request,
+}) => {
+  const requested: string[] = [];
+  page.on("request", (r) => requested.push(r.url()));
+  const res = await page.goto("/docs/quickstart");
+  const csp = res!.headers()["content-security-policy"]!;
+  expect(csp).toContain("default-src 'self'");
+  expect(csp).toContain("connect-src 'self';");
+  expect((await request.get("/api/analytics")).status()).toBe(204);
+  await page.waitForTimeout(1500);
+  const origin = new URL(res!.url()).origin;
+  expect(requested.filter((u) => !u.startsWith(origin) && !u.startsWith("data:"))).toEqual([]);
+});

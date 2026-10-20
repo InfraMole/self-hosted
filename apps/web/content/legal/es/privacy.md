@@ -1,6 +1,6 @@
 # Política de privacidad
 
-_Última actualización: 29 de septiembre de 2026_
+_Última actualización: 20 de octubre de 2026_
 
 Esta política se aplica a **inframole.com** — el sitio web, la documentación
 y la demo en vivo de InfraMole, un proyecto de código abierto sin ánimo
@@ -15,20 +15,24 @@ este sitio web.
 
 ## Qué datos tratamos, para qué y durante cuánto tiempo
 
-| Cuándo                                                    | Datos                                                                                 | Para qué                                                                                                | Cuánto tiempo                                                                                            |
-| --------------------------------------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| Visitas el sitio web                                      | Dirección IP, navegador y páginas solicitadas, en los registros técnicos del servidor | Servir el sitio web y protegerlo frente a abusos (por ejemplo, limitando peticiones) — interés legítimo | Se rotan automáticamente por tamaño (unos pocos megabytes), de modo que se sobrescriben los más antiguos |
-| Abres la demo en vivo                                     | Una cookie de sesión; la sesión registra tu dirección IP y tu navegador               | Mantener tu sesión en la demo — necesario para ofrecerla                                                | Hasta que caduca la sesión, 14 días después de tu última visita; las sesiones caducadas se eliminan      |
-| Nos escribes o usas el botón de Feedback de la aplicación | Tu correo electrónico, tu nombre si lo indicas y tu mensaje                           | Responderte — interés legítimo                                                                          | Lo necesario para la conversación                                                                        |
+| Cuándo                                                         | Datos                                                                                                                                                                                                                                                   | Para qué                                                                                                      | Cuánto tiempo                                                                                            |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Visitas el sitio web                                           | Dirección IP, navegador y páginas solicitadas, en los registros técnicos del servidor                                                                                                                                                                   | Servir el sitio web y protegerlo frente a abusos (por ejemplo, limitando peticiones) — interés legítimo       | Se rotan automáticamente por tamaño (unos pocos megabytes), de modo que se sobrescriben los más antiguos |
+| Lees las páginas públicas (web, documentación, textos legales) | La dirección de la página (sin parámetros ni fragmento), el sitio de procedencia, navegador, sistema operativo, tipo de dispositivo, tamaño de pantalla, idioma y el país deducido de tu dirección IP — sin cookies; la dirección IP en sí no se guarda | Estadísticas anónimas de visitas para mejorar la web, con Umami en nuestro propio servidor — interés legítimo | Hasta 2 años                                                                                             |
+| Abres la demo en vivo                                          | Una cookie de sesión; la sesión registra tu dirección IP y tu navegador                                                                                                                                                                                 | Mantener tu sesión en la demo — necesario para ofrecerla                                                      | Hasta que caduca la sesión, 14 días después de tu última visita; las sesiones caducadas se eliminan      |
+| Nos escribes o usas el botón de Feedback de la aplicación      | Tu correo electrónico, tu nombre si lo indicas y tu mensaje                                                                                                                                                                                             | Responderte — interés legítimo                                                                                | Lo necesario para la conversación                                                                        |
 
-No creamos perfiles, no vendemos datos y no usamos analítica ni rastreadores
-publicitarios.
+No creamos perfiles, no vendemos datos y no usamos rastreadores
+publicitarios. Las estadísticas solo se cuentan en las páginas públicas —
+nunca dentro de la demo ni de ningún espacio de trabajo— y no se comparten
+con nadie. Si tu navegador envía **Do Not Track**, tus visitas no se
+cuentan.
 
 ## Quién más interviene
 
 | Proveedor      | Para qué                                                              | Dónde                                                 |
 | -------------- | --------------------------------------------------------------------- | ----------------------------------------------------- |
-| OVHcloud       | Alojamiento del sitio web y de la demo                                | Unión Europea                                         |
+| OVHcloud       | Alojamiento del sitio web, la demo y las estadísticas de visitas      | Unión Europea                                         |
 | Cloudflare     | DNS y reenvío del correo enviado a direcciones @inframole.com         | Red global; Cloudflare, Inc. tiene su sede en EE. UU. |
 | Resend         | Envío de los correos que manda el sitio web (por ejemplo, Feedback)   | Resend, Inc. tiene su sede en EE. UU.                 |
 | Google (Gmail) | Buzón donde se leen y responden los correos enviados a @inframole.com | Google LLC tiene su sede en EE. UU.                   |

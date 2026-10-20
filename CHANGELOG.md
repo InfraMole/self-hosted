@@ -5,6 +5,22 @@ images). The agent has its own changelog in the InfraMole/agent repository.
 To update an installation, see
 [Upgrade guide](https://inframole.com/docs/operations/upgrade).
 
+## 0.23.0 — 2026-10-20
+
+### Added
+
+- Optional web analytics with a self-hosted [Umami](https://umami.is) for
+  installations that are also a public website: set `UMAMI_SCRIPT_URL`,
+  `UMAMI_WEBSITE_ID` and optionally `UMAMI_DOMAINS`. Only the public pages
+  are counted (website, docs, legal) — never workspaces or shared maps —
+  without query strings, and Do Not Track is respected. Off by default.
+
+### Changed
+
+- The Content-Security-Policy is now set when the server runs, not when the
+  image is built, so it can allow the analytics server only where it is
+  configured.
+
 ## 0.22.0 — 2026-10-04
 
 ### Added

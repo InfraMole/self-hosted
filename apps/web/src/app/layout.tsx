@@ -2,6 +2,7 @@
 import type { Metadata } from "next";
 import { GeistMono } from "geist/font/mono";
 import { GeistSans } from "geist/font/sans";
+import { Analytics } from "@/components/analytics";
 import { SITE_URL } from "@/lib/i18n";
 import "./globals.css";
 
@@ -22,7 +23,11 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`dark ${GeistSans.variable} ${GeistMono.variable} h-full`}>
-      <body className="flex min-h-full flex-col font-sans">{children}</body>
+      <body className="flex min-h-full flex-col font-sans">
+        {children}
+        {/* Public website only, and only where UMAMI_* is set (ADR-047). */}
+        <Analytics />
+      </body>
     </html>
   );
 }

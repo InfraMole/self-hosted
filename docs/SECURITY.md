@@ -235,6 +235,20 @@ last IP, expired sessions and tokens) is deleted, not kept "just in case".
   owner of a workspace with other members. Sessions, accounts, 2FA and
   passkeys go with the user.
 
+## 5x. Web analytics and the CSP (ADR-047)
+
+- The Content-Security-Policy is set by `src/proxy.ts` on every response
+  except Next.js build assets, computed from the runtime env: same directives
+  as before; `https://<analytics origin>` is added to `script-src` and
+  `connect-src` only when `UMAMI_SCRIPT_URL` and `UMAMI_WEBSITE_ID` are set.
+  An invalid env never loosens it (the strict policy is used).
+- Analytics only on an allow-list of public pages (`lib/analytics.ts`); a
+  `before-send` filter cancels anything else, strips query strings,
+  fragments and private internal referrers; Do Not Track respected;
+  cookieless (Umami). Tokens in URLs (`/share/…`, `/invite/…`,
+  `?token=`) can therefore never reach the analytics server.
+- Self-hosted installations: off by default, no outbound request.
+
 ## 5w. Cloud readiness (M32, ADR-046)
 
 - Off-host backups: only encrypted dumps (age) are ever uploaded — the

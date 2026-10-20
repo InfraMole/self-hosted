@@ -34,6 +34,10 @@ x-app-env: &app-env
   SIGNUP: ${SIGNUP:-open}
   PUBLIC_SITE: ${PUBLIC_SITE:-false}
   DEMO_MODE: ${DEMO_MODE:-false}
+  # Optional Umami analytics of the public website (ADR-047); empty = none.
+  UMAMI_SCRIPT_URL: ${UMAMI_SCRIPT_URL:-}
+  UMAMI_WEBSITE_ID: ${UMAMI_WEBSITE_ID:-}
+  UMAMI_DOMAINS: ${UMAMI_DOMAINS:-}
   # Edition (ADR-023): community (default) · cloud · business (+ licence key).
   EDITION: ${EDITION:-community}
   DEPMAP_LICENSE_KEY: ${DEPMAP_LICENSE_KEY:-}

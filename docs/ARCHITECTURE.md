@@ -327,6 +327,7 @@ fails fast if configuration is invalid. Pages must call `headers()` /
 | `CRON_SECRET`                                                                             | Optional. Bearer secret for `/api/cron/*`                                                                                                                                                              |
 | `INTEGRATIONS_PRIVATE_NETWORKS`                                                           | Optional, self-hosted only (refused with `EDITION=cloud`). CIDRs the local-source integrations (Proxmox, TrueNAS, Synology) may reach — M27, ADR-042                                                   |
 | `UPDATE_CHECK`                                                                            | Optional, default false. Admins see a newer release in Settings (one anonymous GET per day) — M29                                                                                                      |
+| `UMAMI_SCRIPT_URL`, `UMAMI_WEBSITE_ID`, `UMAMI_DOMAINS`                                   | Optional. Umami analytics of the public pages only (ADR-047); also adds the analytics origin to the runtime CSP                                                                                        |
 | `INFRAMOLE_BUILD_VERSION`                                                                 | Set in release images at build time (Dockerfile ARG); shown in Settings                                                                                                                                |
 | `TRUST_PROXY`                                                                             | `true` only behind our reverse proxy: client IP from `X-Real-IP` (overwritten by Caddy). Otherwise the rightmost `X-Forwarded-For` entry (`server/http.ts` `clientIp`, Better Auth `ipAddressHeaders`) |
 | `FEEDBACK_EMAIL`                                                                          | Optional (M12). In-app feedback recipient; needs SMTP. Unset ⇒ no Feedback button                                                                                                                      |
@@ -455,3 +456,12 @@ in `integrations/fixtures/`), import format `inventory`
 backup image with age + rclone; `BACKUP_S3_*`). The landing's
 `cloudSignup` needs `stripeConfigured()`. Opening runbook:
 `docs/DEPLOYMENT.md` §10c.
+
+## Web analytics and runtime CSP (ADR-047)
+
+`src/proxy.ts` sets the CSP (`server/analytics.ts#contentSecurityPolicy`);
+`next.config.ts` keeps the other security headers. Analytics:
+`server/analytics.ts#analyticsConfig` (env), `app/api/analytics/route.ts`
+(runtime settings, 204 when off), `components/analytics.tsx` (root layout,
+`next/script`), `lib/analytics.ts` (public-page allow-list + before-send
+filter). Env: `UMAMI_SCRIPT_URL`, `UMAMI_WEBSITE_ID`, `UMAMI_DOMAINS`.

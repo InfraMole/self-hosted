@@ -72,6 +72,21 @@ const envSchema = z.object({
     .enum(["true", "false"])
     .default("false")
     .transform((v) => v === "true"),
+  /**
+   * Umami web analytics for the public website (ADR-047). Both set = the
+   * tracker loads on public pages only; unset (the default) = no analytics and
+   * no third-party origin in the CSP.
+   */
+  UMAMI_SCRIPT_URL: optional(
+    z.url().refine((v) => /^https:\/\//.test(v) || /^http:\/\/localhost[:/]/.test(v), {
+      message: "must be https:// (http only for localhost)",
+    }),
+  ),
+  UMAMI_WEBSITE_ID: optional(z.uuid("must be the Umami website ID (a UUID)")),
+  /** Only count visits on these hostnames (comma-separated), e.g. inframole.com. */
+  UMAMI_DOMAINS: optional(
+    z.string().regex(/^[a-z0-9.-]+(,[a-z0-9.-]+)*$/i, "comma-separated hostnames"),
+  ),
   /** Public read-only demo at /demo with a shared Viewer account, reset every 24 h (M13). */
   DEMO_MODE: z
     .enum(["true", "false"])
