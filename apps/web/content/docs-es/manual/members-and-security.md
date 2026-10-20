@@ -23,6 +23,13 @@ se te muestra a ti, válido durante 7 días. Acepta iniciando sesión o creando
 una cuenta con esa misma dirección. Las invitaciones pendientes se pueden
 revocar.
 
+## Inicio de sesión único
+
+Las personas de tu organización también pueden entrar con tu proveedor de
+identidad o directorio (OIDC, SAML, LDAP / Active Directory), con sus grupos
+decidiendo su rol, sin invitación. Consulta
+[Inicio de sesión único](/es/docs/manual/single-sign-on).
+
 ## Tu cuenta
 
 **Account & security** (tu nombre, abajo en la barra lateral) incluye:

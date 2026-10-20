@@ -82,7 +82,8 @@ export function integrationsEnabled(): boolean {
   return Boolean(getEnv().CREDENTIALS_ENCRYPTION_KEY);
 }
 
-function keyring(): Keyring {
+/** The keyring for stored credentials (integrations, LDAP sign-in settings). */
+export function credentialsKeyring(): Keyring {
   const env = getEnv();
   return buildKeyring({
     key: env.CREDENTIALS_ENCRYPTION_KEY,
@@ -176,7 +177,11 @@ export async function createIntegration(
   assertRole(ctx, "ADMIN");
   const v = validated(input);
   const id = randomUUID();
-  const sealed = sealSecret(JSON.stringify(v.secret), aad(ctx.workspaceId, id), keyring());
+  const sealed = sealSecret(
+    JSON.stringify(v.secret),
+    aad(ctx.workspaceId, id),
+    credentialsKeyring(),
+  );
   const row = await tenantDb(ctx).$transaction(async (tx) => {
     const created = await tx.integration.create({
       data: {
@@ -256,7 +261,7 @@ async function syncRow(
   const provider = PROVIDERS[row.kind];
   let outcome: SyncOutcome;
   try {
-    const ring = keyring();
+    const ring = credentialsKeyring();
     const sealed = {
       ciphertext: row.secretCiphertext,
       iv: row.secretIv,

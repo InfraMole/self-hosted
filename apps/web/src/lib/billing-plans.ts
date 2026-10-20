@@ -113,3 +113,24 @@ export function usageLevel(u: Pick<Usage, "nodes" | "limit">): "ok" | "near" | "
 export function daysUntil(iso: string, now = new Date()): number {
   return Math.max(0, Math.ceil((new Date(iso).getTime() - now.getTime()) / 86_400_000));
 }
+
+/** Capabilities that may differ by edition (ADR-024: Business sells capabilities, never size). */
+export interface EditionCapabilities {
+  /** OIDC / SAML / LDAP sign-in with directory groups → roles (M33, ADR-048). */
+  enterpriseSso: boolean;
+}
+
+/**
+ * Enterprise SSO is in every edition for now (ADR-048). Moving it to
+ * Business later is a change here, announced in the release notes of a new
+ * version — installations keep what their version shipped with.
+ */
+export const EDITION_CAPABILITIES: Record<Edition, EditionCapabilities> = {
+  community: { enterpriseSso: true },
+  cloud: { enterpriseSso: true },
+  business: { enterpriseSso: true },
+};
+
+export function editionHas(edition: Edition, capability: keyof EditionCapabilities): boolean {
+  return EDITION_CAPABILITIES[edition][capability];
+}

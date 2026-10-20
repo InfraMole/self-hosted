@@ -58,6 +58,9 @@ export const OWNER = {
   slug: "e2e-infra",
 };
 
+/** Enterprise SSO (sso.spec.ts): a domain the operator vouches for, no DNS proof. */
+export const SSO_DOMAIN = "e2e-sso.example";
+
 /** Variables the app reads that must be unset here (empty = unset, env.ts). */
 const UNSET = [
   "SMTP_URL",
@@ -78,6 +81,7 @@ const UNSET = [
   "GOOGLE_CLIENT_SECRET",
   "MICROSOFT_CLIENT_ID",
   "MICROSOFT_CLIENT_SECRET",
+  "SSO_TRUSTED_ORIGINS",
 ];
 
 export const SERVER_ENV: Record<string, string> = {
@@ -88,6 +92,7 @@ export const SERVER_ENV: Record<string, string> = {
   DEMO_MODE: "false",
   TRUST_PROXY: "false",
   INTEGRATIONS_PRIVATE_NETWORKS: "",
+  SSO_TRUSTED_DOMAINS: SSO_DOMAIN,
   DATABASE_URL: APP_URL,
   BETTER_AUTH_SECRET: "e2e-only-secret-0123456789abcdef0123456789",
   BETTER_AUTH_URL: BASE_URL,

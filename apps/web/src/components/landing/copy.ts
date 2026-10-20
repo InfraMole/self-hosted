@@ -235,8 +235,8 @@ const en = {
         body: "Every workspace is separated in the application and again by row-level security in the database.",
       },
       twoFactor: {
-        title: "2FA and passkeys",
-        body: "For every account, and workspaces can require them. Included in every edition, Community too.",
+        title: "2FA, passkeys and single sign-on",
+        body: "2FA and passkeys for every account, and workspaces can require them. Sign in with your directory — OIDC, SAML or LDAP / Active Directory — with groups mapped to roles. In Community too.",
       },
       audit: {
         title: "Audit log",
@@ -300,7 +300,7 @@ const en = {
     lines: [
       "Agents for Windows and Linux, dependency map and impact analysis",
       "Azure, AWS and Cloudflare integrations; CSV, Compose and platform imports",
-      "Two-factor authentication, passkeys and audit log",
+      "Two-factor authentication, passkeys, single sign-on (OIDC, SAML, LDAP) and audit log",
       "Docker Compose deployment, x86-64 and ARM64",
     ],
     installGuide: "Install guide →",
@@ -572,8 +572,8 @@ const es: SiteCopy = {
         body: "Cada espacio de trabajo está separado en la aplicación y, además, por seguridad a nivel de fila en la base de datos.",
       },
       twoFactor: {
-        title: "2FA y llaves de acceso",
-        body: "Para todas las cuentas, y cada espacio de trabajo puede exigirlas. Incluido en todas las ediciones, también en Community.",
+        title: "2FA, llaves de acceso e inicio de sesión único",
+        body: "2FA y llaves de acceso para todas las cuentas, y cada espacio de trabajo puede exigirlas. Inicia sesión con tu directorio —OIDC, SAML o LDAP / Active Directory— con los grupos asignados a roles. También en Community.",
       },
       audit: {
         title: "Registro de auditoría",
@@ -637,7 +637,7 @@ const es: SiteCopy = {
     lines: [
       "Agentes para Windows y Linux, mapa de dependencias y análisis de impacto",
       "Integraciones con Azure, AWS y Cloudflare; importación de CSV, Compose y plataformas",
-      "Autenticación en dos pasos, llaves de acceso y registro de auditoría",
+      "Autenticación en dos pasos, llaves de acceso, inicio de sesión único (OIDC, SAML, LDAP) y registro de auditoría",
       "Despliegue con Docker Compose, x86-64 y ARM64",
     ],
     installGuide: "Guía de instalación →",

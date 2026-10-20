@@ -52,6 +52,8 @@ x-app-env: &app-env
   MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID:-}
   MICROSOFT_CLIENT_SECRET: ${MICROSOFT_CLIENT_SECRET:-}
   MICROSOFT_TENANT_ID: ${MICROSOFT_TENANT_ID:-}
+  SSO_TRUSTED_DOMAINS: ${SSO_TRUSTED_DOMAINS:-}
+  SSO_TRUSTED_ORIGINS: ${SSO_TRUSTED_ORIGINS:-}
 
 # Bounded container logs (privacy policy: technical logs are rotated by size).
 x-logging: &logging

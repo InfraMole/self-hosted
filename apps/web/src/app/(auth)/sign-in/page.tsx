@@ -9,7 +9,11 @@ import { getEnv } from "@/server/env";
 import { SignInForm } from "./sign-in-form";
 
 /** Better Auth OAuth error codes → honest, non-technical copy. */
-function ssoErrorMessage(code: string): string {
+function ssoErrorMessage(code: string, description: string | null): string {
+  // Enterprise SSO (M33): InfraMole's own refusals carry a safe description.
+  if (code.startsWith("sso_") && description) return description.slice(0, 200);
+  if (code === "replay_detected" || code === "invalid_saml_response")
+    return "The sign-in response was not accepted. Start again from your organization's sign-in.";
   if (code === "account_not_linked")
     return "An account with this email already exists. Sign in with your password, then connect it from Account & security.";
   if (code === "email_not_found") return "The provider did not share an email address.";
@@ -21,7 +25,13 @@ export const metadata: Metadata = { title: "Sign in" };
 export default async function SignInPage({ searchParams }: PageProps<"/sign-in">) {
   const sp = await searchParams;
   const next = safeNext(sp.next);
-  const ssoError = typeof sp.error === "string" ? ssoErrorMessage(sp.error) : null;
+  const ssoError =
+    typeof sp.error === "string"
+      ? ssoErrorMessage(
+          sp.error,
+          typeof sp.error_description === "string" ? sp.error_description : null,
+        )
+      : null;
   const suffix = next ? `?next=${encodeURIComponent(next)}` : "";
   const providers = enabledSsoProviders();
   return (

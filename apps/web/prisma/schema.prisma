@@ -16,24 +16,25 @@ datasource db {
 // Shape required by Better Auth's Prisma adapter. Do not rename fields.
 
 model User {
-  id               String       @id
+  id               String        @id
   name             String
-  email            String       @unique
-  emailVerified    Boolean      @default(false)
+  email            String        @unique
+  emailVerified    Boolean       @default(false)
   /// Better Auth two-factor plugin (M8c).
-  twoFactorEnabled Boolean      @default(false)
+  twoFactorEnabled Boolean       @default(false)
   image            String?
   /// Cloud (M12): Terms of Service version accepted at sign-up, and when.
   termsVersion     String?
   termsAcceptedAt  DateTime?
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @default(now()) @updatedAt
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @default(now()) @updatedAt
   sessions         Session[]
   accounts         Account[]
   memberships      Membership[]
-  invitationsSent  Invitation[] @relation("InvitedBy")
+  invitationsSent  Invitation[]  @relation("InvitedBy")
   twoFactors       TwoFactor[]
   passkeys         Passkey[]
+  ssoProviders     SsoProvider[]
 
   @@map("user")
 }
@@ -118,6 +119,7 @@ model Workspace {
   savedViews       SavedView[]
   apiTokens        ApiToken[]
   mapShares        MapShare[]
+  ssoConnections   WorkspaceSso[]
   integrations     Integration[]
   invitations      Invitation[]
   auditEvents      AuditEvent[]
@@ -187,6 +189,27 @@ model Passkey {
   @@index([userId])
   @@index([credentialID])
   @@map("passkey")
+}
+
+/// Better Auth SSO plugin (M33, ADR-048): one OIDC or SAML identity provider.
+/// An auth table like `account` (no RLS); InfraMole's tenant binding and
+/// role policy live in WorkspaceSso. `providerId` is the URL-safe id.
+model SsoProvider {
+  id             String   @id
+  issuer         String
+  /// JSON (OIDC client id / secret, endpoints) — managed by the plugin.
+  oidcConfig     String?
+  /// JSON (IdP metadata / certificate, SP settings) — managed by the plugin.
+  samlConfig     String?
+  userId         String?
+  user           User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  providerId     String   @unique
+  organizationId String?
+  /// The email domain routed to this provider.
+  domain         String
+  domainVerified Boolean?
+
+  @@map("sso_provider")
 }
 
 /// Pending invitation to a workspace. The token is shown once; only its
@@ -628,16 +651,16 @@ model DiscoveryRule {
 /// impact, open / closed boxes and pinned positions, shared with everyone in
 /// the workspace. Presentation only — never infrastructure data.
 model SavedView {
-  id          String    @id @default(cuid())
+  id          String     @id @default(cuid())
   workspaceId String
-  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspace   Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   name        String
   /// Validated by savedViewStateSchema (lib/map-view-state.ts); holds
   /// resource ids, never names or other resource data.
   state       Json
   createdById String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
   shares      MapShare[]
 
   @@unique([workspaceId, name])
@@ -667,6 +690,53 @@ model MapShare {
 
   @@index([workspaceId, createdAt])
   @@map("map_share")
+}
+
+// ───────────────────────────── Enterprise SSO (M33, ADR-048) ─────────────────────────────
+
+enum SsoProtocol {
+  OIDC
+  SAML
+  LDAP
+}
+
+/// A workspace's single sign-on connection: which identity provider (or
+/// LDAP directory) signs its people in, for which email domain, and which
+/// role each directory group gets. OIDC / SAML protocol settings live in
+/// sso_provider (Better Auth); LDAP settings are sealed here.
+model WorkspaceSso {
+  id             String          @id @default(cuid())
+  workspaceId    String
+  workspace      Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  protocol       SsoProtocol
+  name           String
+  /// sso_provider.providerId (OIDC / SAML), or a generated id for LDAP.
+  providerId     String          @unique
+  /// Lower-case email domain; unique among verified connections (partial
+  /// index in the migration: an unverified claim cannot block the real owner).
+  domain         String
+  /// DNS TXT proof, or trusted by the operator (SSO_TRUSTED_DOMAINS).
+  domainVerified Boolean         @default(false)
+  /// Role for people in no mapped group; null = they are refused.
+  defaultRole    MembershipRole?
+  /// OIDC claim / SAML attribute / LDAP attribute holding the groups.
+  groupsClaim    String          @default("groups")
+  /// [{ "group": "IT-Admins", "role": "ADMIN" }] — first match wins (highest role).
+  groupRoles     Json            @default("[]")
+  /// Password sign-in refused for this domain (SSO only).
+  enforced       Boolean         @default(false)
+  enabled        Boolean         @default(true)
+  /// LDAP only: sealed JSON { url, bindDn, bindPassword, baseDn, … } (AES-256-GCM).
+  ldapCiphertext String?
+  ldapIv         String?
+  ldapKeyVersion Int?
+  createdById    String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@unique([workspaceId, id])
+  @@index([workspaceId])
+  @@map("workspace_sso")
 }
 
 // ───────────────────────────── Read-only API (M30, ADR-044) ─────────────────────────────

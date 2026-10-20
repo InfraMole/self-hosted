@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { passkeyClient } from "@better-auth/passkey/client";
+import { ssoClient } from "@better-auth/sso/client";
 import { twoFactorClient } from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 
@@ -13,5 +14,6 @@ export const authClient = createAuthClient({
     // Sign-in forms handle `twoFactorRedirect` themselves (they keep ?next=).
     twoFactorClient({ onTwoFactorRedirect: () => {} }),
     passkeyClient(),
+    ssoClient(),
   ],
 });

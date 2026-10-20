@@ -87,6 +87,7 @@ const NAV: (Titled & { pages: (Titled & { slug: string })[] })[] = [
         title: "Members and security",
         es: "Miembros y seguridad",
       },
+      { slug: "manual/single-sign-on", title: "Single sign-on", es: "Inicio de sesión único" },
     ],
   },
   {

@@ -21,6 +21,12 @@ person receives an email (if email is configured) and the link is also shown
 to you, valid for 7 days. They accept by signing in or creating an account
 with that same address. Pending invitations can be revoked.
 
+## Single sign-on
+
+People of your organization can also join through your identity provider or
+directory (OIDC, SAML, LDAP / Active Directory), with their groups deciding
+their role — no invitation needed. See [Single sign-on](/docs/manual/single-sign-on).
+
 ## Your account
 
 **Account & security** (your name at the bottom of the sidebar) has:

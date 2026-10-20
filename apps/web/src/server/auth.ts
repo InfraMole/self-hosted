@@ -6,6 +6,7 @@ import { nextCookies } from "better-auth/next-js";
 import { APIError, createAuthMiddleware, getSessionFromCtx } from "better-auth/api";
 import { twoFactor } from "better-auth/plugins";
 import { passkey } from "@better-auth/passkey";
+import { sso } from "@better-auth/sso";
 import { getDb, userDb } from "./db";
 import { TERMS_VERSION } from "@/lib/legal";
 import { getEnv } from "./env";
@@ -13,6 +14,8 @@ import { AccountError, prepareAccountDeletion } from "./modules/account/account"
 import { SIGNUP_CLOSED_MESSAGE, signUpAllowed } from "./modules/access/signup";
 import { recordAudit, type AuditInput } from "./modules/audit/audit";
 import { DEMO_EMAIL } from "./modules/demo/demo";
+import { ldapSignIn } from "./modules/sso/ldap-plugin";
+import { decideSsoSignIn, provisionSsoUser, ssoEnforcedFor, ssoForEmail } from "./modules/sso/sso";
 import { mailerConfigured, resetPasswordMail, sendMail, verificationMail } from "./mail";
 
 export const PASSWORD_MIN_LENGTH = 10;
@@ -52,6 +55,25 @@ const DEMO_LOCKED_PATHS = [
 ];
 const PASSWORD_RESET_PATHS = ["/request-password-reset", "/forget-password"];
 
+/**
+ * The SSO plugin's own provider-management endpoints are switched off (404):
+ * connections are managed by workspace owners through modules/sso (M33,
+ * ADR-048), which also proves the domain and protects against SSRF.
+ */
+const SSO_ADMIN_PATHS = [
+  "/sso/register",
+  "/sso/update-provider",
+  "/sso/delete-provider",
+  "/sso/providers",
+  "/sso/get-provider",
+  "/sso/request-domain-verification",
+  "/sso/verify-domain",
+];
+/** Paths that sign someone in with a password: refused for SSO-only domains. */
+const PASSWORD_PATHS = ["/sign-in/email", "/sign-up/email", ...PASSWORD_RESET_PATHS];
+export const SSO_ONLY_MESSAGE =
+  "Your organization signs in with single sign-on. Use “Sign in with SSO”.";
+
 function createAuth() {
   const env = getEnv();
   // With a real mailer, an address must be proven before signing in (and
@@ -59,9 +81,18 @@ function createAuth() {
   const requireVerification = mailerConfigured();
   return betterAuth({
     appName: "InfraMole",
+    disabledPaths: SSO_ADMIN_PATHS,
+    // Identity providers on a private network (SSO_TRUSTED_ORIGINS, M33): the
+    // SSO plugin only calls non-public endpoints of trusted origins.
+    trustedOrigins: (env.SSO_TRUSTED_ORIGINS ?? "")
+      .split(",")
+      .map((o) => o.trim())
+      .filter((o) => /^https?:\/\//.test(o)),
     baseURL: env.BETTER_AUTH_URL,
     secret: env.BETTER_AUTH_SECRET,
-    database: prismaAdapter(getDb(), { provider: "postgresql" }),
+    // Native transactions: multi-step auth writes are atomic, and the SSO
+    // plugin's user resolution requires them (M33).
+    database: prismaAdapter(getDb(), { provider: "postgresql", transaction: true }),
     // Account linking keeps Better Auth's safe defaults: an SSO identity joins an
     // existing account only when the provider verified the email (Google does;
     // Microsoft only with verified-email claims) and the local email is verified.
@@ -155,8 +186,27 @@ function createAuth() {
       ipAddress: { ipAddressHeaders: env.TRUST_PROXY ? ["x-real-ip"] : ["x-forwarded-for"] },
     },
     hooks: {
-      // Public demo (M13): the shared account is read-only at the account level too.
       before: createAuthMiddleware(async (ctx) => {
+        const body = (ctx.body ?? {}) as { email?: unknown; providerId?: unknown };
+        // SSO only (M33): a domain whose connection is enforced has no passwords.
+        if (PASSWORD_PATHS.some((p) => ctx.path.startsWith(p)) && typeof body.email === "string") {
+          if (await ssoEnforcedFor(body.email))
+            throw new APIError("BAD_REQUEST", { message: SSO_ONLY_MESSAGE });
+        }
+        // SSO sign-in starts only towards an enabled, verified connection
+        // chosen by InfraMole's own routing (never by domain or organization).
+        if (ctx.path.startsWith("/sign-in/sso")) {
+          const providerId = typeof body.providerId === "string" ? body.providerId : "";
+          const allowed = providerId
+            ? await getDb().ssoProvider.findFirst({
+                where: { providerId, domainVerified: true },
+                select: { id: true },
+              })
+            : null;
+          if (!allowed)
+            throw new APIError("BAD_REQUEST", { message: "This sign-in is not available." });
+        }
+        // Public demo (M13): the shared account is read-only at the account level too.
         if (!env.DEMO_MODE) return;
         const denied = () =>
           new APIError("BAD_REQUEST", { message: "The demo account is read-only." });
@@ -175,10 +225,13 @@ function createAuth() {
         create: {
           // Cloud: creating an account (form or Google/Microsoft) accepts the
           // Terms shown on the sign-up page; record which version and when.
-          before: async (user) => {
-            // SIGNUP=closed (M13): invitation or first user only. 400, not 403:
-            // the client maps 403 to "verify your email".
-            if (!(await signUpAllowed(user.email)))
+          before: async (user, ctx) => {
+            // SIGNUP=closed (M13): invitation or first user only — or, through
+            // single sign-on only (M33), someone of a verified connected domain.
+            // 400, not 403: the client maps 403 to "verify your email".
+            const viaSso =
+              Boolean(ctx?.path?.startsWith("/sso/")) && Boolean(await ssoForEmail(user.email));
+            if (!viaSso && !(await signUpAllowed(user.email)))
               throw new APIError("BAD_REQUEST", { message: SIGNUP_CLOSED_MESSAGE });
             return env.EDITION === "cloud"
               ? {
@@ -234,6 +287,35 @@ function createAuth() {
         rpID: new URL(env.BETTER_AUTH_URL).hostname,
         origin: new URL(env.BETTER_AUTH_URL).origin,
       }),
+      // Enterprise SSO (M33, ADR-048): OIDC and SAML; who gets in with which
+      // role is decided by modules/sso on every sign-in.
+      sso({
+        domainVerification: { enabled: true, tokenPrefix: "inframole-sso" },
+        organizationProvisioning: { disabled: true },
+        providersLimit: 0,
+        provisionUserOnEveryLogin: true,
+        resolveUser: async (input) => {
+          const claims =
+            input.protocol === "oidc"
+              ? { ...input.providerClaims, ...input.verifiedIdTokenClaims }
+              : (input.providerAttributes as Record<string, unknown>);
+          const decision = await decideSsoSignIn({
+            providerId: input.providerId,
+            email: input.providerUser.email,
+            claims,
+          });
+          if (decision.action === "reject")
+            return { action: "reject", code: decision.code, message: decision.message };
+          if (decision.action === "link")
+            return { action: "link", userId: decision.userId, profile: "preserve" };
+          return { action: "continue" };
+        },
+        provisionUser: async ({ user, provider }) => {
+          await provisionSsoUser(provider.providerId, { id: user.id, email: user.email });
+        },
+      }),
+      // LDAP / Active Directory (M33): InfraMole's own endpoint.
+      ldapSignIn(),
       nextCookies(),
     ],
   });

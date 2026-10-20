@@ -9,3 +9,10 @@ allowBuilds:
   prisma: true
   "@prisma/engines": true
   esbuild: true
+
+# Security floors for transitive dependencies (pnpm audit, M33).
+overrides:
+  mysql2: ">=3.23.1 <4"
+  sharp: ">=0.35.5 <0.36"
+  source-map-js: ">=1.2.2 <2"
+  vite: ">=8.3.3 <9"

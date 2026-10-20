@@ -5,6 +5,30 @@ images). The agent has its own changelog in the InfraMole/agent repository.
 To update an installation, see
 [Upgrade guide](https://inframole.com/docs/operations/upgrade).
 
+## 0.24.0 — 2026-10-20
+
+### Added
+
+- **Single sign-on for your organization**, in every edition: workspace
+  owners connect an identity provider for their email domain in Settings ›
+  Single sign-on — **OpenID Connect** (Entra ID, Okta, Keycloak, Google
+  Workspace…), **SAML 2.0** (ADFS, Shibboleth…) or **LDAP / Active
+  Directory**. Directory groups decide each person's role (viewer, member
+  or admin) at every sign-in; people who leave the groups lose access. The
+  domain is proven with a DNS TXT record; "SSO only" turns password sign-in
+  off for that domain. SAML requests are signed. See
+  [Single sign-on](https://inframole.com/docs/manual/single-sign-on).
+- New optional settings `SSO_TRUSTED_DOMAINS` (domains trusted without DNS
+  proof) and `SSO_TRUSTED_ORIGINS` (identity providers and directories on
+  your own network).
+
+### Security
+
+- Updated Next.js to 16.3.8 and Prisma to 7.10.1, and raised the minimum
+  versions of sharp, mysql2 and source-map-js, fixing published advisories
+  (including server-side request forgery in image optimisation and cache
+  poisoning of static pages).
+
 ## 0.23.0 — 2026-10-20
 
 ### Added

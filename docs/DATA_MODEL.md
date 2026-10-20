@@ -65,6 +65,8 @@ Role capabilities (enforced from M1 on):
 | Create/edit resources & relationships, confirm/ignore suggestions                                 |        | ✔      | ✔     | ✔     |
 | Manage agents & enrollment tokens, API tokens, public map links, integrations, workspace settings |        |        | ✔     | ✔     |
 | Invite members, change roles, remove members (not owners) — M8b                                   |        |        | ✔     | ✔     |
+| See single sign-on connections (M33)                                                              |        |        | ✔     | ✔     |
+| Create / edit / verify / disable / delete single sign-on connections (M33)                        |        |        |       | ✔     |
 | Grant / change / remove the OWNER role, delete workspace                                          |        |        |       | ✔     |
 | Leave the workspace                                                                               | ✔      | ✔      | ✔     | ✔     |
 
@@ -214,6 +216,29 @@ deleted (change event DELETED, "Suggestion removed by an exclusion rule").
 MEMBER+ create / delete (audited `discovery.rule_created` /
 `discovery.rule_deleted`); at most 100 per workspace.
 
+### WorkspaceSso ✅ M33 (ADR-048)
+
+`workspace_sso`: `workspaceId` (cascade), `protocol` (enum `SsoProtocol`
+OIDC | SAML | LDAP), `name`, `providerId` (unique, `sso-<16 hex>`; the key
+into `sso_provider` and `account.providerId`), `domain`, `domainVerified`
+(partial unique index `workspace_sso_verified_domain_key` on `domain WHERE
+"domainVerified"`: one verified connection per domain per installation),
+`defaultRole?` (MembershipRole; null = refuse people of no mapped group),
+`groupsClaim` (default `groups`; `memberOf` for LDAP), `groupRoles` (JSON
+`[{group, role}]`, ≤ 50, roles VIEWER / MEMBER / ADMIN), `enforced` (SSO
+only), `enabled`, `ldapCiphertext? / ldapIv? / ldapKeyVersion?` (sealed LDAP
+settings incl. the service account's password, AAD
+`sso-ldap:<workspaceId>:<providerId>`), `createdById?`, timestamps. RLS
+tenant policy (migration `enterprise_sso`). OWNER writes, ADMIN reads;
+sign-in reads by domain / providerId through `systemDb`.
+
+`sso_provider` (Better Auth SSO plugin, auth table, no RLS): `providerId`
+(unique), `issuer`, `domain`, `domainVerified`, `oidcConfig?` / `samlConfig?`
+(JSON text: endpoints, client id **and secret**; SAML IdP metadata, SP
+metadata, SP certificate **and private key**), `userId?` (creator,
+SetNull), `organizationId?` (unused). Written only by `modules/sso`; no row
+for LDAP connections.
+
 ### MapShare ✅ M31 (ADR-045)
 
 `map_share`: `workspaceId`, `savedViewId` (composite FK `(workspaceId,
@@ -329,7 +354,7 @@ Every table with `workspaceId`, plus `workspace`, has an RLS policy keyed on
 the transaction settings `app.workspace_id`, `app.user_id` and
 `app.bypass_rls` (helpers `app_workspace()`, `app_user()`, `app_bypass()`).
 Auth tables (`user`, `session`, `account`, `verification`, `two_factor`,
-`passkey`) have no RLS (Better Auth accesses them by user id).
+`passkey`, `sso_provider`) have no RLS (Better Auth accesses them by user id).
 
 ## 2b. Account security ✅ M8c
 

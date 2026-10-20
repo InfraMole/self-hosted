@@ -116,7 +116,7 @@ tested; DB-backed lookups are integration tested).
 | `/w/[slug]/map`                                                           | Map (M3)                                                                                                                                                                                                                                                                                                                                                            |
 | `/w/[slug]/changes`                                                       | Changes (M7)                                                                                                                                                                                                                                                                                                                                                        |
 | `/w/[slug]/settings`                                                      | Workspace settings                                                                                                                                                                                                                                                                                                                                                  |
-| `/api/auth/[...all]`                                                      | Better Auth handler                                                                                                                                                                                                                                                                                                                                                 |
+| `/api/auth/[...all]`                                                      | Better Auth handler; enterprise SSO under `/api/auth/sso/*` (OIDC callback, SAML ACS / SP metadata, `POST /sso/ldap/sign-in`) — M33                                                                                                                                                                                                                                 |
 | `/api/health`                                                             | Liveness + DB check                                                                                                                                                                                                                                                                                                                                                 |
 
 Mutations are server actions in `src/app/w/[slug]/resources/actions.ts`
@@ -339,6 +339,8 @@ fails fast if configuration is invalid. Pages must call `headers()` /
 | `EDITION`, `DEPMAP_LICENSE_KEY`                                                           | Edition (community default · cloud · business) and the Business licence (ADR-019, `modules/billing`)                                                                                                   |
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_STARTER` / `_TEAM` / `_SCALE` | Cloud billing (EDITION=cloud, ADR-023); all five enable Stripe (one flat monthly Price per tier). Use a restricted key where possible                                                                  |
 | `GOOGLE_CLIENT_ID/SECRET`, `MICROSOFT_CLIENT_ID/SECRET`, `MICROSOFT_TENANT_ID`            | Optional SSO sign-in (M8c); a provider is enabled only when id and secret are set. Redirect URI `<BETTER_AUTH_URL>/api/auth/callback/<provider>`                                                       |
+| `SSO_TRUSTED_DOMAINS`                                                                     | Optional. Comma-separated email domains the operator vouches for: enterprise SSO connections for them need no DNS proof (M33)                                                                          |
+| `SSO_TRUSTED_ORIGINS`                                                                     | Optional. Identity providers / directories on a private network or plain http/ldap, e.g. `https://idp.corp.lan,ldaps://dc01.corp.lan:636` (M33)                                                        |
 
 Local ports: Postgres on host **5452** (`DEPMAP_DB_PORT`), app on 3000
 (`next dev`) or `DEPMAP_WEB_PORT` in compose. If the app runs on another port,
@@ -456,6 +458,23 @@ in `integrations/fixtures/`), import format `inventory`
 backup image with age + rclone; `BACKUP_S3_*`). The landing's
 `cloudSignup` needs `stripeConfigured()`. Opening runbook:
 `docs/DEPLOYMENT.md` §10c.
+
+## Enterprise single sign-on (M33, ADR-048)
+
+`server/modules/sso/`: `sso.ts` (connections CRUD for OWNERs, domain proof,
+OIDC discovery at save time, SAML config with `sp-certificate.ts`, sign-in
+decisions `decideSsoSignIn` / `provisionSsoUser` / `applySsoRole`,
+`ssoForEmail`, `ssoEnforcedFor`, `checkLdapSignIn`), `ldap.ts` (sealed
+settings, `ldapts` client, authenticate), `ldap-plugin.ts` (Better Auth
+endpoint `/sso/ldap/sign-in`). `server/auth.ts` adds the `@better-auth/sso`
+plugin (`resolveUser` / `provisionUser` → `modules/sso`, its management
+endpoints in `disabledPaths`), a before-hook for SSO-only domains and for
+`/sign-in/sso`, and `transaction: true` on the Prisma adapter (the plugin
+needs native transactions). Group-rule parsing is client-safe in
+`lib/sso-roles.ts`. UI: `components/settings/sso-card.tsx`
+(`settings/sso-actions.ts`), sign-in SSO mode in
+`app/(auth)/sign-in/sign-in-form.tsx` (route by email: `sign-in/actions.ts`).
+Edition capability: `lib/billing-plans.ts#EDITION_CAPABILITIES`.
 
 ## Web analytics and runtime CSP (ADR-047)
 

@@ -5,6 +5,7 @@ import { DeleteIntegrationDialog } from "@/components/integrations/delete-integr
 import { IntegrationSheet, SyncNowButton } from "@/components/integrations/integration-sheet";
 import { CreateTokenDialog } from "@/components/agents/create-token-dialog";
 import { CreateApiTokenDialog } from "@/components/settings/create-api-token-dialog";
+import { SsoCard } from "@/components/settings/sso-card";
 import { InviteSheet, RoleSelect } from "@/components/members/invite-sheet";
 import { DeleteWorkspaceDialog } from "@/components/settings/delete-workspace-dialog";
 import { RequireTwoFactorToggle } from "@/components/settings/require-two-factor-toggle";
@@ -23,6 +24,13 @@ import {
 } from "@/server/modules/agents/agents";
 import { listApiTokens, type ApiTokenState } from "@/server/modules/api/tokens";
 import { listShares } from "@/server/modules/map/shares";
+import {
+  ssoAvailable,
+  DOMAIN_RECORD_PREFIX,
+  domainProof,
+  listSsoConnections,
+  serviceProviderDetails,
+} from "@/server/modules/sso/sso";
 import { integrationsEnabled, listIntegrations } from "@/server/modules/integrations/integrations";
 import { INTEGRATION_FORMS } from "@/lib/integration-forms";
 import { listInvitations, listMembers } from "@/server/modules/members/members";
@@ -32,6 +40,13 @@ import { requireWorkspace } from "@/server/tenancy";
 import { versionInfo } from "@/server/version";
 import { createTokenAction, revokeAgentAction, revokeTokenAction } from "./actions";
 import { createApiTokenAction, revokeApiTokenAction, revokeShareAction } from "./api-actions";
+import {
+  createSsoAction,
+  deleteSsoAction,
+  setSsoEnabledAction,
+  updateSsoAction,
+  verifySsoDomainAction,
+} from "./sso-actions";
 import {
   createIntegrationAction,
   deleteIntegrationAction,
@@ -85,6 +100,7 @@ export default async function SettingsPage({ params }: PageProps<"/w/[slug]/sett
       isAdmin ? listApiTokens(ctx) : Promise.resolve([]),
       isAdmin ? listShares(ctx) : Promise.resolve([]),
     ]);
+  const ssoConnections = isAdmin ? await listSsoConnections(ctx) : [];
   const assignable: Role[] = isOwner
     ? ["VIEWER", "MEMBER", "ADMIN", "OWNER"]
     : ["VIEWER", "MEMBER", "ADMIN"];
@@ -552,6 +568,43 @@ export default async function SettingsPage({ params }: PageProps<"/w/[slug]/sett
                 ))}
               </ul>
             )}
+          </Card>
+        )}
+
+        {isAdmin && ssoAvailable() && (
+          <Card id="sso">
+            <CardHeader>
+              <CardTitle>Single sign-on</CardTitle>
+              <p className="text-muted mt-0.5 text-xs">
+                Your organization&apos;s identity provider (OpenID Connect, SAML or LDAP / Active
+                Directory) signs people of your email domain in, and their directory groups decide
+                their role here.{" "}
+                <Link href="/docs/manual/single-sign-on" className="text-accent hover:underline">
+                  Guide
+                </Link>
+                {!isOwner && " Only owners can change it."}
+              </p>
+            </CardHeader>
+            <SsoCard
+              canManage={isOwner}
+              ldapAvailable={canStoreSecrets}
+              rows={ssoConnections.map((c) => ({
+                ...c,
+                details: serviceProviderDetails(c.providerId),
+                dns:
+                  isOwner && !c.domainVerified
+                    ? {
+                        name: `${DOMAIN_RECORD_PREFIX}.${c.domain}`,
+                        value: domainProof(c.providerId),
+                      }
+                    : null,
+              }))}
+              create={createSsoAction.bind(null, ctx.workspaceSlug)}
+              update={updateSsoAction.bind(null, ctx.workspaceSlug)}
+              verify={verifySsoDomainAction.bind(null, ctx.workspaceSlug)}
+              setEnabled={setSsoEnabledAction.bind(null, ctx.workspaceSlug)}
+              remove={deleteSsoAction.bind(null, ctx.workspaceSlug)}
+            />
           </Card>
         )}
 

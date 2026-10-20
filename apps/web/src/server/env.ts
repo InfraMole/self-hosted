@@ -87,6 +87,27 @@ const envSchema = z.object({
   UMAMI_DOMAINS: optional(
     z.string().regex(/^[a-z0-9.-]+(,[a-z0-9.-]+)*$/i, "comma-separated hostnames"),
   ),
+  /**
+   * Enterprise SSO (ADR-048). Email domains the operator vouches for: a
+   * workspace connection for them needs no DNS proof (internal domains such
+   * as corp.local). Comma-separated, lower-case.
+   */
+  SSO_TRUSTED_DOMAINS: optional(
+    z.string().regex(/^[a-z0-9.-]+(,[a-z0-9.-]+)*$/, "comma-separated lower-case domains"),
+  ),
+  /**
+   * Identity providers and directories on a private network or plain http /
+   * ldap (local tests): their origins are allowed for OIDC discovery and token
+   * calls and LDAP sign-in. Comma-separated.
+   */
+  SSO_TRUSTED_ORIGINS: optional(
+    z
+      .string()
+      .refine(
+        (v) => v.split(",").every((o) => /^(https?|ldaps?):\/\/[^/\s]+$/.test(o.trim())),
+        "comma-separated origins like https://idp.example.lan or ldap://dc01.example.lan:389",
+      ),
+  ),
   /** Public read-only demo at /demo with a shared Viewer account, reset every 24 h (M13). */
   DEMO_MODE: z
     .enum(["true", "false"])

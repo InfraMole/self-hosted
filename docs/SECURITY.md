@@ -235,6 +235,44 @@ last IP, expired sessions and tokens) is deleted, not kept "just in case".
   owner of a workspace with other members. Sessions, accounts, 2FA and
   passkeys go with the user.
 
+## 5y. Enterprise single sign-on (M33, ADR-048)
+
+- **Configuration**: OWNER only (ADMIN reads); every change audited
+  (`sso.connection_*`, `sso.domain_verified`). The SSO plugin's own
+  provider endpoints are disabled (404). `workspace_sso` is under RLS; the
+  plugin's `sso_provider` is an auth table (no workspace column) written only
+  by `modules/sso`.
+- **Domain trust**: nobody signs in through a connection until its domain is
+  proven by DNS TXT (`_inframole-sso.<domain>` = HMAC of the provider id with
+  `BETTER_AUTH_SECRET`) or listed in `SSO_TRUSTED_DOMAINS` by the operator.
+  One verified connection per domain per installation; public mail domains
+  refused; an identity provider can only vouch for addresses of its own
+  domain (`sso_wrong_domain`). Linking to an existing account of that domain
+  is allowed (the verified domain owner controls those addresses).
+- **Roles**: groups → VIEWER / MEMBER / ADMIN, re-evaluated at every sign-in;
+  no match and no default role = refused and the membership removed. OWNER is
+  never granted, changed or removed by a directory.
+- **SSRF**: OIDC discovery (at save time only) via `safeFetch`; stored
+  endpoints must be https on public addresses; LDAP servers must be
+  `ldaps://` on public addresses and are connected by the checked address.
+  Private servers only through `SSO_TRUSTED_ORIGINS`, set by the operator.
+  SAML metadata is pasted, never fetched.
+- **SAML**: AuthnRequests always signed (per-connection RSA-2048 key),
+  assertions must be signed, replay protection by the plugin.
+- **LDAP**: the user filter escapes the email (RFC 4515); exactly one entry
+  must match; empty passwords refused (anonymous bind); the typed password
+  is sent only to the directory, never stored or logged; 5 attempts/min per
+  IP; wrong email, wrong password and unknown entry give the same answer.
+  Directory errors are logged as a message only.
+- **Secrets at rest**: LDAP settings (with the service account's password)
+  sealed with `CREDENTIALS_ENCRYPTION_KEY` (AAD `sso-ldap:<workspace>:<provider>`).
+  **Known trade-off**: the OIDC client secret and the SAML SP private key
+  are stored in plain text in `sso_provider` because the plugin reads them
+  from there (Backlog: encrypt via a plugin hook).
+- **SSO only**: password sign-in, sign-up and reset refused for that domain
+  (400 with a message that switches the form to SSO).
+- **MFA**: SSO sign-ins rely on the identity provider's MFA (same as 5h).
+
 ## 5x. Web analytics and the CSP (ADR-047)
 
 - The Content-Security-Policy is set by `src/proxy.ts` on every response
