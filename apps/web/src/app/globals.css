@@ -366,6 +366,48 @@
   display: block;
 }
 
+/* Key figures (:::cards) */
+.doc-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+@media (min-width: 640px) {
+  .doc-cards {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+.doc-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--accent) 4%, transparent);
+  padding: 0.8rem 0.95rem 0.85rem;
+}
+.doc-prose .doc-card-value {
+  margin: 0;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 1.1rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  color: var(--accent);
+}
+@media (min-width: 640px) {
+  .doc-prose .doc-card-value {
+    font-size: 1.3rem;
+  }
+}
+.doc-card-body {
+  margin-top: 0.3rem;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.doc-prose .doc-card-body > :first-child {
+  margin-top: 0;
+}
+
 /* Callouts */
 .doc-callout {
   margin-top: 1rem;

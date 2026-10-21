@@ -11,6 +11,8 @@ const MAX_TABS = 12;
  *   :::steps            numbered steps — every `### heading` inside is a step
  *   :::tabs             OS tabs — `@tab Linux` lines start each tab (CSS-only,
  *                       synced by label on the client)
+ *   :::cards            key figures — `@card <value>` lines start each card,
+ *                       the lines after it are its caption (markdown)
  *   :::note|tip|warning [title]   callouts
  *   :::                 closes the innermost block
  *
@@ -68,7 +70,7 @@ export function parseBlocks(source: string): Block[] {
       continue;
     }
     if (fence === null) {
-      const open = /^:::(steps|tabs|note|tip|warning)\s*(.*)$/.exec(line.trim());
+      const open = /^:::(steps|tabs|cards|note|tip|warning)\s*(.*)$/.exec(line.trim());
       if (open) {
         flush();
         const block: Block = { kind: "container", name: open[1]!, arg: open[2]!, children: [] };
@@ -135,6 +137,24 @@ export function renderDoc(
       .map((b) => {
         if (b.kind === "md") return md(b.text);
         if (b.name === "steps") return `<div class="doc-steps">\n${render(b.children)}</div>\n`;
+        if (b.name === "cards") {
+          const cards: { value: string; body: string[] }[] = [];
+          const text = b.children.map((c) => (c.kind === "md" ? c.text : "\u0000")).join("\n");
+          if (text.includes("\u0000")) throw new Error("docs: no nested blocks inside :::cards");
+          for (const line of text.split("\n")) {
+            const card = /^@card\s+(.+)$/.exec(line.trim());
+            if (card) cards.push({ value: card[1]!.trim(), body: [] });
+            else if (cards.length) cards.at(-1)!.body.push(line);
+          }
+          if (cards.length === 0) throw new Error("docs: :::cards needs @card lines");
+          const items = cards
+            .map(
+              (c) =>
+                `<div class="doc-card"><p class="doc-card-value">${escapeHtml(c.value)}</p><div class="doc-card-body">${md(c.body.join("\n"))}</div></div>`,
+            )
+            .join("\n");
+          return `<div class="doc-cards">\n${items}\n</div>\n`;
+        }
         if (b.name === "tabs") {
           const group = `tabs-${tabGroup++}`;
           const tabs: { label: string; body: string[] }[] = [];
@@ -174,6 +194,7 @@ export function plainText(source: string): string {
     .replace(/```[\s\S]*?```/g, " ")
     .replace(/^:::.*$/gm, " ")
     .replace(/^@tab .*$/gm, " ")
+    .replace(/^@card /gm, " ")
     .replace(/[#>*_`|[\]()-]/g, " ")
     .replace(/\s+/g, " ")
     .trim();

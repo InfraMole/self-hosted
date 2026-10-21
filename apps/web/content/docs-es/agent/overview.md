@@ -66,6 +66,9 @@ ocultan el destino real. Y una conexión no demuestra una dependencia — por
 eso la confirma una persona.
 :::
 
+Consumo, cifrado y el resumen completo de seguridad:
+[Seguridad y rendimiento](/es/docs/security).
+
 ## Verificar los binarios
 
 Las versiones publican `SHA256SUMS`, firmado con Sigstore, y una atestación

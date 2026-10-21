@@ -48,6 +48,19 @@ describe("docs renderer", () => {
     expect(headings.map((h) => h.id)).toEqual(["download", "start"]);
   });
 
+  it("renders key-figure cards with a markdown caption", () => {
+    const { html } = renderDoc(
+      ":::cards\n@card ~15 MB\nAgent **memory**\n@card 0 <ports>\nInbound\n:::",
+    );
+    expect(html).toContain('<div class="doc-cards">');
+    expect(html.match(/class="doc-card"/g)).toHaveLength(2);
+    expect(html).toContain('<p class="doc-card-value">~15 MB</p>');
+    expect(html).toContain("<strong>memory</strong>");
+    expect(html).toContain("0 &lt;ports&gt;");
+    expect(() => renderDoc(":::cards\ntext\n:::")).toThrow(/@card/);
+    expect(plainText(":::cards\n@card ~15 MB\nMemory\n:::")).toBe("~15 MB Memory");
+  });
+
   it("does not treat ::: inside code fences as blocks", () => {
     const blocks = parseBlocks("```\n:::tabs\n```\ntext");
     expect(blocks).toHaveLength(1);

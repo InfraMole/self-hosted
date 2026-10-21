@@ -28,6 +28,7 @@ const NAV: (Titled & { pages: (Titled & { slug: string })[] })[] = [
     pages: [
       { slug: "getting-started", title: "What is InfraMole", es: "Qué es InfraMole" },
       { slug: "quickstart", title: "Quickstart", es: "Inicio rápido" },
+      { slug: "security", title: "Security and performance", es: "Seguridad y rendimiento" },
     ],
   },
   {

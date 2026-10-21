@@ -5,6 +5,15 @@ images). The agent has its own changelog in the InfraMole/agent repository.
 To update an installation, see
 [Upgrade guide](https://inframole.com/docs/operations/upgrade).
 
+## 0.24.1 — 2026-10-21
+
+### Added
+
+- Documentation: a [Security and performance](https://inframole.com/docs/security)
+  page for teams evaluating InfraMole — what the agent collects and never
+  collects, how it authenticates and encrypts its reports, its measured
+  footprint, where the data lives and how people sign in.
+
 ## 0.24.0 — 2026-10-20
 
 ### Added

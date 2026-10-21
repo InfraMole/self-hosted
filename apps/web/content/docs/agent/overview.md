@@ -62,6 +62,9 @@ job). NAT, load balancers and proxies hide the real peer. And a connection
 does not prove a dependency — which is why a person confirms.
 :::
 
+Footprint, encryption and the full security overview:
+[Security and performance](/docs/security).
+
 ## Verifying the binaries
 
 Releases publish `SHA256SUMS`, signed with Sigstore, and a build-provenance
