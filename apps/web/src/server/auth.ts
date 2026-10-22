@@ -15,6 +15,7 @@ import { SIGNUP_CLOSED_MESSAGE, signUpAllowed } from "./modules/access/signup";
 import { recordAudit, type AuditInput } from "./modules/audit/audit";
 import { DEMO_EMAIL } from "./modules/demo/demo";
 import { ldapSignIn } from "./modules/sso/ldap-plugin";
+import { ssoDb } from "./modules/sso/sso-secrets";
 import { decideSsoSignIn, provisionSsoUser, ssoEnforcedFor, ssoForEmail } from "./modules/sso/sso";
 import { mailerConfigured, resetPasswordMail, sendMail, verificationMail } from "./mail";
 
@@ -91,8 +92,9 @@ function createAuth() {
     baseURL: env.BETTER_AUTH_URL,
     secret: env.BETTER_AUTH_SECRET,
     // Native transactions: multi-step auth writes are atomic, and the SSO
-    // plugin's user resolution requires them (M33).
-    database: prismaAdapter(getDb(), { provider: "postgresql", transaction: true }),
+    // plugin's user resolution requires them (M33). The client opens the
+    // sealed SSO secrets for the plugin (ADR-053).
+    database: prismaAdapter(ssoDb(), { provider: "postgresql", transaction: true }),
     // Account linking keeps Better Auth's safe defaults: an SSO identity joins an
     // existing account only when the provider verified the email (Google does;
     // Microsoft only with verified-email claims) and the local email is verified.

@@ -84,11 +84,11 @@ describe("connections", () => {
     const member = await memberContext(owner, "MEMBER");
     await expect(listSsoConnections(member)).rejects.toThrow(ForbiddenError);
 
-    // InfraMole signs its requests with the connection's own key.
+    // InfraMole signs its requests with the connection's own key, stored sealed (ADR-053).
     const provider = await adminDb().ssoProvider.findFirstOrThrow();
     const config = JSON.parse(provider.samlConfig!) as Record<string, unknown>;
     expect(config.authnRequestsSigned).toBe(true);
-    expect(String(config.privateKey)).toContain("PRIVATE KEY");
+    expect(String(config.privateKey)).toMatch(/^sealed:v1:/);
 
     const audit = await adminDb().auditEvent.findFirst({
       where: { action: "sso.connection_created" },

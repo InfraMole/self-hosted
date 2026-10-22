@@ -14,6 +14,9 @@ Compatible con:
 El inicio de sesión único está disponible en todas las ediciones. Solo los
 **propietarios** del espacio de trabajo pueden configurarlo; los
 administradores pueden verlo.
+El servidor necesita `CREDENTIALS_ENCRYPTION_KEY` (la pone el script de
+instalación): los secretos de cliente, las claves de firma y las contraseñas
+del directorio se guardan cifrados.
 
 ## Cómo funciona
 
@@ -67,9 +70,6 @@ nombre y el dominio de correo.
    aserciones deben ir firmadas.
 
 ### LDAP / Active Directory
-
-Necesita `CREDENTIALS_ENCRYPTION_KEY` en el servidor (la contraseña de la
-cuenta de servicio se guarda cifrada).
 
 - **Directory server**: `ldaps://dc01.uni.example:636`. `ldap://` sin
   cifrar y los servidores de una red privada solo se permiten si el

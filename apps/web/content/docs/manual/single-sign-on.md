@@ -12,7 +12,9 @@ Supported:
 - **LDAP / Active Directory** — the directory checks the password.
 
 Single sign-on is available in every edition. Only workspace **owners** can
-set it up; admins can see it.
+set it up; admins can see it. The server needs `CREDENTIALS_ENCRYPTION_KEY`
+(the install script sets it): client secrets, signing keys and directory
+passwords are stored encrypted.
 
 ## How it works
 
@@ -65,9 +67,6 @@ name and the email domain.
    Assertions must be signed.
 
 ### LDAP / Active Directory
-
-Needs `CREDENTIALS_ENCRYPTION_KEY` on the server (the service account's
-password is stored encrypted).
 
 - **Directory server**: `ldaps://dc01.uni.example:636`. Plain `ldap://` and
   servers on a private network are only allowed when the server

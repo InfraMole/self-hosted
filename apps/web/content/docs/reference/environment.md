@@ -15,13 +15,13 @@ Settings for self-hosted installations, in `.env` next to
 
 ## Recommended
 
-| Variable                     | Description                                                                                                                                    |
-| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `SMTP_URL`                   | Outgoing email, e.g. `smtps://user:password@smtp.example.com:465`. When set, email verification is required.                                   |
-| `MAIL_FROM`                  | Sender, e.g. `InfraMole <inframole@example.com>`. Required with `SMTP_URL`.                                                                    |
-| `CREDENTIALS_ENCRYPTION_KEY` | Encrypts stored integration tokens (AES-256-GCM). Filled by `gen-secrets`. **Back it up**: without it stored tokens must be entered again.     |
-| `BACKUP_AGE_RECIPIENT`       | age public key (`age1…`) to encrypt nightly backups.                                                                                           |
-| `AGENT_DOWNLOAD_BASE_URL`    | Where the install commands download the agent. Default: the official releases (`https://github.com/InfraMole/agent/releases/latest/download`). |
+| Variable                     | Description                                                                                                                                                                                                                                        |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SMTP_URL`                   | Outgoing email, e.g. `smtps://user:password@smtp.example.com:465`. When set, email verification is required.                                                                                                                                       |
+| `MAIL_FROM`                  | Sender, e.g. `InfraMole <inframole@example.com>`. Required with `SMTP_URL`.                                                                                                                                                                        |
+| `CREDENTIALS_ENCRYPTION_KEY` | Encrypts stored integration tokens and single sign-on secrets (AES-256-GCM); required for single sign-on and integrations. Filled by `gen-secrets`. **Back it up**: without it stored tokens and single sign-on connections must be entered again. |
+| `BACKUP_AGE_RECIPIENT`       | age public key (`age1…`) to encrypt nightly backups.                                                                                                                                                                                               |
+| `AGENT_DOWNLOAD_BASE_URL`    | Where the install commands download the agent. Default: the official releases (`https://github.com/InfraMole/agent/releases/latest/download`).                                                                                                     |
 
 ## Optional
 

@@ -32,6 +32,7 @@ import {
   type LdapSettingsView,
 } from "./ldap";
 import { createSpCertificate } from "./sp-certificate";
+import { ssoDb } from "./sso-secrets";
 
 /**
  * Enterprise single sign-on (M33, ADR-048). A workspace connects one identity
@@ -153,6 +154,11 @@ export function ssoAvailable(): boolean {
 
 function assertSsoAvailable() {
   if (!ssoAvailable()) throw new SsoError("Single sign-on is not part of this edition.");
+  // Client secrets, SP keys and LDAP passwords are stored sealed (ADR-053).
+  if (!integrationsEnabled())
+    throw new SsoError(
+      "Single sign-on stores its secrets encrypted: the server administrator sets CREDENTIALS_ENCRYPTION_KEY first.",
+    );
 }
 
 function trustedOrigins(): string[] {
@@ -317,7 +323,7 @@ export async function listSsoConnections(ctx: WorkspaceContext): Promise<SsoConn
     where: { workspaceId: ctx.workspaceId },
     orderBy: { createdAt: "asc" },
   });
-  const providers = await getDb().ssoProvider.findMany({
+  const providers = await ssoDb().ssoProvider.findMany({
     where: { providerId: { in: rows.map((r) => r.providerId) } },
     select: { providerId: true, issuer: true, oidcConfig: true, samlConfig: true },
   });
@@ -360,10 +366,6 @@ function viewOf(settings: LdapSettings | null): LdapSettingsView | null {
 
 /** Settings sealed for a connection, after the directory accepted them. */
 async function checkedLdap(settings: LdapSettings, workspaceId: string, providerId: string) {
-  if (!integrationsEnabled())
-    throw new SsoError(
-      "LDAP sign-in stores the service account's password encrypted: the server administrator sets CREDENTIALS_ENCRYPTION_KEY first.",
-    );
   try {
     await testLdapSettings(settings);
   } catch (error) {
@@ -496,7 +498,7 @@ export async function createSsoConnection(ctx: WorkspaceContext, raw: unknown) {
       : null;
 
   if (input.protocol !== "LDAP")
-    await getDb().ssoProvider.create({
+    await ssoDb().ssoProvider.create({
       data: {
         id: randomBytes(16).toString("hex"),
         providerId,
@@ -544,7 +546,7 @@ export async function createSsoConnection(ctx: WorkspaceContext, raw: unknown) {
       return row;
     });
   } catch (error) {
-    await getDb()
+    await ssoDb()
       .ssoProvider.delete({ where: { providerId } })
       .catch(() => undefined);
     throw error;
@@ -567,7 +569,7 @@ export async function updateSsoConnection(ctx: WorkspaceContext, id: string, raw
   if (input.protocol !== row.protocol) throw new SsoError("The protocol cannot change.");
   if (input.domain !== row.domain)
     throw new SsoError("The domain cannot change: delete the connection and create a new one.");
-  const provider = await getDb().ssoProvider.findUnique({
+  const provider = await ssoDb().ssoProvider.findUnique({
     where: { providerId: row.providerId },
   });
   let ldap: Awaited<ReturnType<typeof checkedLdap>> | null = null;
@@ -580,7 +582,7 @@ export async function updateSsoConnection(ctx: WorkspaceContext, id: string, raw
   } else if (input.protocol === "OIDC") {
     const stored = JSON.parse(provider.oidcConfig ?? "{}") as { clientSecret?: string };
     const secret = input.clientSecret || stored.clientSecret || "";
-    await getDb().ssoProvider.update({
+    await ssoDb().ssoProvider.update({
       where: { providerId: row.providerId },
       data: { issuer: input.issuer, oidcConfig: await oidcConfigJson(input, secret) },
     });
@@ -594,7 +596,7 @@ export async function updateSsoConnection(ctx: WorkspaceContext, id: string, raw
       stored.privateKey && stored.spCertificate
         ? { keyPem: stored.privateKey, certPem: stored.spCertificate }
         : createSpCertificate(`InfraMole SSO ${row.providerId}`);
-    await getDb().ssoProvider.update({
+    await ssoDb().ssoProvider.update({
       where: { providerId: row.providerId },
       data: { samlConfig: samlConfigJson(row.providerId, input.idpMetadata, keys) },
     });
@@ -649,7 +651,7 @@ export async function deleteSsoConnection(ctx: WorkspaceContext, id: string) {
     });
   });
   // Accounts linked through it stay (people keep any other sign-in method).
-  await getDb()
+  await ssoDb()
     .ssoProvider.delete({ where: { providerId: row.providerId } })
     .catch(() => undefined);
 }
@@ -676,7 +678,7 @@ export async function verifySsoDomain(
     select: { id: true },
   });
   if (taken) throw new SsoError(`${row.domain} is already connected to another workspace.`);
-  await getDb().ssoProvider.updateMany({
+  await ssoDb().ssoProvider.updateMany({
     where: { providerId: row.providerId },
     data: { domainVerified: true },
   });

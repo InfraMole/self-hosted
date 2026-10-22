@@ -652,7 +652,7 @@ export default async function SettingsPage({ params }: PageProps<"/w/[slug]/sett
             </CardHeader>
             <SsoCard
               canManage={isOwner}
-              ldapAvailable={canStoreSecrets}
+              secretsAvailable={canStoreSecrets}
               rows={ssoConnections.map((c) => ({
                 ...c,
                 details: serviceProviderDetails(c.providerId),

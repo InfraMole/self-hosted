@@ -127,8 +127,10 @@ each sample costs proportionally more.
   about your installation is sent. Set it to `false` to turn it off.
 - **Workspaces are isolated twice**: in the application, and again by
   row-level security in the database.
-- **Stored credentials are encrypted.** Integration tokens and LDAP service
-  accounts are sealed with AES-256-GCM, with the key outside the database.
+- **Stored credentials are encrypted.** Integration tokens and single
+  sign-on secrets (OpenID Connect client secrets, SAML signing keys, LDAP
+  service accounts) are sealed with AES-256-GCM, with the key outside the
+  database.
   Integrations only need read-only access.
 - **Short retention of raw data.** Raw agent observations are deleted after
   7 days; what remains is the map: resources, relationships and their

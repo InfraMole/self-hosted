@@ -135,8 +135,9 @@ cada muestra cuesta proporcionalmente más.
 - **Los espacios de trabajo se aíslan dos veces**: en la aplicación y, de
   nuevo, con seguridad a nivel de fila en la base de datos.
 - **Las credenciales guardadas van cifradas.** Los tokens de las
-  integraciones y las cuentas de servicio de LDAP se cifran con AES-256-GCM,
-  con la clave fuera de la base de datos. Las integraciones solo necesitan
+  integraciones y los secretos del inicio de sesión único (secretos de
+  cliente de OpenID Connect, claves de firma SAML, cuentas de servicio de
+  LDAP) se cifran con AES-256-GCM, con la clave fuera de la base de datos. Las integraciones solo necesitan
   acceso de lectura.
 - **Retención corta de los datos en bruto.** Las observaciones en bruto de
   los agentes se borran a los 7 días; lo que queda es el mapa: recursos,

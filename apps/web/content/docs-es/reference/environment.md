@@ -15,13 +15,13 @@ Ajustes de las instalaciones autoalojadas, en `.env` junto a
 
 ## Recomendadas
 
-| Variable                     | Descripción                                                                                                                                                     |
-| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `SMTP_URL`                   | Correo saliente, p. ej. `smtps://user:password@smtp.example.com:465`. Si se indica, la verificación del correo es obligatoria.                                  |
-| `MAIL_FROM`                  | Remitente, p. ej. `InfraMole <inframole@example.com>`. Obligatoria con `SMTP_URL`.                                                                              |
-| `CREDENTIALS_ENCRYPTION_KEY` | Cifra los tokens guardados de las integraciones (AES-256-GCM). La rellena `gen-secrets`. **Haz copia**: sin ella hay que volver a introducir los tokens.        |
-| `BACKUP_AGE_RECIPIENT`       | Clave pública de age (`age1…`) para cifrar las copias nocturnas.                                                                                                |
-| `AGENT_DOWNLOAD_BASE_URL`    | De dónde descargan el agente los comandos de instalación. Por defecto: las versiones oficiales (`https://github.com/InfraMole/agent/releases/latest/download`). |
+| Variable                     | Descripción                                                                                                                                                                                                                                                                                                 |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SMTP_URL`                   | Correo saliente, p. ej. `smtps://user:password@smtp.example.com:465`. Si se indica, la verificación del correo es obligatoria.                                                                                                                                                                              |
+| `MAIL_FROM`                  | Remitente, p. ej. `InfraMole <inframole@example.com>`. Obligatoria con `SMTP_URL`.                                                                                                                                                                                                                          |
+| `CREDENTIALS_ENCRYPTION_KEY` | Cifra los tokens guardados de las integraciones y los secretos del inicio de sesión único (AES-256-GCM); necesaria para el inicio de sesión único y las integraciones. La rellena `gen-secrets`. **Haz copia**: sin ella hay que volver a introducir los tokens y las conexiones de inicio de sesión único. |
+| `BACKUP_AGE_RECIPIENT`       | Clave pública de age (`age1…`) para cifrar las copias nocturnas.                                                                                                                                                                                                                                            |
+| `AGENT_DOWNLOAD_BASE_URL`    | De dónde descargan el agente los comandos de instalación. Por defecto: las versiones oficiales (`https://github.com/InfraMole/agent/releases/latest/download`).                                                                                                                                             |
 
 ## Opcionales
 

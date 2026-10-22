@@ -291,11 +291,15 @@ last IP, expired sessions and tokens) is deleted, not kept "just in case".
   is sent only to the directory, never stored or logged; 5 attempts/min per
   IP; wrong email, wrong password and unknown entry give the same answer.
   Directory errors are logged as a message only.
-- **Secrets at rest**: LDAP settings (with the service account's password)
-  sealed with `CREDENTIALS_ENCRYPTION_KEY` (AAD `sso-ldap:<workspace>:<provider>`).
-  **Known trade-off**: the OIDC client secret and the SAML SP private key
-  are stored in plain text in `sso_provider` because the plugin reads them
-  from there (Backlog: encrypt via a plugin hook).
+- **Secrets at rest** (ADR-053): LDAP settings (with the service account's
+  password) sealed with `CREDENTIALS_ENCRYPTION_KEY` (AAD
+  `sso-ldap:<workspace>:<provider>`); the OIDC client secret and the SAML SP
+  private key sealed inside `sso_provider`'s JSON (AAD
+  `sso:<providerId>:<path>`), opened only by `ssoDb()` (the plugin's adapter
+  and the SSO module). No key → no SSO changes. The maintenance cron seals
+  rows from before and re-seals older key versions (tested: no plaintext in
+  the row, a copied value fails, rotation, sign-in signs with the opened key;
+  verified against Keycloak OIDC + SAML before and after sealing).
 - **SSO only**: password sign-in, sign-up and reset refused for that domain
   (400 with a message that switches the form to SSO).
 - **MFA**: SSO sign-ins rely on the identity provider's MFA (same as 5h).

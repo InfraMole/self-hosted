@@ -45,7 +45,7 @@ type Protocol = SsoRow["protocol"];
 export function SsoCard({
   rows,
   canManage,
-  ldapAvailable,
+  secretsAvailable,
   create,
   update,
   verify,
@@ -54,8 +54,8 @@ export function SsoCard({
 }: {
   rows: SsoRow[];
   canManage: boolean;
-  /** LDAP needs CREDENTIALS_ENCRYPTION_KEY (the service account's password is sealed). */
-  ldapAvailable: boolean;
+  /** Secrets are stored sealed with CREDENTIALS_ENCRYPTION_KEY (ADR-053): no key, no changes. */
+  secretsAvailable: boolean;
   create: Action;
   update: (id: string, input: unknown) => Promise<SsoActionResult>;
   verify: (id: string) => Promise<SsoActionResult>;
@@ -199,15 +199,21 @@ export function SsoCard({
       )}
       {canManage && (
         <CardContent className="pt-0">
-          <Button size="sm" variant="secondary" onClick={() => setEditing("new")}>
-            <Plus /> Add single sign-on
-          </Button>
+          {secretsAvailable ? (
+            <Button size="sm" variant="secondary" onClick={() => setEditing("new")}>
+              <Plus /> Add single sign-on
+            </Button>
+          ) : (
+            <p className="text-subtle text-xs">
+              Single sign-on stores its secrets encrypted: the server administrator sets{" "}
+              <span className="font-mono">CREDENTIALS_ENCRYPTION_KEY</span> first.
+            </p>
+          )}
         </CardContent>
       )}
       {editing && (
         <SsoSheet
           row={editing === "new" ? null : editing}
-          ldapAvailable={ldapAvailable}
           onClose={() => setEditing(null)}
           save={(input) => (editing === "new" ? create(input) : update(editing.id, input))}
           onSaved={() => {
@@ -222,13 +228,11 @@ export function SsoCard({
 
 function SsoSheet({
   row,
-  ldapAvailable,
   onClose,
   save,
   onSaved,
 }: {
   row: SsoRow | null;
-  ldapAvailable: boolean;
   onClose: () => void;
   save: Action;
   onSaved: () => void;
@@ -266,10 +270,7 @@ function SsoSheet({
                 >
                   <option value="OIDC">OpenID Connect (Entra ID, Okta, Keycloak, Google…)</option>
                   <option value="SAML">SAML 2.0 (ADFS, Shibboleth, Entra ID…)</option>
-                  <option value="LDAP" disabled={!ldapAvailable}>
-                    LDAP / Active Directory
-                    {ldapAvailable ? "" : " (needs CREDENTIALS_ENCRYPTION_KEY)"}
-                  </option>
+                  <option value="LDAP">LDAP / Active Directory</option>
                 </Select>
               </div>
             )}

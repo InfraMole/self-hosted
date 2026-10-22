@@ -5,6 +5,24 @@ images). The agent has its own changelog in the InfraMole/agent repository.
 To update an installation, see
 [Upgrade guide](https://inframole.com/docs/operations/upgrade).
 
+## 0.28.0 — 2026-10-23
+
+### Security
+
+- **Single sign-on secrets are now stored encrypted**, like integration
+  credentials and LDAP passwords: the OpenID Connect client secret and the
+  SAML signing key. Existing connections are encrypted automatically by the
+  scheduled maintenance job; sign-in keeps working throughout.
+- Rotating `CREDENTIALS_ENCRYPTION_KEY` now also re-encrypts every single
+  sign-on secret, including LDAP settings (see
+  [Configuration](https://inframole.com/docs/reference/environment)).
+
+### Changed
+
+- Adding or changing a single sign-on connection needs
+  `CREDENTIALS_ENCRYPTION_KEY` on the server (installations made with the
+  install script already have it).
+
 ## 0.27.0 — 2026-10-22
 
 ### Added
