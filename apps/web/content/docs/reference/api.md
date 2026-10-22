@@ -169,6 +169,39 @@ What could be affected if the resource went down. `depth` (1–10, default 10) l
 Each affected resource carries the strongest confidence any path offers,
 and the shortest such path.
 
+### GET /api/v1/impact?ids={id},{id}
+
+Combined impact of several resources changing together (up to 50 ids,
+comma-separated; `depth` as above). Each affected resource is listed once,
+with `causes`: the ids of the changed resources that reach it. Ids that are
+not in the token's workspace (or archived) are only counted in `notFound`;
+when none is found the answer is 404.
+
+```json
+{
+  "data": {
+    "changed": [{ "id": "…", "name": "SQL01", "type": "SERVER" }, …],
+    "notFound": 0,
+    "affected": [
+      {
+        "resource": { "id": "…", "name": "Billing", "type": "APPLICATION" },
+        "depth": 2,
+        "confidence": "confirmed",
+        "causes": ["…"],
+        "path": [{ "id": "…", "name": "SQL01" }, …],
+        "relationships": ["…", "…"],
+        "owner": "Finance apps",
+        "ownerContact": "finance-apps@example.com"
+      }
+    ],
+    "summary": { "total": 1, "byConfidence": { … }, "byType": { … } },
+    "whoToWarn": { "owners": [ … ], "withoutOwner": [ … ] }
+  }
+}
+```
+
+`whoToWarn` includes the owners of the changed resources too.
+
 ### GET /api/v1/path?from={id}&to={id}
 
 How two resources are linked. `kind` is:

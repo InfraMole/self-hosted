@@ -12,17 +12,35 @@ import { populateExampleWorkspace } from "./example-data";
  * VIEWER account whose credentials are public on /demo. The account cannot
  * change anything (server/auth.ts blocks account mutations, members.ts blocks
  * leaving); the workspace is rebuilt from the example data every 24 h.
+ *
+ * Private demo (M35, + DEMO_PASSWORD): the same account with its own
+ * password and DEMO_ROLE (e.g. ADMIN) for showing InfraMole hands-on; no
+ * public /demo page; "Reset demo" rebuilds the example workspace at once.
+ * Account-level locks stay (no password, 2FA or email changes).
  */
 export const DEMO_EMAIL = "demo@inframole.com";
 /** Public on purpose: it is shown on /demo. The account is read-only. */
 export const DEMO_PASSWORD = "inframole-demo";
 export const DEMO_SLUG = "demo";
 export const DEMO_WORKSPACE_NAME = "Northwind (demo)";
-export const DEMO_RESET_HOURS = 24;
 
 export function demoEnabled(): boolean {
   return getEnv().DEMO_MODE;
 }
+
+/** The public demo: /demo shows its credentials (no DEMO_PASSWORD). */
+export function publicDemo(): boolean {
+  const env = getEnv();
+  return env.DEMO_MODE && !env.DEMO_PASSWORD;
+}
+
+/** A private demo whose account can change things (M35). */
+export function writableDemo(): boolean {
+  const env = getEnv();
+  return env.DEMO_MODE && env.DEMO_ROLE !== "VIEWER";
+}
+
+const demoPassword = () => getEnv().DEMO_PASSWORD ?? DEMO_PASSWORD;
 
 export function isDemoUser(user: { email?: string | null } | null | undefined): boolean {
   return demoEnabled() && user?.email?.toLowerCase() === DEMO_EMAIL;
@@ -44,7 +62,7 @@ async function ensureDemoUser(): Promise<string> {
           id: randomUUID(),
           accountId: id,
           providerId: "credential",
-          password: await hashPassword(DEMO_PASSWORD),
+          password: await hashPassword(demoPassword()),
         },
       },
     },
@@ -59,7 +77,10 @@ export type DemoResult = "disabled" | "fresh" | "created" | "reset";
  * and cheap when nothing is due (one lookup); safe to call from /demo and the
  * cron. Concurrent callers may race: the loser's unique-slug error is ignored.
  */
-export async function ensureDemo(now = new Date()): Promise<DemoResult> {
+export async function ensureDemo(
+  now = new Date(),
+  options: { force?: boolean } = {},
+): Promise<DemoResult> {
   if (!demoEnabled()) return "disabled";
   const userId = await ensureDemoUser();
   // The demo workspace is found by its fixed slug, not through a membership.
@@ -68,8 +89,15 @@ export async function ensureDemo(now = new Date()): Promise<DemoResult> {
     select: { id: true, createdAt: true },
   });
   const due =
-    !current || now.getTime() - current.createdAt.getTime() > DEMO_RESET_HOURS * 3_600_000;
+    options.force ||
+    !current ||
+    now.getTime() - current.createdAt.getTime() > getEnv().DEMO_RESET_HOURS * 3_600_000;
   if (!due) return "fresh";
+  // A changed DEMO_PASSWORD takes effect with each rebuild.
+  await getDb().account.updateMany({
+    where: { userId, providerId: "credential" },
+    data: { password: await hashPassword(demoPassword()) },
+  });
 
   if (current) {
     await tenantDb({ workspaceId: current.id }).$transaction(async (tx) => {
@@ -86,7 +114,7 @@ export async function ensureDemo(now = new Date()): Promise<DemoResult> {
         id: workspaceId,
         name: DEMO_WORKSPACE_NAME,
         slug: DEMO_SLUG,
-        memberships: { create: { userId, role: "VIEWER" } },
+        memberships: { create: { userId, role: getEnv().DEMO_ROLE } },
       },
     });
   } catch (error) {

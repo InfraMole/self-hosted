@@ -79,6 +79,12 @@ describe("viewSubset", () => {
     });
   });
 
+  it("a change (several impact roots): every changed resource and what could be affected", () => {
+    expect(
+      ids(viewSubset(nodes, edges, { ...base, impact: "billing", impacts: ["billing", "nas"] })),
+    ).toEqual({ nodes: ["portal", "billing", "nas"], edges: ["3"] });
+  });
+
   it("ignores focus and impact on resources that are gone", () => {
     expect(viewSubset(nodes, edges, { ...base, impact: "gone" }).nodes).toHaveLength(6);
     expect(

@@ -20,6 +20,7 @@ export interface QuickSearchHit {
 const PAGES = [
   { label: "Library", segment: "library" },
   { label: "Map", segment: "map" },
+  { label: "Plan a change", segment: "plan" },
   { label: "Suggestions", segment: "suggestions" },
   { label: "Changes", segment: "changes" },
   { label: "Settings", segment: "settings" },

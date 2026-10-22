@@ -2,6 +2,8 @@
 "use client";
 
 import Link from "next/link";
+import { CHANGE_LIMIT } from "@depmap/graph";
+import { planHref } from "@/lib/change-plan";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ArrowDown, ArrowUp } from "lucide-react";
 import { useState, useTransition } from "react";
@@ -113,6 +115,19 @@ export function ResourceTable({
           {selected.size > 0 ? (
             <>
               <span className="font-medium">{selected.size} selected</span>
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={pending || selected.size > CHANGE_LIMIT}
+                title={
+                  selected.size > CHANGE_LIMIT
+                    ? `A change holds up to ${CHANGE_LIMIT} resources`
+                    : "What could be affected if these change together"
+                }
+                onClick={() => router.push(planHref(slug, { ids: [...selected] }))}
+              >
+                Plan a change
+              </Button>
               <Button
                 size="sm"
                 variant="secondary"

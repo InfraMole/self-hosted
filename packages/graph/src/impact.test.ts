@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { describe, expect, it } from "vitest";
 import type { GraphEdge } from "./graph";
-import { impact, summarizeImpact, type ImpactEdge } from "./impact";
+import { changeImpact, impact, summarizeImpact, type ImpactEdge } from "./impact";
 import type { Confidence } from "./relationship-types";
 
 const e = (
@@ -150,5 +150,60 @@ describe("summarizeImpact", () => {
       byConfidence: { confirmed: 1, detected: 1, inferred: 1 },
       byType: { APPLICATION: 2, API: 1 },
     });
+  });
+});
+
+describe("changeImpact", () => {
+  // sql01 ← db ← app ← web ; app02 → (detected) cache ; web ← (inferred) portal
+  const edges = [
+    e("1", "db", "RUNS_ON", "sql01"),
+    e("2", "app", "USES_DATABASE", "db"),
+    e("3", "web", "CALLS", "app"),
+    e("4", "app", "RUNS_ON", "app02"),
+    e("5", "cache", "RUNS_ON", "app02", "detected"),
+    e("6", "portal", "CALLS", "web", "inferred"),
+    e("7", "sql01", "MONITORED_BY", "zabbix"),
+  ];
+
+  it("combines several changed resources and says which ones reach each", () => {
+    const r = changeImpact(edges, ["sql01", "app02"]);
+    expect(r.rootIds).toEqual(["sql01", "app02"]);
+    const byId = new Map(r.affected.map((a) => [a.resourceId, a]));
+    expect([...byId.keys()].sort()).toEqual(["app", "cache", "db", "portal", "web"]);
+    // app is reached from both: the shorter path (app02, 1 hop) wins, both are causes.
+    expect(byId.get("app")).toMatchObject({
+      depth: 1,
+      path: ["app02", "app"],
+      causes: ["sql01", "app02"],
+    });
+    expect(byId.get("cache")).toMatchObject({ confidence: "detected", causes: ["app02"] });
+    expect(byId.get("portal")).toMatchObject({ confidence: "inferred" });
+  });
+
+  it("never lists a changed resource as affected, and dedupes the input", () => {
+    const r = changeImpact(edges, ["sql01", "db", "sql01"]);
+    expect(r.rootIds).toEqual(["sql01", "db"]);
+    expect(r.affected.map((a) => a.resourceId)).not.toContain("db");
+    expect(r.affected.find((a) => a.resourceId === "app")?.causes).toEqual(["sql01", "db"]);
+  });
+
+  it("keeps the strongest evidence over a shorter but weaker path", () => {
+    const r = changeImpact(
+      [e("1", "x", "CALLS", "a", "detected"), e("2", "y", "CALLS", "b"), e("3", "x", "CALLS", "y")],
+      ["a", "b"],
+    );
+    expect(r.affected.find((a) => a.resourceId === "x")).toMatchObject({
+      confidence: "confirmed",
+      depth: 2,
+      causes: ["a", "b"],
+    });
+  });
+
+  it("with one resource it is the single impact", () => {
+    const single = impact(edges, "sql01");
+    const change = changeImpact(edges, ["sql01"]);
+    // toEqual ignores the undefined `causes`.
+    expect(change.affected.map((a) => ({ ...a, causes: undefined }))).toEqual(single.affected);
+    expect(summarizeImpact(change, () => "APPLICATION").total).toBe(single.affected.length);
   });
 });

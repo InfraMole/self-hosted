@@ -136,16 +136,66 @@ afectado — agrupados y con su contacto — y **Copy message** te da un texto
 para pegar en una petición de cambio o en un chat. También se listan los
 recursos sin responsable, para que sepas qué falta.
 
+## Planificar un cambio
+
+Antes de una ventana de mantenimiento, una migración o un apagado, **Plan a
+change** (en la barra lateral) responde la misma pregunta para varios
+recursos a la vez: _«si SQL01 y APP02 dejan de funcionar el sábado, ¿qué
+podría verse afectado y a quién avisamos?»_
+
+:::steps
+
+### Elige qué cambia
+
+Selecciona recursos en la Library y elige **Plan a change**, usa **Plan a
+change** en una página de impacto, o añádelos uno a uno con el buscador
+(hasta 50). Ponle un título al cambio y, si quieres, cuándo será.
+
+### Lee el impacto combinado
+
+Cada recurso que podría verse afectado aparece una sola vez, con la
+evidencia más fuerte que ofrece algún camino, a cuántos saltos está y —
+cuando le llegan varios de los recursos que cambian — cuáles.
+
+### Avisa a quien corresponde
+
+**Who to warn** agrupa a los responsables de lo que cambia **y** de lo que
+podría verse afectado, con su contacto.
+
+### Comparte el informe
+
+**Copy report** te da un resumen en texto para una petición de cambio, un
+ticket o un correo. **Print / Save as PDF** imprime un informe limpio, en
+claro (elige «Guardar como PDF» en el diálogo de impresión). **Show on
+map** abre el mapa con todos los recursos que cambian y lo que podría verse
+afectado.
+
+:::
+
+Un plan no se guarda: vive en su dirección, así que puedes añadirla a
+favoritos o enviar el enlace a alguien del mismo espacio de trabajo. Si un
+enlace antiguo incluye recursos archivados o borrados, se dejan fuera y la
+página lo indica. El mismo cálculo está en la
+[API de solo lectura](/es/docs/reference/api) (`/api/v1/impact`).
+
 ## Exportar un mapa o un impacto
 
-**Export PNG** o **PDF** en la barra del mapa guarda exactamente lo que ves:
-el mapa completo, los filtros actuales, un recurso en foco o una vista de
-impacto. El fichero tiene fondo blanco para imprimirlo y compartirlo, con
+**Export PNG**, **SVG** o **PDF** en la barra del mapa guarda exactamente lo
+que ves: el mapa completo, los filtros actuales, un recurso en foco, una
+vista de impacto o un cambio planificado. El fichero tiene fondo blanco para imprimirlo y compartirlo, con
 un título (espacio de trabajo y vista), la fecha, la leyenda de los estilos
 de línea y, en el impacto, qué recurso falla y qué podría verse afectado.
 Una nota al pie recuerda que las relaciones detectadas e inferidas son
 sugerencias.
 
+| Formato | Ideal para                                                                                     |
+| ------- | ---------------------------------------------------------------------------------------------- |
+| PNG     | Chats, presentaciones y tickets — una imagen                                                   |
+| SVG     | Documentación y diagramas — vectorial, nítido a cualquier zoom, editable en draw.io o Inkscape |
+| PDF     | Imprimir y auditorías — vectorial, con texto que se puede seleccionar y buscar                 |
+
 El fichero se dibuja en tu navegador: el mapa no se envía a ningún sitio
-para crearlo. Los mapas muy grandes se exportan con menos resolución para
-que el navegador pueda con ellos.
+para crearlo. Los mapas muy grandes se exportan en PNG con menos resolución
+para que el navegador pueda con ellos; SVG y PDF siguen nítidos. El PDF usa
+fuentes estándar, que cubren los caracteres de Europa occidental; los
+nombres en otros alfabetos aparecen ahí como «?» — para ellos, usa SVG.

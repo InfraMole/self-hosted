@@ -29,7 +29,7 @@ export function SharedMap({
       nodes={nodes}
       edges={edges}
       initialFocus={null}
-      initialImpact={null}
+      initialImpacts={[]}
       views={[{ id: "shared", name: viewName, state, updatedAt: "" }]}
       initialViewId="shared"
       canEditViews={false}

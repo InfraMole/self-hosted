@@ -32,9 +32,9 @@ import {
   RELATIONSHIP_TYPE_INFO,
   dependencyDirection,
   describePath,
+  changeImpact,
   edgeConfidence,
   findPath,
-  impact,
   perspective,
   type Direction,
 } from "@depmap/graph";
@@ -42,10 +42,13 @@ import { ConfidenceBadge } from "@/components/relationships/confidence-badge";
 import { Select } from "@/components/ui/select";
 import { ENVIRONMENTS, RESOURCE_TYPES, entries } from "@/lib/resource-presentation";
 import { cn } from "@/lib/utils";
+import { rootsLabel } from "@/lib/change-plan";
 import { markFirstStep } from "@/lib/first-steps";
 import { candidateEdgesOf, visibleIdsOf } from "@/lib/map-subset";
 import { buildScene, exportFileName, type ExportImpact } from "@/lib/map-export/scene";
 import {
+  impactFields,
+  impactRootsOf,
   sameViewState,
   sanitizeViewState,
   type SavedViewState,
@@ -53,7 +56,7 @@ import {
   type ViewActionResult,
 } from "@/lib/map-view-state";
 import type { MapEdge, MapNode } from "@/server/modules/map/map";
-import { downloadPdf, downloadPng } from "./export-map";
+import { downloadPdf, downloadPng, downloadSvg } from "./export-map";
 import { DETAILED_LAYOUT_LIMIT, NODE_HEIGHT, NODE_WIDTH, drawDirection } from "./layout";
 import { containment, displayGraph, hubs, nestedLayout, withPins, type Pin } from "./groups";
 import { MapFind } from "./map-find";
@@ -97,7 +100,8 @@ interface Props {
   nodes: MapNode[];
   edges: MapEdge[];
   initialFocus: string | null;
-  initialImpact: string | null;
+  /** Resources whose impact to show (several = a change, M34). */
+  initialImpacts: string[];
   /** Saved views of the workspace (M26 phase 3) and the one to open (?view=). */
   views: SavedViewSummary[];
   initialViewId: string | null;
@@ -131,7 +135,7 @@ function MapCanvas({
   nodes,
   edges,
   initialFocus,
-  initialImpact,
+  initialImpacts,
   views,
   initialViewId,
   canEditViews,
@@ -160,18 +164,21 @@ function MapCanvas({
         ? { id: initialFocus, depth: 2, direction: "both" }
         : null,
   );
-  // Impact mode: show only the failing resource and what could be affected (M4).
-  const [impactId, setImpactId] = useState<string | null>(initial ? initial.impact : initialImpact);
-  const [selectedId, setSelectedId] = useState<string | null>(impactId ?? focus?.id ?? null);
+  // Impact mode: show only the failing resource(s) and what could be affected
+  // (M4); several resources = a planned change (M34).
+  const [impactIds, setImpactIds] = useState<string[]>(
+    initial ? impactRootsOf(initial) : initialImpacts,
+  );
+  const [selectedId, setSelectedId] = useState<string | null>(impactIds[0] ?? focus?.id ?? null);
 
   const confidenceEdges = useMemo(
     () => edges.map((e) => ({ ...e, confidence: edgeConfidence(e.status, e.origin) })),
     [edges],
   );
   const impactResult = useMemo(() => {
-    if (!impactId || !byId.has(impactId)) return null;
-    return impact(confidenceEdges, impactId);
-  }, [impactId, confidenceEdges, byId]);
+    const roots = impactIds.filter((id) => byId.has(id));
+    return roots.length ? changeImpact(confidenceEdges, roots) : null;
+  }, [impactIds, confidenceEdges, byId]);
 
   // Path mode (M30): only the chain linking two resources.
   const [pathEnds, setPathEnds] = useState<{ from: string; to: string } | null>(null);
@@ -186,7 +193,7 @@ function MapCanvas({
 
   const impactLevels = useMemo(() => {
     if (!impactResult) return null;
-    const levels = new Map<string, ImpactLevel>([[impactResult.rootId, "root"]]);
+    const levels = new Map<string, ImpactLevel>(impactResult.rootIds.map((id) => [id, "root"]));
     for (const a of impactResult.affected) levels.set(a.resourceId, a.confidence);
     return levels;
   }, [impactResult]);
@@ -247,7 +254,7 @@ function MapCanvas({
   // Pinned positions (M26 phase 3): dragging a resource on the whole map
   // keeps it there; saved with a view. Focus and impact lay out on their own.
   const [pins, setPins] = useState<Record<string, Pin>>(initial?.pinned ?? {});
-  const pinsActive = !focus && !impactId && !pathResult;
+  const pinsActive = !focus && !impactIds.length && !pathResult;
   /** Focus, impact or path: a computed subset, laid out on its own with every box open. */
   const subset = !!focus || !!impactLevels || !!pathResult;
   const contained = useMemo(
@@ -316,7 +323,7 @@ function MapCanvas({
   const findOnMap = useCallback(
     (id: string) => {
       if (!visibleIds.includes(id)) {
-        setImpactId(null);
+        setImpactIds([]);
         setPathEnds(null);
         setFocus(null);
         setTypeFilter("");
@@ -356,7 +363,7 @@ function MapCanvas({
   const highlighted = useMemo(() => {
     // In impact view the root is the subject: selecting it must not dim the affected resources.
     // A path view shows only the chain: nothing in it is ever dimmed.
-    if (!selectedId || selectedId === impactId || pathResult) return null;
+    if (!selectedId || impactIds.includes(selectedId) || pathResult) return null;
     const set = new Set([selectedId]);
     for (const e of display.edges) {
       if (e.from === selectedId) set.add(e.to);
@@ -366,7 +373,7 @@ function MapCanvas({
     for (const id of [...set])
       for (let p = display.parentOf.get(id); p; p = display.parentOf.get(p)) set.add(p);
     return set;
-  }, [selectedId, display, impactId, pathResult]);
+  }, [selectedId, display, impactIds, pathResult]);
 
   const [flowNodes, setFlowNodes, onNodesChange] = useNodesState<ResourceFlowNode>([]);
 
@@ -582,10 +589,10 @@ function MapCanvas({
     else url.searchParams.delete("view");
     if (focus) url.searchParams.set("focus", focus.id);
     else url.searchParams.delete("focus");
-    if (impactId) url.searchParams.set("impact", impactId);
+    if (impactIds.length) url.searchParams.set("impact", impactIds.join(","));
     else url.searchParams.delete("impact");
     window.history.replaceState(null, "", url);
-  }, [focus, impactId, activeViewId, shared]);
+  }, [focus, impactIds, activeViewId, shared]);
   const [sharing, setSharing] = useState<SavedViewSummary | null>(null);
 
   // Saved views (M26 phase 3, ADR-041).
@@ -596,7 +603,7 @@ function MapCanvas({
       showUnconfirmed,
       showInformational,
       focus: focus ? { ...focus, depth: focus.depth as 1 | 2 | 3 | 99 } : null,
-      impact: impactId,
+      ...impactFields(impactIds),
       groupMode,
       groups: Object.fromEntries(groupOverrides),
       pinned: pins,
@@ -607,7 +614,7 @@ function MapCanvas({
       showUnconfirmed,
       showInformational,
       focus,
-      impactId,
+      impactIds,
       groupMode,
       groupOverrides,
       pins,
@@ -628,6 +635,7 @@ function MapCanvas({
               showInformational: true,
               focus: null,
               impact: null,
+              impacts: [],
               groupMode: "auto",
               groups: {},
               pinned: {},
@@ -639,7 +647,7 @@ function MapCanvas({
       setShowUnconfirmed(s.showUnconfirmed);
       setShowInformational(s.showInformational);
       setFocus(s.focus);
-      setImpactId(s.impact);
+      setImpactIds(impactRootsOf(s));
       setGroupMode(s.groupMode);
       setGroupOverrides(new Map(Object.entries(s.groups)));
       setPins(s.pinned);
@@ -650,7 +658,7 @@ function MapCanvas({
   );
 
   const focusOn = useCallback((id: string) => {
-    setImpactId(null);
+    setImpactIds([]);
     setPathEnds(null);
     setFocus((f) => ({ id, depth: f?.depth ?? 2, direction: f?.direction ?? "both" }));
     setSelectedId(id);
@@ -659,13 +667,13 @@ function MapCanvas({
   const showImpact = useCallback((id: string) => {
     setFocus(null);
     setPathEnds(null);
-    setImpactId(id);
+    setImpactIds([id]);
     setSelectedId(id);
   }, []);
 
   const showPath = useCallback((from: string, to: string) => {
     setFocus(null);
-    setImpactId(null);
+    setImpactIds([]);
     setPathEnds({ from, to });
     setSelectedId(from);
   }, []);
@@ -687,21 +695,25 @@ function MapCanvas({
         }
       : undefined;
   const focusNode = focus ? byId.get(focus.id) : undefined;
-  const impactRoot = impactResult ? byId.get(impactResult.rootId) : undefined;
+  /** "SQL01", "SQL01 and APP02", "SQL01, APP02 and 3 more". */
+  const impactLabel = impactResult
+    ? rootsLabel(impactResult.rootIds.map((id) => byId.get(id)?.name ?? "?"))
+    : null;
+  const impactVerb = impactResult && impactResult.rootIds.length > 1 ? "fail" : "fails";
 
   /** M17: export exactly what is on screen (filters, focus or impact). */
   const exportView = useCallback(
-    async (format: "png" | "pdf") => {
+    async (format: ExportFormat) => {
       const now = new Date();
       let view = "Map";
       let subtitle: string;
       if (pathResult && pathEnds) {
         view = `Path from ${byId.get(pathEnds.from)!.name} to ${byId.get(pathEnds.to)!.name}`;
         subtitle = pathText.split("\n")[0]!.replace(/:$/, "");
-      } else if (impactResult && impactRoot) {
+      } else if (impactResult && impactLabel) {
         const by = (c: string) => impactResult.affected.filter((a) => a.confidence === c).length;
-        view = `Impact of ${impactRoot.name}`;
-        subtitle = `If ${impactRoot.name} fails, ${impactResult.affected.length} resources could be affected (${by("confirmed")} confirmed, ${by("detected")} detected, ${by("inferred")} inferred)`;
+        view = `Impact of ${impactLabel}`;
+        subtitle = `If ${impactLabel} ${impactVerb}, ${impactResult.affected.length} resources could be affected (${by("confirmed")} confirmed, ${by("detected")} detected, ${by("inferred")} inferred)`;
       } else if (focus && focusNode) {
         const dir =
           focus.direction === "both"
@@ -774,11 +786,13 @@ function MapCanvas({
           "ui-monospace, Consolas, Menlo, monospace",
       };
       if (format === "png") await downloadPng(scene, fileName, fonts);
-      else await downloadPdf(scene, fileName, `${workspaceName} — ${view}`, fonts);
+      else if (format === "svg") downloadSvg(scene, fileName, fonts);
+      else downloadPdf(scene, fileName, `${workspaceName} — ${view}`);
     },
     [
       impactResult,
-      impactRoot,
+      impactLabel,
+      impactVerb,
       focus,
       focusNode,
       typeFilter,
@@ -849,11 +863,11 @@ function MapCanvas({
 
         {/* Toolbar */}
         <div className="pointer-events-none absolute inset-x-3 top-3 flex flex-wrap items-center gap-2">
-          {impactResult && impactRoot ? (
+          {impactResult && impactLabel ? (
             <div className="border-warning/60 bg-surface/95 pointer-events-auto flex flex-wrap items-center gap-2 rounded-lg border p-1.5 pl-2.5 backdrop-blur">
               <Radar className="text-warning size-3.5" />
               <span className="text-xs">
-                If <span className="font-mono">{impactRoot.name}</span> fails,{" "}
+                If <span className="font-mono">{impactLabel}</span> {impactVerb},{" "}
                 <span className="text-warning font-medium">{impactResult.affected.length}</span>{" "}
                 could be affected
               </span>
@@ -868,7 +882,7 @@ function MapCanvas({
               })}
               <button
                 type="button"
-                onClick={() => setImpactId(null)}
+                onClick={() => setImpactIds([])}
                 aria-label="Exit impact view"
                 className="text-subtle hover:bg-surface-2 hover:text-foreground rounded p-1"
               >
@@ -1040,7 +1054,7 @@ function MapCanvas({
           edges={candidateEdges}
           byId={byId}
           isFocus={focus?.id === selected.id}
-          isImpactRoot={impactResult?.rootId === selected.id}
+          isImpactRoot={!!impactResult?.rootIds.includes(selected.id)}
           impactInfo={
             selectedImpact
               ? {
@@ -1185,11 +1199,18 @@ function Legend() {
   );
 }
 
-/** PNG / PDF of the current view (M17). Rendered in the browser; nothing is uploaded. */
-function ExportMenu({ onExport }: { onExport: (format: "png" | "pdf") => Promise<void> }) {
-  const [busy, setBusy] = useState<"png" | "pdf" | null>(null);
+type ExportFormat = "png" | "svg" | "pdf";
+const EXPORT_HINT: Record<ExportFormat, string> = {
+  png: "image",
+  svg: "vector, editable",
+  pdf: "vector, for printing",
+};
+
+/** PNG, SVG or vector PDF of the current view (M17, M34). Rendered in the browser; nothing is uploaded. */
+function ExportMenu({ onExport }: { onExport: (format: ExportFormat) => Promise<void> }) {
+  const [busy, setBusy] = useState<ExportFormat | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const run = async (format: "png" | "pdf") => {
+  const run = async (format: ExportFormat) => {
     setBusy(format);
     setError(null);
     try {
@@ -1204,13 +1225,14 @@ function ExportMenu({ onExport }: { onExport: (format: "png" | "pdf") => Promise
     <div className="border-border bg-surface/95 pointer-events-auto flex items-center gap-1 rounded-lg border p-1 pl-2 text-xs backdrop-blur">
       <Download className="text-subtle size-3.5" aria-hidden />
       <span className="text-muted">Export</span>
-      {(["png", "pdf"] as const).map((f) => (
+      {(["png", "svg", "pdf"] as const).map((f) => (
         <button
           key={f}
           type="button"
           disabled={busy !== null}
           onClick={() => void run(f)}
           aria-label={`Export this view as ${f.toUpperCase()}`}
+          title={`${f.toUpperCase()} — ${EXPORT_HINT[f]}`}
           className="hover:bg-surface-2 hover:text-foreground text-muted rounded px-1.5 py-0.5 font-mono uppercase disabled:opacity-50"
         >
           {busy === f ? "…" : f}

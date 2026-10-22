@@ -6,6 +6,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Boxes,
+  ClipboardList,
   ChevronsUpDown,
   History,
   Inbox,
@@ -38,6 +39,7 @@ interface SidebarProps {
 const PRIMARY_NAV = [
   { segment: "library", label: "Library", icon: Boxes },
   { segment: "map", label: "Map", icon: Network },
+  { segment: "plan", label: "Plan a change", icon: ClipboardList },
   { segment: "suggestions", label: "Suggestions", icon: Inbox },
   { segment: "changes", label: "Changes", icon: History },
 ] as const;

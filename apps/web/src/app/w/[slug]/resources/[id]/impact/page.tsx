@@ -2,12 +2,13 @@
 import type { Metadata } from "next";
 import { MarkFirstStep } from "@/components/onboarding/first-steps";
 import Link from "next/link";
-import { Network, ShieldCheck, Users } from "lucide-react";
+import { ClipboardList, Network, ShieldCheck, Users } from "lucide-react";
 import { ConfidenceBadge } from "@/components/relationships/confidence-badge";
 import { EnvironmentLabel, TypeIcon } from "@/components/resources/resource-badges";
 import { CopyTextButton } from "@/components/impact/copy-text-button";
 import { DepthSelect } from "@/components/impact/depth-select";
 import { Button } from "@/components/ui/button";
+import { planHref } from "@/lib/change-plan";
 import { notifyList, notifyText } from "@/lib/notify";
 import { RESOURCE_TYPES } from "@/lib/resource-presentation";
 import {
@@ -101,6 +102,11 @@ export default async function ImpactPage({
           <Button size="sm" variant="secondary" asChild>
             <Link href={mapHref}>
               <Network /> Show on map
+            </Link>
+          </Button>
+          <Button size="sm" variant="outline" asChild>
+            <Link href={planHref(ctx.workspaceSlug, { ids: [resource.id] })}>
+              <ClipboardList /> Plan a change
             </Link>
           </Button>
           <DepthSelect value={depth} max={DEFAULT_IMPACT_DEPTH} />

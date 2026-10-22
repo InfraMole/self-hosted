@@ -49,6 +49,33 @@
   --ring: #8b65fc;
 }
 
+/* Printing (M34 change report): the dark app prints as a light document. */
+@media print {
+  .dark {
+    --background: #ffffff;
+    --surface: #ffffff;
+    --surface-2: #f4f1fc;
+    --border: #d9d5e6;
+    --border-strong: #c4bfd8;
+    --foreground: #151329;
+    --muted: #4a4562;
+    --subtle: #6f6a88;
+    --accent: #5a36d6;
+    --warning: #a86f00;
+    --success: #1a7f46;
+    --info: #2f6fdb;
+    --danger: #c0352e;
+    color-scheme: light;
+  }
+  html,
+  body {
+    background: #ffffff !important;
+  }
+  @page {
+    margin: 14mm;
+  }
+}
+
 /* A light island inside the dark app (the public landing page). */
 .light {
   color-scheme: light;

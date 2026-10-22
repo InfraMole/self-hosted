@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /** Read-only API (M30, ADR-044): tokens, tenant isolation, endpoints. */
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { GET as changeImpactRoute } from "@/app/api/v1/impact/route";
 import { GET as pathRoute } from "@/app/api/v1/path/route";
 import { GET as relationshipsRoute } from "@/app/api/v1/relationships/route";
 import { GET as impactRoute } from "@/app/api/v1/resources/[id]/impact/route";
@@ -361,5 +362,40 @@ describe("API v1 endpoints", () => {
       404,
     );
     expect((await pathRoute(get(`/api/v1/path?from=${s.portal}`, token))).status).toBe(400);
+  });
+
+  it("combines the impact of a change, only within the token's workspace", async () => {
+    const owner = await ownerContext("Acme");
+    const s = await seed(owner);
+    const other = await ownerContext("Other");
+    const foreign = await seed(other);
+    const { token } = await createApiToken(owner, { name: "t", expiresInDays: 30 });
+    const res = await body(
+      await changeImpactRoute(
+        get(`/api/v1/impact?ids=${s.cdb},${s.billing},${foreign.sql01},${s.old}`, token),
+      ),
+    );
+    expect(res.data.changed.map((r: { name: string }) => r.name)).toEqual([
+      "CustomersDB",
+      "Billing",
+    ]);
+    // Another workspace's resource and an archived one are only counted, never shown.
+    expect(res.data.notFound).toBe(2);
+    expect(res.data.affected).toHaveLength(1);
+    expect(res.data.affected[0]).toMatchObject({
+      resource: { name: "IT Portal" },
+      confidence: "detected",
+      depth: 1,
+      // Reached from Billing directly, and from CustomersDB through Billing.
+      causes: [s.cdb, s.billing],
+    });
+    expect(res.data.whoToWarn.owners).toEqual([
+      { owner: "DBA", contact: "dba@x", resources: ["CustomersDB"] },
+      { owner: "Finance apps", contact: null, resources: ["Billing"] },
+    ]);
+    expect(
+      (await changeImpactRoute(get(`/api/v1/impact?ids=${foreign.sql01}`, token))).status,
+    ).toBe(404);
+    expect((await changeImpactRoute(get(`/api/v1/impact`, token))).status).toBe(400);
   });
 });

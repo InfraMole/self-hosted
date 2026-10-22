@@ -148,6 +148,12 @@ no-referrer` (token in the URL).
   sign-ins are **not** written to the account-level audit log (anonymous
   visitors' IPs would otherwise be kept 365 days); their sessions expire after
   14 days of inactivity and are deleted by the retention job.
+- Private demo (M35, ADR-051): a role above VIEWER is refused at startup
+  unless `DEMO_PASSWORD` (≥ 12 chars) replaces the public password; with it,
+  `/demo` is a 404, the sitemap and landing do not mention the demo, and the
+  password is re-hashed into the account at every rebuild. Account-level locks
+  stay. "Reset demo" is a server action allowed only to the demo account of a
+  writable demo.
 - The demo's lookup of its workspace uses `systemDb("demo: find the demo
 workspace")`; the rebuild deletes it with the audited-delete bypass, like
   workspace deletion.
@@ -336,6 +342,8 @@ last IP, expired sessions and tokens) is deleted, not kept "just in case".
   the resulting context is the token's workspace with role VIEWER (no
   write path exists: GET handlers only, and VIEWER fails `assertRole` for
   every write). Another workspace's ids → 404.
+- `/api/v1/impact?ids=` (M34): ids are matched only against the token's
+  workspace graph; others are counted (`notFound`), never looked up.
 - Rate limits: 300/min per token, 600/min per client IP (`clientIp`), 429
   with `Retry-After`. `lastUsedAt` written at most every 5 minutes.
 - Responses `Cache-Control: no-store`; no CORS (server-to-server use).

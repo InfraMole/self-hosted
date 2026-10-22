@@ -111,6 +111,60 @@ export function impact(
   return { rootId, affected };
 }
 
+/** One resource affected by a change of several resources at once (M34). */
+export interface ChangeAffected extends AffectedResource {
+  /** Changed resources whose failure reaches this one, in the order given. */
+  causes: string[];
+}
+
+export interface ChangeImpactResult {
+  /** The changed resources, deduplicated, in the order given. */
+  rootIds: string[];
+  /** Same order as `impact`; the changed resources themselves are not listed. */
+  affected: ChangeAffected[];
+}
+
+/** At most this many resources in one change (keeps the computation small). */
+export const CHANGE_LIMIT = 50;
+
+/**
+ * Combined blast radius of several resources changing together ("reboot
+ * SQL01 and APP02 on Saturday"). Each resource keeps the strongest evidence
+ * and, among equally strong paths, the fewest hops from any changed resource;
+ * `causes` lists every changed resource that reaches it. O(k · (V + E)).
+ */
+export function changeImpact(
+  edges: readonly ImpactEdge[],
+  rootIds: readonly string[],
+  options: ImpactOptions = {},
+): ChangeImpactResult {
+  const roots = [...new Set(rootIds)].slice(0, CHANGE_LIMIT);
+  const inChange = new Set(roots);
+  const best = new Map<string, ChangeAffected>();
+  for (const root of roots) {
+    for (const a of impact(edges, root, options).affected) {
+      if (inChange.has(a.resourceId)) continue;
+      const current = best.get(a.resourceId);
+      if (!current) {
+        best.set(a.resourceId, { ...a, causes: [root] });
+        continue;
+      }
+      current.causes.push(root);
+      const stronger =
+        CONFIDENCE_RANK[a.confidence] > CONFIDENCE_RANK[current.confidence] ||
+        (a.confidence === current.confidence && a.depth < current.depth);
+      if (stronger) best.set(a.resourceId, { ...a, causes: current.causes });
+    }
+  }
+  const affected = [...best.values()].sort(
+    (a, b) =>
+      CONFIDENCE_RANK[b.confidence] - CONFIDENCE_RANK[a.confidence] ||
+      a.depth - b.depth ||
+      a.resourceId.localeCompare(b.resourceId),
+  );
+  return { rootIds: roots, affected };
+}
+
 export interface ImpactSummary {
   total: number;
   byConfidence: Record<Confidence, number>;
@@ -119,7 +173,7 @@ export interface ImpactSummary {
 }
 
 export function summarizeImpact(
-  result: ImpactResult,
+  result: { affected: readonly AffectedResource[] },
   typeOf: (id: string) => string,
 ): ImpactSummary {
   const byConfidence: Record<Confidence, number> = { confirmed: 0, detected: 0, inferred: 0 };

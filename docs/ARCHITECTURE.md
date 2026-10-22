@@ -113,7 +113,8 @@ tested; DB-backed lookups are integration tested).
 | `/w/[slug]/library`                                                       | Library table; filters in the URL (`q`, `type`, `environment`, `status`)                                                                                                                                                                                                                                                                                            |
 | `/w/[slug]/resources/[id]`                                                | Resource Overview (layout holds header, Edit/Delete, tabs)                                                                                                                                                                                                                                                                                                          |
 | `/w/[slug]/resources/[id]/activity`                                       | Resource Activity (ChangeEvents)                                                                                                                                                                                                                                                                                                                                    |
-| `/w/[slug]/map`                                                           | Map (M3)                                                                                                                                                                                                                                                                                                                                                            |
+| `/w/[slug]/map`                                                           | Map (M3); `?impact=a,b` shows the impact of several resources (M34)                                                                                                                                                                                                                                                                                                 |
+| `/w/[slug]/plan`                                                          | Plan a change (M34, ADR-050): `?ids=&title=&when=`, combined impact, who to warn, printable report — not stored                                                                                                                                                                                                                                                     |
 | `/w/[slug]/changes`                                                       | Changes (M7)                                                                                                                                                                                                                                                                                                                                                        |
 | `/w/[slug]/settings`                                                      | Workspace settings                                                                                                                                                                                                                                                                                                                                                  |
 | `/api/auth/[...all]`                                                      | Better Auth handler; enterprise SSO under `/api/auth/sso/*` (OIDC callback, SAML ACS / SP metadata, `POST /sso/ldap/sign-in`) — M33                                                                                                                                                                                                                                 |
@@ -144,7 +145,7 @@ relationship id).
 | `/api/stripe/webhook` | POST, Stripe-signed; checkout completed and subscription created/updated/deleted — M9 |
 | `/api/agent/v1/enroll` | Agent enrollment (token → per-agent secret) — M5 |
 | `/api/agent/v1/report` | Agent reports (bearer secret) — M5 |
-| `/api/v1/workspace`, `/api/v1/resources`, `/api/v1/resources/{id}`, `/api/v1/resources/{id}/impact`, `/api/v1/relationships`, `/api/v1/path` | Read-only API (GET, bearer `dmp_api_` token → VIEWER context of its workspace; 300/min per token) — M30 |
+| `/api/v1/workspace`, `/api/v1/resources`, `/api/v1/resources/{id}`, `/api/v1/resources/{id}/impact`, `/api/v1/impact?ids=` (M34), `/api/v1/relationships`, `/api/v1/path` | Read-only API (GET, bearer `dmp_api_` token → VIEWER context of its workspace; 300/min per token) — M30 |
 | `/share/[token]` | Public read-only map of one saved view (no session; `resolveShare` → subset without IPs / owners / notes; noindex, no-referrer, 120/min per IP) — M31 |
 | `/api/cron/integrations` | POST, `Authorization: Bearer $CRON_SECRET`; syncs due integrations (404 when unset) — M8b |
 | `/api/cron/maintenance` | POST, same bearer guard (`server/cron.ts`); enforces the retention policy — M8c |
@@ -458,6 +459,19 @@ in `integrations/fixtures/`), import format `inventory`
 backup image with age + rclone; `BACKUP_S3_*`). The landing's
 `cloudSignup` needs `stripeConfigured()`. Opening runbook:
 `docs/DEPLOYMENT.md` §10c.
+
+## Plan a change and vector exports (M34, ADR-050)
+
+`@depmap/graph#changeImpact` (several roots; `causes`); server
+`impact.ts#getChangeImpact(ctx, ids)` (graph-scoped; `missing` count);
+page `app/w/[slug]/plan/page.tsx` + `components/plan/` (editor rewriting
+the URL, print button); pure helpers in `lib/change-plan.ts`
+(`parseResourceIds`, `planHref`, `planNotify`, `planReportText`). The map
+takes `?impact=a,b`; saved view state `impacts[]`
+(`lib/map-view-state.ts#impactRootsOf`). Printing: `print:` utilities in the
+workspace layout and a `@media print` block in `globals.css` (dark tokens →
+light). Map export: `lib/map-export/draw.ts` (one drawing program),
+`svg.ts`, `pdf.ts` (vector), painters in `components/map/export-map.ts`.
 
 ## Enterprise single sign-on (M33, ADR-048)
 

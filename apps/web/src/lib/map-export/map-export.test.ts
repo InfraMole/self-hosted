@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { describe, expect, it } from "vitest";
-import { jpegToPdf, pageSizeFor } from "./pdf";
+import { drawScene, type Painter } from "./draw";
+import { pageSizeFor, pdfMeasure, sceneToPdf, winAnsi } from "./pdf";
+import { sceneToSvg } from "./svg";
 import {
   DASH,
   EXPORT_NOTE,
@@ -123,41 +125,87 @@ describe("export helpers", () => {
   });
 });
 
-describe("jpegToPdf", () => {
-  const jpeg = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3, 0xff, 0xd9]);
-  const pdf = jpegToPdf({
-    jpeg,
-    pixelWidth: 1640,
-    pixelHeight: 800,
-    ...(() => {
-      const p = pageSizeFor(820, 400);
-      return { pageWidth: p.width, pageHeight: p.height };
-    })(),
-    title: "Acme — Map ✓",
-    createdAt: new Date("2026-09-30T10:15:00Z"),
+describe("drawScene", () => {
+  it("draws every node, edge and the honesty note with the same primitives for all outputs", () => {
+    const calls: string[] = [];
+    const recorder: Painter = {
+      measure: (t, f) => t.length * f.size * 0.6,
+      rect: () => calls.push("rect"),
+      roundRect: () => calls.push("roundRect"),
+      line: () => calls.push("line"),
+      curve: () => calls.push("curve"),
+      polygon: () => calls.push("polygon"),
+      circle: () => calls.push("circle"),
+      text: (t) => calls.push(`text:${t}`),
+    };
+    drawScene(buildScene(input()), recorder);
+    expect(calls.filter((c) => c === "curve")).toHaveLength(1);
+    expect(calls.filter((c) => c === "polygon")).toHaveLength(1); // one arrowhead
+    expect(calls.filter((c) => c === "roundRect")).toHaveLength(2);
+    expect(calls).toContain("text:APP01");
+    expect(calls).toContain("text:Acme — Map");
+    expect(calls.some((c) => c.startsWith("text:Detected and inferred"))).toBe(true);
   });
+});
+
+describe("SVG export", () => {
+  const svg = sceneToSvg(
+    buildScene(input({ title: 'Acme <"R&D"> — Map' })),
+    (t, f) => t.length * f.size * 0.6,
+  );
+
+  it("is a standalone SVG with real, escaped text", () => {
+    expect(
+      svg.startsWith(
+        '<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg"',
+      ),
+    ).toBe(true);
+    expect(svg.trimEnd().endsWith("</svg>")).toBe(true);
+    expect(svg).toContain("Acme &lt;&quot;R&amp;D&quot;&gt; — Map");
+    expect(svg).toContain(">APP01</text>");
+    expect(svg).toMatch(/<path d="M[\d. ]+ C[\d. ]+" fill="none"/);
+    expect(svg).toContain('stroke-dasharray="6 4"'); // the detected edge
+  });
+});
+
+describe("vector PDF export", () => {
+  const pdf = sceneToPdf(buildScene(input()), "Acme — Map ✓", new Date("2026-09-30T10:15:00Z"));
   const text = new TextDecoder("latin1").decode(pdf);
 
-  it("is a one-page PDF that embeds the JPEG unchanged", () => {
+  it("is a one-page PDF drawn with operators and standard fonts", () => {
     expect(text.startsWith("%PDF-1.4\n%")).toBe(true);
     expect(text.trimEnd().endsWith("%%EOF")).toBe(true);
-    expect(text).toContain("/MediaBox [0 0 615 300]");
-    expect(text).toContain("/Width 1640 /Height 800");
-    expect(text).toContain(`/Filter /DCTDecode /Length ${jpeg.length}`);
+    expect(text).toContain("/MediaBox [0 0 615 ");
+    expect(text).toContain("/BaseFont /Helvetica /Encoding /WinAnsiEncoding");
+    expect(text).toContain("/BaseFont /Courier");
     expect(text).toContain("/CreationDate (D:20260930101500Z)");
-    const start = text.indexOf("stream\n") + "stream\n".length;
-    expect([...pdf.slice(start, start + jpeg.length)]).toEqual([...jpeg]);
+    expect(text).toContain("(APP01) Tj"); // real, selectable text
+    expect(text).toMatch(/ c S Q/); // Bézier edges
+    expect(text).not.toContain("/DCTDecode"); // no picture of the map
   });
 
-  it("has a correct cross-reference table", () => {
+  it("has a correct cross-reference table and stream length", () => {
     const startxref = Number(/startxref\n(\d+)/.exec(text)![1]);
     expect(text.slice(startxref, startxref + 4)).toBe("xref");
     const rows = text
       .slice(startxref)
       .split("\n")
-      .slice(3, 9)
+      .slice(3, 11)
       .map((r) => Number(r.slice(0, 10)));
     rows.forEach((offset, i) => expect(text.slice(offset, offset + 8)).toBe(`${i + 1} 0 obj\n`));
+    const length = Number(/\/Length (\d+) >>\nstream\n/.exec(text)![1]);
+    const body = text.slice(text.indexOf("stream\n") + 7);
+    expect(body.slice(length, length + 10)).toBe("\nendstream");
+  });
+
+  it("encodes text for the standard fonts and measures it", () => {
+    expect(winAnsi("Café → DB…")).toEqual([67, 97, 102, 233, 32, 45, 62, 32, 68, 66, 0x85]);
+    expect(winAnsi("服务器")).toEqual([63, 63, 63]);
+    // Courier is monospaced: 600/1000 em per character.
+    expect(pdfMeasure("SQL01", { family: "mono", size: 10 })).toBe(30);
+    expect(pdfMeasure("iiii", { family: "sans", size: 10 })).toBeLessThan(
+      pdfMeasure("WWWW", { family: "sans", size: 10 }),
+    );
   });
 
   it("caps huge pages at the PDF limit", () => {

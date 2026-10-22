@@ -12,11 +12,13 @@ import { z } from "zod";
 import type { Prisma, Relationship, Resource } from "@/generated/prisma/client";
 import { Environment, ResourceStatus, ResourceType } from "@/generated/prisma/enums";
 import { RELATIONSHIP_TYPES } from "@depmap/graph";
+import { parseResourceIds, planNotify } from "@/lib/change-plan";
 import { notifyList } from "@/lib/notify";
 import type { WorkspaceContext } from "@/server/authz";
 import { tenantDb } from "@/server/db";
 import {
   DEFAULT_IMPACT_DEPTH,
+  getChangeImpact,
   getResourceImpact,
   toImpactEdges,
 } from "@/server/modules/impact/impact";
@@ -248,6 +250,69 @@ export async function apiImpact(ctx: WorkspaceContext, resourceId: string, raw: 
       resource: ref(a.resource),
       depth: a.depth,
       confidence: a.confidence,
+      path: a.path.map((pid, i) => ({ id: pid, name: a.pathNames[i]! })),
+      relationships: a.viaEdges,
+      owner: a.resource.owner,
+      ownerContact: a.resource.ownerContact,
+    })),
+    summary: result.summary,
+    whoToWarn: {
+      owners: warn.groups.map((g) => ({
+        owner: g.owner,
+        contact: g.contact,
+        resources: g.resources.map((r) => r.name),
+      })),
+      withoutOwner: warn.unowned,
+    },
+  };
+}
+
+export const apiChangeImpactQuery = apiImpactQuery.extend({
+  /** Comma-separated resource ids (up to 50): resources changing together (M34). */
+  ids: z
+    .string()
+    .transform((v) => parseResourceIds(v))
+    .refine((ids) => ids.length > 0, "Give at least one resource id in ids"),
+});
+
+/** Combined impact of several resources changing together (M34). */
+export async function apiChangeImpact(ctx: WorkspaceContext, raw: unknown) {
+  const { ids, depth } = apiChangeImpactQuery.parse(raw);
+  const result = await getChangeImpact(ctx, ids, depth);
+  if (!result.changed.length) throw new ApiNotFoundError("None of these resources was found");
+  const ref = (n: { id: string; name: string; type: ResourceType }) => ({
+    id: n.id,
+    name: n.name,
+    type: n.type,
+  });
+  const warn = planNotify({
+    changed: result.changed.map((r) => ({
+      name: r.name,
+      typeLabel: r.type,
+      owner: r.owner,
+      ownerContact: r.ownerContact,
+    })),
+    affected: result.affected.map((a) => ({
+      name: a.resource.name,
+      typeLabel: a.resource.type,
+      owner: a.resource.owner,
+      ownerContact: a.resource.ownerContact,
+      confidence: a.confidence,
+      depth: a.depth,
+      causes: a.causeNames,
+      pathNames: a.pathNames,
+    })),
+  });
+  return {
+    changed: result.changed.map(ref),
+    /** Ids not found in this workspace (other workspace, archived, deleted). */
+    notFound: result.missing,
+    /** What could be affected — "could", never "will". */
+    affected: result.affected.map((a) => ({
+      resource: ref(a.resource),
+      depth: a.depth,
+      confidence: a.confidence,
+      causes: a.causes,
       path: a.path.map((pid, i) => ({ id: pid, name: a.pathNames[i]! })),
       relationships: a.viaEdges,
       owner: a.resource.owner,

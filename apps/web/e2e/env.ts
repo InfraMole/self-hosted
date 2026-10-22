@@ -82,6 +82,7 @@ const UNSET = [
   "MICROSOFT_CLIENT_ID",
   "MICROSOFT_CLIENT_SECRET",
   "SSO_TRUSTED_ORIGINS",
+  "DEMO_PASSWORD",
 ];
 
 export const SERVER_ENV: Record<string, string> = {
@@ -90,6 +91,7 @@ export const SERVER_ENV: Record<string, string> = {
   SIGNUP: "open",
   PUBLIC_SITE: "false",
   DEMO_MODE: "false",
+  DEMO_ROLE: "VIEWER",
   TRUST_PROXY: "false",
   INTEGRATIONS_PRIVATE_NETWORKS: "",
   SSO_TRUSTED_DOMAINS: SSO_DOMAIN,

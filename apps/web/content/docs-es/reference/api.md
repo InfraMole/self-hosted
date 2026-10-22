@@ -170,6 +170,39 @@ Qué podría verse afectado si el recurso cayera. `depth` (1–10, por defecto 1
 Cada recurso afectado lleva la mayor certeza que ofrece algún camino, y el
 camino más corto con esa certeza.
 
+### GET /api/v1/impact?ids={id},{id}
+
+Impacto combinado de varios recursos que cambian a la vez (hasta 50 ids,
+separados por comas; `depth` como arriba). Cada recurso afectado aparece una
+vez, con `causes`: los ids de los recursos que cambian y que le llegan. Los
+ids que no son del espacio de trabajo del token (o están archivados) solo se
+cuentan en `notFound`; si no se encuentra ninguno, la respuesta es 404.
+
+```json
+{
+  "data": {
+    "changed": [{ "id": "…", "name": "SQL01", "type": "SERVER" }, …],
+    "notFound": 0,
+    "affected": [
+      {
+        "resource": { "id": "…", "name": "Billing", "type": "APPLICATION" },
+        "depth": 2,
+        "confidence": "confirmed",
+        "causes": ["…"],
+        "path": [{ "id": "…", "name": "SQL01" }, …],
+        "relationships": ["…", "…"],
+        "owner": "Finance apps",
+        "ownerContact": "finance-apps@example.com"
+      }
+    ],
+    "summary": { "total": 1, "byConfidence": { … }, "byType": { … } },
+    "whoToWarn": { "owners": [ … ], "withoutOwner": [ … ] }
+  }
+}
+```
+
+`whoToWarn` incluye también a los responsables de los recursos que cambian.
+
 ### GET /api/v1/path?from={id}&to={id}
 
 Cómo están unidos dos recursos. `kind` vale:

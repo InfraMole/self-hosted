@@ -9,7 +9,7 @@ import {
   DEMO_EMAIL,
   DEMO_PASSWORD,
   DEMO_SLUG,
-  demoEnabled,
+  publicDemo,
   ensureDemo,
 } from "@/server/modules/demo/demo";
 import { DemoSignIn } from "./demo-sign-in";
@@ -86,7 +86,8 @@ const COPY: Record<Locale, typeof en> = { en, es };
 
 /** Public demo (M13): only when DEMO_MODE=true. /demo and /es/demo. */
 export async function DemoPage({ locale }: { locale: Locale }) {
-  if (!demoEnabled()) notFound();
+  // A private demo (M35) has no public page and never shows its password.
+  if (!publicDemo()) notFound();
   await ensureDemo(); // first visit after a deploy or a reset builds it
   const t = COPY[locale];
   return (

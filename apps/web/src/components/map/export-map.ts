@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 "use client";
 
-import { jpegToPdf, pageSizeFor } from "@/lib/map-export/pdf";
-import { ENV_COLORS, PALETTE, exportScale, type Scene } from "@/lib/map-export/scene";
+import { drawScene, type Font, type Painter } from "@/lib/map-export/draw";
+import { sceneToPdf } from "@/lib/map-export/pdf";
+import { exportScale, type Scene } from "@/lib/map-export/scene";
+import { sceneToSvg } from "@/lib/map-export/svg";
 
 /**
- * Paints an export scene (lib/map-export/scene.ts) on a canvas and downloads
- * it as PNG or PDF (M17). Everything happens in the browser: the map never
- * leaves it and no request is made.
+ * Downloads an export scene (lib/map-export/scene.ts) as PNG (canvas), SVG
+ * or vector PDF (M17, M34). Everything happens in the browser: the map
+ * never leaves it and no request is made.
  */
 
 interface Fonts {
@@ -20,6 +22,77 @@ const FALLBACK: Fonts = {
   mono: "ui-monospace, Consolas, Menlo, monospace",
 };
 
+const cssFont = (font: Font, fonts: Fonts) =>
+  `${font.bold ? "600 " : ""}${font.size}px ${font.family === "mono" ? fonts.mono : fonts.sans}`;
+
+/** The canvas implementation of the drawing primitives. */
+function canvasPainter(ctx: CanvasRenderingContext2D, fonts: Fonts): Painter {
+  const stroke = (s: { color: string; width: number; dash?: number[] }) => {
+    ctx.strokeStyle = s.color;
+    ctx.lineWidth = s.width;
+    ctx.setLineDash(s.dash ?? []);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  };
+  return {
+    measure: (text, font) => {
+      ctx.font = cssFont(font, fonts);
+      return ctx.measureText(text).width;
+    },
+    rect: (x, y, w, h, fill) => {
+      ctx.fillStyle = fill;
+      ctx.fillRect(x, y, w, h);
+    },
+    roundRect: (x, y, w, h, r, style) => {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+      if (style.fill) {
+        ctx.fillStyle = style.fill;
+        ctx.fill();
+      }
+      if (style.stroke) stroke(style.stroke);
+    },
+    line: (a, b, s) => {
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+      stroke(s);
+    },
+    curve: (a, c1, c2, b, s) => {
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.bezierCurveTo(c1.x, c1.y, c2.x, c2.y, b.x, b.y);
+      stroke(s);
+    },
+    polygon: (points, fill) => {
+      ctx.beginPath();
+      points.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
+      ctx.closePath();
+      ctx.fillStyle = fill;
+      ctx.fill();
+    },
+    circle: (cx, cy, r, fill) => {
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.fillStyle = fill;
+      ctx.fill();
+    },
+    text: (text, x, y, font, color, align = "left") => {
+      ctx.font = cssFont(font, fonts);
+      ctx.fillStyle = color;
+      ctx.textAlign = align;
+      ctx.textBaseline = "alphabetic";
+      ctx.fillText(text, x, y);
+      ctx.textAlign = "left";
+    },
+  };
+}
+
 export function paintScene(scene: Scene, fonts: Fonts = FALLBACK): HTMLCanvasElement {
   const scale = exportScale(scene.width, scene.height);
   const canvas = document.createElement("canvas");
@@ -28,161 +101,33 @@ export function paintScene(scene: Scene, fonts: Fonts = FALLBACK): HTMLCanvasEle
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Canvas is not available in this browser.");
   ctx.scale(scale, scale);
-
-  ctx.fillStyle = PALETTE.background;
-  ctx.fillRect(0, 0, scene.width, scene.height);
-
-  // Header: title, subtitle, stamp, legend.
-  const m = scene.margin;
-  ctx.textBaseline = "alphabetic";
-  ctx.fillStyle = PALETTE.ink;
-  ctx.font = `600 20px ${fonts.sans}`;
-  ctx.fillText(fit(ctx, scene.title, scene.width - 2 * m - 260), m, m + 8);
-  ctx.fillStyle = PALETTE.muted;
-  ctx.font = `14px ${fonts.sans}`;
-  ctx.fillText(fit(ctx, scene.subtitle, scene.width - 2 * m), m, m + 32);
-  ctx.fillStyle = PALETTE.subtle;
-  ctx.font = `12px ${fonts.sans}`;
-  ctx.textAlign = "right";
-  ctx.fillText(scene.stamp, scene.width - m, m + 6);
-  ctx.textAlign = "left";
-
-  let lx = m;
-  const ly = m + 58;
-  ctx.font = `12px ${fonts.sans}`;
-  for (const item of scene.legend) {
-    ctx.strokeStyle = item.color;
-    ctx.lineWidth = item.label === "Fails" || item.label === "Could be affected" ? 2 : 1.4;
-    ctx.setLineDash(item.dash);
-    ctx.beginPath();
-    ctx.moveTo(lx, ly - 4);
-    ctx.lineTo(lx + 26, ly - 4);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.fillStyle = PALETTE.muted;
-    ctx.fillText(item.label, lx + 32, ly);
-    lx += 32 + ctx.measureText(item.label).width + 22;
-  }
-  ctx.strokeStyle = "#e6e8ec";
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(m, m + 72);
-  ctx.lineTo(scene.width - m, m + 72);
-  ctx.stroke();
-
-  // Edges first, nodes on top.
-  for (const e of scene.edges) {
-    const dy = Math.max(40, Math.abs(e.to.y - e.from.y));
-    const dir = e.to.y >= e.from.y ? 1 : -1; // edges to something above curve upwards
-    const c1 = { x: e.from.x, y: e.from.y + (dir * dy) / 2 };
-    const c2 = { x: e.to.x, y: e.to.y - (dir * dy) / 2 };
-    ctx.strokeStyle = e.color;
-    ctx.lineWidth = e.width;
-    ctx.setLineDash(e.dash);
-    ctx.beginPath();
-    ctx.moveTo(e.from.x, e.from.y);
-    ctx.bezierCurveTo(c1.x, c1.y, c2.x, c2.y, e.to.x, e.to.y);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    // Arrowhead at the dependency, along the curve's end tangent.
-    const angle = Math.atan2(e.to.y - c2.y, e.to.x - c2.x);
-    ctx.fillStyle = e.color;
-    ctx.beginPath();
-    ctx.moveTo(e.to.x, e.to.y);
-    ctx.lineTo(e.to.x - 8 * Math.cos(angle - 0.4), e.to.y - 8 * Math.sin(angle - 0.4));
-    ctx.lineTo(e.to.x - 8 * Math.cos(angle + 0.4), e.to.y - 8 * Math.sin(angle + 0.4));
-    ctx.closePath();
-    ctx.fill();
-  }
-
-  for (const n of scene.nodes) {
-    const w = n.width;
-    const h = n.group ? 40 : n.height; // a group's header row
-    if (n.group) {
-      // The box around what runs on it, then its header like a node.
-      roundRect(ctx, n.sx, n.sy, n.width, n.height, 8);
-      ctx.fillStyle = PALETTE.groupFill;
-      ctx.fill();
-      ctx.strokeStyle = n.border;
-      ctx.lineWidth = 1;
-      ctx.stroke();
-    }
-    roundRect(ctx, n.sx, n.sy, w, h, 6);
-    ctx.fillStyle = n.fill;
-    ctx.fill();
-    ctx.strokeStyle = n.border;
-    ctx.lineWidth = n.impact === "root" ? 2 : 1;
-    ctx.setLineDash(n.dash);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    const bar =
-      n.criticality === "CRITICAL"
-        ? PALETTE.critical
-        : n.criticality === "HIGH"
-          ? PALETTE.high
-          : null;
-    if (bar) {
-      ctx.fillStyle = bar;
-      ctx.fillRect(n.sx + 1, n.sy + 4, 2.5, h - 8);
-    }
-    ctx.fillStyle = PALETTE.ink;
-    ctx.font = `12px ${fonts.mono}`;
-    ctx.fillText(fit(ctx, n.name, w - 20), n.sx + 10, n.sy + 17);
-    let tx = n.sx + 10;
-    if (n.environment) {
-      ctx.fillStyle = ENV_COLORS[n.environment] ?? PALETTE.subtle;
-      ctx.beginPath();
-      ctx.arc(tx + 3, n.sy + 28, 3, 0, Math.PI * 2);
-      ctx.fill();
-      tx += 10;
-    }
-    ctx.fillStyle = PALETTE.subtle;
-    ctx.font = `10px ${fonts.sans}`;
-    ctx.fillText(fit(ctx, n.typeLabel, w - (tx - n.sx) - 8), tx, n.sy + 31);
-  }
-
-  // Footer: the honesty note.
-  ctx.fillStyle = PALETTE.subtle;
-  ctx.font = `11px ${fonts.sans}`;
-  wrap(ctx, scene.note, m, scene.height - scene.footerHeight + 14, scene.width - 2 * m, 15);
+  drawScene(scene, canvasPainter(ctx, fonts));
   return canvas;
 }
 
 export async function downloadPng(scene: Scene, fileName: string, fonts?: Fonts): Promise<void> {
   const canvas = paintScene(scene, fonts);
-  const blob = await toBlob(canvas, "image/png");
+  const blob = await new Promise<Blob>((resolve, reject) =>
+    canvas.toBlob(
+      (b) => (b ? resolve(b) : reject(new Error("The image could not be created."))),
+      "image/png",
+    ),
+  );
   save(blob, fileName);
 }
 
-export async function downloadPdf(
-  scene: Scene,
-  fileName: string,
-  title: string,
-  fonts?: Fonts,
-): Promise<void> {
-  const canvas = paintScene(scene, fonts);
-  const jpeg = new Uint8Array(await (await toBlob(canvas, "image/jpeg", 0.92)).arrayBuffer());
-  const page = pageSizeFor(scene.width, scene.height);
-  const pdf = jpegToPdf({
-    jpeg,
-    pixelWidth: canvas.width,
-    pixelHeight: canvas.height,
-    pageWidth: page.width,
-    pageHeight: page.height,
-    title,
-    createdAt: new Date(),
-  });
-  save(new Blob([pdf.buffer as ArrayBuffer], { type: "application/pdf" }), fileName);
+/** Vector SVG: text widths from the same fonts the SVG names. */
+export function downloadSvg(scene: Scene, fileName: string, fonts: Fonts = FALLBACK): void {
+  const ctx = document.createElement("canvas").getContext("2d");
+  if (!ctx) throw new Error("Canvas is not available in this browser.");
+  const measure = canvasPainter(ctx, fonts).measure;
+  save(new Blob([sceneToSvg(scene, measure, fonts)], { type: "image/svg+xml" }), fileName);
 }
 
-function toBlob(canvas: HTMLCanvasElement, type: string, quality?: number): Promise<Blob> {
-  return new Promise((resolve, reject) =>
-    canvas.toBlob(
-      (b) => (b ? resolve(b) : reject(new Error("The image could not be created."))),
-      type,
-      quality,
-    ),
-  );
+/** Vector PDF with real text (standard PDF fonts). */
+export function downloadPdf(scene: Scene, fileName: string, title: string): void {
+  const pdf = sceneToPdf(scene, title, new Date());
+  save(new Blob([pdf.buffer as ArrayBuffer], { type: "application/pdf" }), fileName);
 }
 
 function save(blob: Blob, fileName: string) {
@@ -194,48 +139,4 @@ function save(blob: Blob, fileName: string) {
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
-}
-
-function fit(ctx: CanvasRenderingContext2D, text: string, max: number): string {
-  if (ctx.measureText(text).width <= max) return text;
-  let s = text;
-  while (s.length > 1 && ctx.measureText(`${s}…`).width > max) s = s.slice(0, -1);
-  return `${s}…`;
-}
-
-function wrap(
-  ctx: CanvasRenderingContext2D,
-  text: string,
-  x: number,
-  y: number,
-  max: number,
-  lineHeight: number,
-) {
-  let line = "";
-  for (const word of text.split(" ")) {
-    const next = line ? `${line} ${word}` : word;
-    if (ctx.measureText(next).width > max && line) {
-      ctx.fillText(line, x, y);
-      y += lineHeight;
-      line = word;
-    } else line = next;
-  }
-  if (line) ctx.fillText(line, x, y);
-}
-
-function roundRect(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  r: number,
-) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + w, y, x + w, y + h, r);
-  ctx.arcTo(x + w, y + h, x, y + h, r);
-  ctx.arcTo(x, y + h, x, y, r);
-  ctx.arcTo(x, y, x + w, y, r);
-  ctx.closePath();
 }

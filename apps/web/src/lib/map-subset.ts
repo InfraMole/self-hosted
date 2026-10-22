@@ -5,15 +5,16 @@
  * link, which must send only what the view shows. Client-safe.
  */
 import {
+  changeImpact,
   dependencyDirection,
   edgeConfidence,
-  impact,
   neighbourhood,
   type Direction,
   type RelationshipOrigin,
   type RelationshipStatus,
   type RelationshipType,
 } from "@depmap/graph";
+import { impactRootsOf } from "./map-view-state";
 
 export interface SubsetNode {
   id: string;
@@ -114,17 +115,19 @@ export function viewSubset<N extends SubsetNode, E extends SubsetEdge>(
     showInformational: boolean;
     focus: SubsetFocus | null;
     impact: string | null;
+    impacts?: readonly string[];
   },
 ): { nodes: N[]; edges: E[] } {
   const ids = new Set(nodes.map((n) => n.id));
   let impactIds: Set<string> | null = null;
-  if (state.impact && ids.has(state.impact)) {
+  const roots = impactRootsOf(state).filter((id) => ids.has(id));
+  if (roots.length) {
     const withConfidence = edges.map((e) => ({
       ...e,
       confidence: edgeConfidence(e.status, e.origin),
     }));
-    const result = impact(withConfidence, state.impact);
-    impactIds = new Set([state.impact, ...result.affected.map((a) => a.resourceId)]);
+    const result = changeImpact(withConfidence, roots);
+    impactIds = new Set([...roots, ...result.affected.map((a) => a.resourceId)]);
   }
   const candidates = candidateEdgesOf(edges, {
     showUnconfirmed: state.showUnconfirmed,

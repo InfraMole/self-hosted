@@ -113,6 +113,15 @@ const envSchema = z.object({
     .enum(["true", "false"])
     .default("false")
     .transform((v) => v === "true"),
+  /**
+   * Private demo (M35): the demo account's role in the example workspace.
+   * Anything above VIEWER needs DEMO_PASSWORD — the default password is public.
+   */
+  DEMO_ROLE: z.enum(["VIEWER", "MEMBER", "ADMIN"]).default("VIEWER"),
+  /** Private demo password (M35). Set = no public /demo page, no credentials shown. */
+  DEMO_PASSWORD: optional(z.string().min(12, "at least 12 characters").max(128)),
+  /** The example workspace is rebuilt when older than this (hours). */
+  DEMO_RESET_HOURS: z.coerce.number().int().min(1).max(8760).default(24),
 
   // Outgoing email (verification, password reset, invitations). Unset = log to console.
   SMTP_URL: optional(z.url().refine((v) => /^smtps?:\/\//.test(v), "must be smtp:// or smtps://")),
@@ -170,6 +179,10 @@ export function parseEnv(source: Record<string, string | undefined>): Env {
   if (env.EDITION === "cloud" && env.INTEGRATIONS_PRIVATE_NETWORKS)
     throw new Error(
       "Invalid environment configuration:\n  INTEGRATIONS_PRIVATE_NETWORKS: not allowed on EDITION=cloud (a hosted service must never reach its own private network)",
+    );
+  if (env.DEMO_ROLE !== "VIEWER" && !env.DEMO_PASSWORD)
+    throw new Error(
+      "Invalid environment configuration:\n  DEMO_ROLE: a demo that can change things needs its own DEMO_PASSWORD (the default one is public)",
     );
   if (env.NODE_ENV === "production" && !isHttpsOrLocalhost(env.BETTER_AUTH_URL)) {
     throw new Error(

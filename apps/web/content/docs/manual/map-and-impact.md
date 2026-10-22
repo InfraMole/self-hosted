@@ -127,15 +127,64 @@ and **Copy message** gives you a text to paste into a change request or a
 chat. Resources without an owner are listed too, so you know what is
 missing.
 
+## Plan a change
+
+Before a maintenance window, a migration or a shutdown, **Plan a change**
+(in the sidebar) answers the same question for several resources at once:
+_"if SQL01 and APP02 stop working on Saturday, what could be affected, and
+who do we tell?"_
+
+:::steps
+
+### Pick what changes
+
+Select resources in the Library and choose **Plan a change**, use
+**Plan a change** on an impact page, or add them one by one with the search
+box (up to 50). Give the change a title and, if you like, when it happens.
+
+### Read the combined impact
+
+Every resource that could be affected is listed once, with the strongest
+evidence any path offers, how many hops away it is and — when several
+changed resources reach it — which ones.
+
+### Warn the right people
+
+**Who to warn** groups the owners of what changes **and** of what could be
+affected, with their contact.
+
+### Share the report
+
+**Copy report** gives a plain-text summary for a change request, a ticket
+or an email. **Print / Save as PDF** prints a clean, light report (choose
+"Save as PDF" in the print dialog). **Show on map** opens the map with all
+the changed resources and what could be affected.
+
+:::
+
+A plan is not stored: it lives in its address, so you can bookmark it or
+send the link to a colleague of the same workspace. Archived or deleted
+resources in an old link are left out, and the page says so. The same
+calculation is available in the [read-only API](/docs/reference/api)
+(`/api/v1/impact`).
+
 ## Export a map or an impact
 
-**Export PNG** or **PDF** in the map toolbar saves exactly what is on
-screen: the whole map, the current filters, a focused resource or an impact
-view. The file has a white background for printing and sharing, with a
+**Export PNG**, **SVG** or **PDF** in the map toolbar saves exactly what is
+on screen: the whole map, the current filters, a focused resource, an
+impact view or a planned change. The file has a white background for printing and sharing, with a
 title (workspace and view), the date, the legend of line styles and, for
 impact, which resource fails and what could be affected. A note at the
 bottom says that detected and inferred relationships are suggestions.
 
+| Format | Best for                                                                                |
+| ------ | --------------------------------------------------------------------------------------- |
+| PNG    | Chats, slides and tickets — an image                                                    |
+| SVG    | Documentation and diagrams — vector, sharp at any zoom, editable in draw.io or Inkscape |
+| PDF    | Printing and audits — vector, with text you can select and search                       |
+
 The file is drawn in your browser: the map is not sent anywhere to create
-it. Very large maps are exported at a lower resolution so the browser can
-handle them.
+it. Very large maps are exported as PNG at a lower resolution so the
+browser can handle them; SVG and PDF stay sharp. The PDF uses standard
+fonts, which cover Western European characters; names in other scripts
+show as "?" there — use SVG for them.

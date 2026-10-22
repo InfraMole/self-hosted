@@ -10,5 +10,7 @@ export const dynamic = "force-dynamic";
 export default function sitemap(): MetadataRoute.Sitemap {
   const env = getEnv();
   if (env.EDITION !== "cloud" && !env.PUBLIC_SITE) return [];
-  return sitemapEntries(new URL(env.BETTER_AUTH_URL).origin, { demo: env.DEMO_MODE });
+  return sitemapEntries(new URL(env.BETTER_AUTH_URL).origin, {
+    demo: env.DEMO_MODE && !env.DEMO_PASSWORD,
+  });
 }

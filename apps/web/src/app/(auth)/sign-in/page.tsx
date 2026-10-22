@@ -6,6 +6,7 @@ import { TermsNotice } from "@/components/legal/terms-notice";
 import { safeNext } from "@/lib/safe-next";
 import { enabledSsoProviders } from "@/server/auth";
 import { getEnv } from "@/server/env";
+import { demoEnabled, ensureDemo, publicDemo } from "@/server/modules/demo/demo";
 import { SignInForm } from "./sign-in-form";
 
 /** Better Auth OAuth error codes → honest, non-technical copy. */
@@ -24,6 +25,8 @@ export const metadata: Metadata = { title: "Sign in" };
 
 export default async function SignInPage({ searchParams }: PageProps<"/sign-in">) {
   const sp = await searchParams;
+  // A private demo (M35) has no /demo page: make sure it exists before signing in.
+  if (demoEnabled() && !publicDemo()) await ensureDemo();
   const next = safeNext(sp.next);
   const ssoError =
     typeof sp.error === "string"

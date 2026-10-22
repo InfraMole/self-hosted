@@ -34,6 +34,10 @@ x-app-env: &app-env
   SIGNUP: ${SIGNUP:-open}
   PUBLIC_SITE: ${PUBLIC_SITE:-false}
   DEMO_MODE: ${DEMO_MODE:-false}
+  # Private demo (M35): role and own password of the demo account; reset period.
+  DEMO_ROLE: ${DEMO_ROLE:-VIEWER}
+  DEMO_PASSWORD: ${DEMO_PASSWORD:-}
+  DEMO_RESET_HOURS: ${DEMO_RESET_HOURS:-24}
   # Optional Umami analytics of the public website (ADR-047); empty = none.
   UMAMI_SCRIPT_URL: ${UMAMI_SCRIPT_URL:-}
   UMAMI_WEBSITE_ID: ${UMAMI_WEBSITE_ID:-}

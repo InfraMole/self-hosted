@@ -5,6 +5,29 @@ images). The agent has its own changelog in the InfraMole/agent repository.
 To update an installation, see
 [Upgrade guide](https://inframole.com/docs/operations/upgrade).
 
+## 0.25.0 — 2026-10-22
+
+### Added
+
+- **Plan a change**: pick the resources of a maintenance window, a migration
+  or a shutdown — from the Library, an impact page or the new sidebar entry —
+  and see what could be affected by all of them together, which change
+  reaches what, and who to warn. Copy the report for a change request, print
+  it or save it as PDF, or show it on the map. Also in the API:
+  `GET /api/v1/impact?ids=…`.
+- **Map export as SVG and vector PDF**, next to PNG: sharp at any zoom, with
+  real text you can select and search; SVG is editable in draw.io or
+  Inkscape.
+
+- **Private demo**: `DEMO_ROLE`, `DEMO_PASSWORD` and `DEMO_RESET_HOURS` turn
+  the demo into a private sandbox with your own password, where the demo
+  account can change things, plus a **Reset demo** button to start again
+  from the example data.
+
+### Changed
+
+- The map's PDF export is now vector instead of a picture.
+
 ## 0.24.1 — 2026-10-21
 
 ### Added

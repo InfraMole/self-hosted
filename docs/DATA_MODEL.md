@@ -272,7 +272,7 @@ export (`owner`, `owner_contact`) and the Library search.
 createdAt, updatedAt`. `state` is validated by
 `lib/map-view-state.ts#savedViewStateSchema`: `type?, environment?,
 showUnconfirmed, showInformational, focus? {id, depth, direction}, impact?,
-groupMode (auto | expanded | collapsed), groups {resourceId: expanded},
+impacts[] (M34: several impact roots, ≤ 50; `impact` = the first), groupMode (auto | expanded | collapsed), groups {resourceId: expanded},
 pinned {resourceId: {x, y, parent}}` — resource ids only, bounded (5,000
 entries each). RLS like every tenant table. Everyone reads; MEMBER+ create,
 overwrite, delete; at most 50 per workspace. Not change-tracked (presentation).

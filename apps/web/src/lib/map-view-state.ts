@@ -7,6 +7,7 @@
  * ids that no longer exist are dropped when the view is applied.
  */
 import { z } from "zod";
+import { CHANGE_LIMIT } from "@depmap/graph";
 import { Environment, ResourceType } from "@/generated/prisma/enums";
 
 export const SAVED_VIEWS_LIMIT = 50;
@@ -30,6 +31,11 @@ export const savedViewStateSchema = z.object({
     .nullable()
     .default(null),
   impact: id.nullable().default(null),
+  /**
+   * Impact of several resources changing together (M34). When set, `impact`
+   * holds the first of them, so older readers still show something sensible.
+   */
+  impacts: z.array(id).max(CHANGE_LIMIT).default([]),
   groupMode: z.enum(["auto", "expanded", "collapsed"]).default("auto"),
   /** Box id → expanded. */
   groups: z
@@ -74,6 +80,7 @@ export function sanitizeViewState(state: SavedViewState, has: (id: string) => bo
     ...state,
     focus: state.focus && has(state.focus.id) ? state.focus : null,
     impact: state.impact && has(state.impact) ? state.impact : null,
+    impacts: state.impacts.filter(has),
     groups: keep(state.groups),
     pinned: Object.fromEntries(
       Object.entries(state.pinned).filter(
@@ -102,4 +109,14 @@ function canonical(state: SavedViewState): string {
           ? Math.round(value)
           : value;
   return JSON.stringify(sorted(state));
+}
+
+/** The resources whose impact a view shows: several (a change), one, or none. */
+export function impactRootsOf(state: { impact: string | null; impacts?: readonly string[] }) {
+  return state.impacts?.length ? [...state.impacts] : state.impact ? [state.impact] : [];
+}
+
+/** The state fields for an impact of `ids` (inverse of `impactRootsOf`). */
+export function impactFields(ids: readonly string[]): { impact: string | null; impacts: string[] } {
+  return { impact: ids[0] ?? null, impacts: ids.length > 1 ? [...ids] : [] };
 }
