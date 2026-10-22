@@ -128,8 +128,10 @@ cada muestra cuesta proporcionalmente más.
 
 - **En tu servidor.** InfraMole funciona con Docker Compose (x86-64 o ARM64)
   y PostgreSQL. Los agentes solo hablan con tu servidor y el software no
-  llama a casa. La comprobación opcional de versiones (`UPDATE_CHECK`) está
-  desactivada por defecto.
+  llama a casa. La comprobación de versiones (`UPDATE_CHECK`, activada en
+  las instalaciones nuevas) solo pregunta a las versiones públicas de GitHub
+  por los últimos números de versión; no se envía nada de tu instalación.
+  Para desactivarla, pon `false`.
 - **Los espacios de trabajo se aíslan dos veces**: en la aplicación y, de
   nuevo, con seguridad a nivel de fila en la base de datos.
 - **Las credenciales guardadas van cifradas.** Los tokens de las

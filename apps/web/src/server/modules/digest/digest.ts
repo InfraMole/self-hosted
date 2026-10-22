@@ -4,6 +4,9 @@ import type { WorkspaceContext } from "@/server/authz";
 import { systemDb, tenantDb, userDb } from "@/server/db";
 import { getEnv } from "@/server/env";
 import { mailerConfigured, sendMail } from "@/server/mail";
+import { hasRole } from "@/server/authz";
+import { versionInfo } from "@/server/version";
+import { releaseNotesUrl } from "@/lib/changelog";
 import {
   digestDue,
   renderDigest,
@@ -146,6 +149,7 @@ export async function sendDueDigests(
     where: { weeklyDigest: true, OR: [{ digestSentAt: null }, { digestSentAt: { lt: to } }] },
     select: {
       id: true,
+      role: true,
       digestSentAt: true,
       user: { select: { email: true } },
       workspace: { select: { id: true, name: true, slug: true } },
@@ -156,10 +160,17 @@ export async function sendDueDigests(
   let sent = 0;
   let empty = 0;
   let failed = 0;
+  // Told to admins only, like the notice in Settings.
+  const newer = due.some((m) => hasRole(m.role, "ADMIN")) ? (await versionInfo()).newer : null;
+  const newerVersion = newer
+    ? { version: newer, notesUrl: releaseNotesUrl("server", newer) }
+    : null;
   for (const m of due) {
     if (!digestDue(m.digestSentAt, now)) continue;
     try {
-      const mail = renderDigest(m.user.email, await collectDigest(m.workspace, from, to, m.id));
+      const data = await collectDigest(m.workspace, from, to, m.id);
+      if (hasRole(m.role, "ADMIN")) data.newerVersion = newerVersion;
+      const mail = renderDigest(m.user.email, data);
       if (mail) {
         await sendMail(mail);
         sent++;

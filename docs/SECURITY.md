@@ -241,6 +241,27 @@ last IP, expired sessions and tokens) is deleted, not kept "just in case".
   owner of a workspace with other members. Sessions, accounts, 2FA and
   passkeys go with the user.
 
+## 5z. Staying up to date (M36, ADR-052)
+
+- The update check is **on in new installations** (`UPDATE_CHECK=true` in
+  the bundle's `.env.example`); the code default stays off, so existing
+  installations and source builds change nothing until someone edits `.env`.
+- When on: per product (server = `InfraMole/self-hosted`, agent =
+  `InfraMole/agent`) one anonymous GET of
+  `api.github.com/repos/…/releases/latest` per day through safeFetch, 4 s
+  timeout, 512 KB cap, only `tag_name` read and accepted as `x.y.z`. No
+  identifier, version, count or header of ours is sent; GitHub sees the
+  server's IP address and the `InfraMole` user agent. Results live in process
+  memory only.
+- Pages never wait for GitHub: the app shell reads the cache and refreshes a
+  stale one after the response (`after()`); Settings and the digest may wait
+  up to 4 s. **Check now** (ADMIN, server action) bypasses the day cache but
+  not a one-minute floor, so it cannot drive GitHub's anonymous rate limit.
+- Shown to ADMIN and OWNER only (sidebar, Settings, digest line); the
+  version itself stays visible to members and absent from `/api/health`.
+- `/changelog` and `/changelog/feed.xml` are static pages built from the
+  repository's CHANGELOG files: no input, nothing per visitor.
+
 ## 5y. Enterprise single sign-on (M33, ADR-048)
 
 - **Configuration**: OWNER only (ADMIN reads); every change audited
@@ -364,9 +385,9 @@ last IP, expired sessions and tokens) is deleted, not kept "just in case".
   never sent anywhere (no notifications).
 - Quick search runs through a server action that calls `requireWorkspace`;
   results come from the scoped `listResources`.
-- `UPDATE_CHECK` is off by default; when on, one anonymous GET to
-  api.github.com per day through safeFetch (public destinations only),
-  nothing sent. The version is shown in Settings (members), never in
+- `UPDATE_CHECK` (code default off; on in the bundle's `.env.example`
+  since M36, see §5z): one anonymous GET to api.github.com per day through
+  safeFetch (public destinations only), nothing sent. The version is shown in Settings (members), never in
   `/api/health`.
 
 ## 5s. More sources (M27, ADR-042)

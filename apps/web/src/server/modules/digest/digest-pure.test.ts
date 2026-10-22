@@ -99,6 +99,30 @@ describe("renderDigest", () => {
       "No changes this week.",
     );
   });
+
+  it("tells admins about a newer release, even in a quiet week (M36)", () => {
+    const newerVersion = {
+      version: "0.27.0",
+      notesUrl: "https://inframole.com/changelog#v0.27.0",
+    };
+    const busy = renderDigest("a@b", data({ newerVersion }))!;
+    expect(busy.subject).toBe("Acme: 9 changes this week");
+    expect(busy.text).toContain(
+      "InfraMole 0.27.0 is available. What's new: https://inframole.com/changelog#v0.27.0",
+    );
+    const quiet = renderDigest(
+      "a@b",
+      data({
+        counts: {},
+        topResources: [],
+        suggestionsWaiting: 0,
+        staleResources: 0,
+        newerVersion,
+      }),
+    )!;
+    expect(quiet.subject).toBe("Acme: InfraMole 0.27.0 is available");
+    expect(quiet.text).toContain("No changes this week.");
+  });
 });
 
 describe("unsubscribe token", () => {

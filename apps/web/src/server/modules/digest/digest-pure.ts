@@ -50,6 +50,8 @@ export interface DigestData {
   changesUrl: string;
   suggestionsUrl: string;
   unsubscribeUrl: string;
+  /** A newer InfraMole release (admins of a self-hosted install with UPDATE_CHECK, M36). */
+  newerVersion?: { version: string; notesUrl: string } | null;
 }
 
 const oneLine = (s: string) => s.replace(/[\r\n]+/g, " ").slice(0, 120);
@@ -63,7 +65,8 @@ const day = (d: Date) =>
  */
 export function renderDigest(to: string, d: DigestData): Mail | null {
   const total = Object.values(d.counts).reduce((a, b) => a + (b ?? 0), 0);
-  if (total === 0 && d.suggestionsWaiting === 0 && d.staleResources === 0) return null;
+  if (total === 0 && d.suggestionsWaiting === 0 && d.staleResources === 0 && !d.newerVersion)
+    return null;
   const ws = oneLine(d.workspaceName);
   const lines: string[] = [
     `Weekly summary for "${ws}" — ${day(d.from)} to ${day(d.to)}`,
@@ -90,6 +93,11 @@ export function renderDigest(to: string, d: DigestData): Mail | null {
         `  • ${d.staleResources} resource${d.staleResources === 1 ? "" : "s"} no longer reporting (stale)`,
       );
   }
+  if (d.newerVersion)
+    lines.push(
+      "",
+      `InfraMole ${d.newerVersion.version} is available. What's new: ${d.newerVersion.notesUrl}`,
+    );
   lines.push(
     "",
     `See every change: ${d.changesUrl}`,
@@ -101,7 +109,10 @@ export function renderDigest(to: string, d: DigestData): Mail | null {
   );
   return {
     to,
-    subject: `${ws}: ${total} change${total === 1 ? "" : "s"} this week`,
+    subject:
+      total === 0 && d.newerVersion
+        ? `${ws}: InfraMole ${d.newerVersion.version} is available`
+        : `${ws}: ${total} change${total === 1 ? "" : "s"} this week`,
     text: lines.join("\n"),
     unsubscribeUrl: d.unsubscribeUrl,
   };

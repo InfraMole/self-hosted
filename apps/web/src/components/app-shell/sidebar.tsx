@@ -8,6 +8,7 @@ import {
   Boxes,
   ClipboardList,
   ChevronsUpDown,
+  CircleArrowUp,
   History,
   Inbox,
   LogOut,
@@ -34,6 +35,8 @@ interface SidebarProps {
   feedbackAction: FeedbackAction | null;
   /** Quick search (M29). */
   search: (q: string) => Promise<QuickSearchHit[]>;
+  /** A newer InfraMole release, shown to admins (M36). */
+  newerVersion?: string | null;
 }
 
 const PRIMARY_NAV = [
@@ -51,6 +54,7 @@ export function Sidebar({
   suggestionCount,
   feedbackAction,
   search,
+  newerVersion,
 }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -118,6 +122,17 @@ export function Sidebar({
       </nav>
 
       <div className="border-border flex flex-col gap-0.5 border-t p-2">
+        {newerVersion && (
+          <Link
+            href={`${base}/settings#version`}
+            className="text-warning hover:bg-surface-2 mb-1 flex items-center gap-2 rounded-md px-2 py-1.5 text-xs"
+          >
+            <CircleArrowUp className="size-3.5 shrink-0" />
+            <span>
+              InfraMole <span className="font-mono">{newerVersion}</span> is available
+            </span>
+          </Link>
+        )}
         <NavLink href={`${base}/settings`} active={pathname.startsWith(`${base}/settings`)}>
           <Settings />
           Settings

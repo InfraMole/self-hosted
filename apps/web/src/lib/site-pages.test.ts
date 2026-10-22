@@ -8,6 +8,7 @@ describe("public pages (M18)", () => {
     const paths = publicPaths({ demo: false });
     expect(paths.slice(0, 3)).toEqual(["/", "/agent", "/docs"]);
     expect(paths).toContain("/legal/privacy");
+    expect(paths).toContain("/changelog");
     expect(paths).not.toContain("/legal/terms"); // unlisted until Cloud opens
     expect(paths.filter((p) => p.startsWith("/docs/"))).toHaveLength(docPages("en").length);
     expect(paths).not.toContain("/demo");

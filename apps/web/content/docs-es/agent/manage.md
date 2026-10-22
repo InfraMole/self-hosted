@@ -106,6 +106,10 @@ sudo inframole-agent update
 Los agentes anteriores a la 0.4.0 se actualizan ejecutando de nuevo el
 comando de instalación (**Settings › Agents › New enrollment token**).
 
+Con la comprobación de versiones del servidor activada (`UPDATE_CHECK=true`,
+ver [Actualizar](/es/docs/operations/upgrade#enterarte-de-que-hay-una-version-nueva)),
+**Settings › Agents** marca los agentes más antiguos que la última versión.
+
 ## Revocar un agente
 
 En **Settings › Agents**, revoca el agente. Sus informes se rechazan al

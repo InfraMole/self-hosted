@@ -16,6 +16,7 @@ const en = {
     faq: "FAQ",
     pricing: "Pricing",
     docs: "Docs",
+    changelog: "What's new",
     signIn: "Sign in",
     getStarted: "Get started",
   },
@@ -328,6 +329,7 @@ const en = {
     tagline: "See what depends on what.",
     agent: "What the agent collects",
     docs: "Docs",
+    changelog: "What's new",
     signIn: "Sign in",
   },
   language: {
@@ -350,6 +352,7 @@ const es: SiteCopy = {
     faq: "Preguntas",
     pricing: "Precios",
     docs: "Documentación",
+    changelog: "Novedades",
     signIn: "Iniciar sesión",
     getStarted: "Empezar",
   },
@@ -666,6 +669,7 @@ const es: SiteCopy = {
     tagline: "Descubre qué depende de qué.",
     agent: "Qué recoge el agente",
     docs: "Documentación",
+    changelog: "Novedades",
     signIn: "Iniciar sesión",
   },
   language: {

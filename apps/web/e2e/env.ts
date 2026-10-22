@@ -92,6 +92,7 @@ export const SERVER_ENV: Record<string, string> = {
   PUBLIC_SITE: "false",
   DEMO_MODE: "false",
   DEMO_ROLE: "VIEWER",
+  UPDATE_CHECK: "false", // offline: never ask GitHub from a test run
   TRUST_PROXY: "false",
   INTEGRATIONS_PRIVATE_NETWORKS: "",
   SSO_TRUSTED_DOMAINS: SSO_DOMAIN,

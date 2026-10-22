@@ -9,3 +9,5 @@ apps/web/src/generated
 docs
 *.md
 !apps/web/**/*.md
+!CHANGELOG.md
+!agent/CHANGELOG.md

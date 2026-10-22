@@ -10,6 +10,7 @@ import { countSuggestions } from "@/server/modules/discovery/discovery";
 import { feedbackEnabled } from "@/server/modules/feedback/feedback";
 import { listWorkspacesForUser } from "@/server/modules/workspaces/workspaces";
 import { requireUser, requireWorkspace } from "@/server/tenancy";
+import { cachedVersionInfo } from "@/server/version";
 import { resetDemoAction } from "./demo-actions";
 import { sendFeedbackAction } from "./feedback-actions";
 import { searchResourcesAction } from "./search-actions";
@@ -23,6 +24,8 @@ export default async function WorkspaceLayout({ children, params }: LayoutProps<
     countSuggestions(ctx),
     getUsage(ctx.workspaceId),
   ]);
+  // Admins see a newer release without waiting for GitHub (M36).
+  const newer = hasRole(ctx.role, "ADMIN") ? cachedVersionInfo().newer : null;
 
   return (
     <div className="flex h-dvh print:block print:h-auto">
@@ -36,6 +39,7 @@ export default async function WorkspaceLayout({ children, params }: LayoutProps<
             feedbackEnabled() ? sendFeedbackAction.bind(null, ctx.workspaceSlug) : null
           }
           search={searchResourcesAction.bind(null, ctx.workspaceSlug)}
+          newerVersion={newer}
         />
       </div>
       <main className="flex min-w-0 flex-1 flex-col overflow-auto print:block print:overflow-visible">

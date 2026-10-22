@@ -5,6 +5,27 @@ images). The agent has its own changelog in the InfraMole/agent repository.
 To update an installation, see
 [Upgrade guide](https://inframole.com/docs/operations/upgrade).
 
+## 0.27.0 — 2026-10-22
+
+### Added
+
+- **What's new**: every release of the server and the agent on one page,
+  [inframole.com/changelog](https://inframole.com/changelog), with an RSS /
+  Atom feed you can follow in a feed reader, Slack or Teams.
+- **Know when to upgrade**: admins see a newer InfraMole next to the version
+  in Settings (with **Check now**), at the bottom of the sidebar and in the
+  weekly summary email. **Settings › Agents** marks agents older than the
+  latest agent release, with how to update them.
+
+### Changed
+
+- New installations have the update check on (`UPDATE_CHECK=true` in
+  `.env.example`): one anonymous request a day to GitHub's public releases;
+  nothing about your installation is sent. Existing installations keep their
+  setting — to turn it on, set `UPDATE_CHECK=true` in `.env` and run
+  `docker compose up -d`. See the
+  [Upgrade guide](https://inframole.com/docs/operations/upgrade#know-when-there-is-a-new-version).
+
 ## 0.26.0 — 2026-10-22
 
 ### Added

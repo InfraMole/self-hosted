@@ -37,8 +37,15 @@ import { listInvitations, listMembers } from "@/server/modules/members/members";
 import { markStaleHosts } from "@/server/modules/discovery/staleness";
 import { listSources } from "@/server/modules/resources/sources";
 import { requireWorkspace } from "@/server/tenancy";
-import { versionInfo } from "@/server/version";
-import { createTokenAction, revokeAgentAction, revokeTokenAction } from "./actions";
+import { agentBehind, versionInfo } from "@/server/version";
+import { CheckUpdatesButton } from "@/components/settings/check-updates-button";
+import { releaseNotesUrl } from "@/lib/changelog";
+import {
+  checkForUpdatesAction,
+  createTokenAction,
+  revokeAgentAction,
+  revokeTokenAction,
+} from "./actions";
 import { createApiTokenAction, revokeApiTokenAction, revokeShareAction } from "./api-actions";
 import {
   createSsoAction,
@@ -101,6 +108,9 @@ export default async function SettingsPage({ params }: PageProps<"/w/[slug]/sett
       isAdmin ? listShares(ctx) : Promise.resolve([]),
     ]);
   const ssoConnections = isAdmin ? await listSsoConnections(ctx) : [];
+  const agentsBehind = agents.filter(
+    (a) => a.status === "ACTIVE" && agentBehind(a.agentVersion, version.latestAgent),
+  ).length;
   const assignable: Role[] = isOwner
     ? ["VIEWER", "MEMBER", "ADMIN", "OWNER"]
     : ["VIEWER", "MEMBER", "ADMIN"];
@@ -155,7 +165,10 @@ export default async function SettingsPage({ params }: PageProps<"/w/[slug]/sett
                   <dd className={mono ? "font-mono text-xs" : "text-sm"}>{value}</dd>
                 </div>
               ))}
-              <div className="grid grid-cols-[160px_1fr] items-baseline gap-4 px-4 py-2.5">
+              <div
+                id="version"
+                className="grid scroll-mt-4 grid-cols-[160px_1fr] items-baseline gap-4 px-4 py-2.5"
+              >
                 <dt className="text-muted text-xs">InfraMole version</dt>
                 <dd className="text-sm">
                   <span className="font-mono text-xs">
@@ -172,17 +185,38 @@ export default async function SettingsPage({ params }: PageProps<"/w/[slug]/sett
                       </Link>{" "}
                       ·{" "}
                       <a
-                        href="https://github.com/InfraMole/self-hosted/blob/main/CHANGELOG.md"
+                        href={releaseNotesUrl("server", version.newer)}
                         className="underline-offset-4 hover:underline"
                       >
-                        what changed
+                        what&apos;s new
                       </a>
+                    </span>
+                  )}
+                  {isAdmin && version.current && version.checking && !version.newer && (
+                    <span className="text-subtle ml-3 text-xs">
+                      {version.checkedAt
+                        ? `Up to date — checked ${formatRelative(version.checkedAt)}.`
+                        : "Not checked yet."}
+                    </span>
+                  )}
+                  {isAdmin && version.current && version.checking && (
+                    <span className="ml-3">
+                      <CheckUpdatesButton
+                        check={checkForUpdatesAction.bind(null, ctx.workspaceSlug)}
+                      />
                     </span>
                   )}
                   {isAdmin && version.current && !version.checking && (
                     <span className="text-subtle ml-3 text-xs">
                       Set <span className="font-mono">UPDATE_CHECK=true</span> to be told about new
-                      releases.
+                      releases, or follow{" "}
+                      <a
+                        href="https://inframole.com/changelog"
+                        className="hover:text-foreground underline underline-offset-4"
+                      >
+                        what&apos;s new
+                      </a>
+                      .
                     </span>
                   )}
                 </dd>
@@ -309,6 +343,29 @@ export default async function SettingsPage({ params }: PageProps<"/w/[slug]/sett
               <CreateTokenDialog action={createTokenAction.bind(null, ctx.workspaceSlug)} />
             )}
           </CardHeader>
+          {agentsBehind > 0 && version.latestAgent && (
+            <p className="border-border text-muted border-t px-4 py-2.5 text-xs">
+              <span className="text-warning">
+                {agentsBehind === 1 ? "1 agent runs" : `${agentsBehind} agents run`} an older
+                version than {version.latestAgent}.
+              </span>{" "}
+              Run <span className="font-mono">inframole-agent update</span> on the host, or turn on
+              automatic updates —{" "}
+              <Link
+                href="/docs/agent/manage#updates"
+                className="hover:text-foreground underline underline-offset-4"
+              >
+                how
+              </Link>{" "}
+              ·{" "}
+              <a
+                href={releaseNotesUrl("agent", version.latestAgent)}
+                className="hover:text-foreground underline underline-offset-4"
+              >
+                what&apos;s new
+              </a>
+            </p>
+          )}
           {agents.length === 0 ? (
             <CardContent className="text-subtle text-sm">
               No agents yet.{" "}
@@ -354,7 +411,15 @@ export default async function SettingsPage({ params }: PageProps<"/w/[slug]/sett
                       <td className="text-muted px-4 py-2 text-xs">
                         {a.os} <span className="text-subtle">{a.osVersion}</span>
                       </td>
-                      <td className="text-muted px-4 py-2 font-mono text-xs">{a.agentVersion}</td>
+                      <td className="text-muted px-4 py-2 font-mono text-xs">
+                        {a.agentVersion}
+                        {a.status === "ACTIVE" &&
+                          agentBehind(a.agentVersion, version.latestAgent) && (
+                            <p className="text-warning font-sans text-[11px]">
+                              {version.latestAgent} available
+                            </p>
+                          )}
+                      </td>
                       <td className="text-muted px-4 py-2 text-xs">
                         {a.lastSeenAt ? (
                           <span title={formatDateTime(a.lastSeenAt)}>

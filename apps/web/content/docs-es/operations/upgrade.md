@@ -8,8 +8,8 @@ automáticamente antes de arrancar la nueva versión.
 
 ### Lee las notas de la versión
 
-Revisa [la página de versiones](https://github.com/InfraMole/self-hosted/releases)
-por si algo requiere atención (por ejemplo, un ajuste nuevo).
+Revisa [Novedades](https://inframole.com/es/changelog) por si algo
+requiere atención (por ejemplo, un ajuste nuevo).
 
 ### Haz una copia de seguridad
 
@@ -79,9 +79,25 @@ y vuelve a descargar.
 ## Qué versión está funcionando
 
 **Settings › Workspace › InfraMole version**, o en el servidor
-`docker compose images web`. Para que Ajustes te avise cuando haya una
-versión nueva, pon `UPDATE_CHECK=true` en `.env` (una petición anónima a
-GitHub al día; no se envía nada de tu instalación).
+`docker compose images web`.
+
+## Enterarte de que hay una versión nueva
+
+Con `UPDATE_CHECK=true` en `.env`, los admins ven cuándo hay una versión
+nueva: junto a la versión en Ajustes (con **Check now**), abajo en la barra
+lateral y en el resumen semanal por email si lo activaron. **Settings ›
+Agents** marca además los agentes más antiguos que la última versión del
+agente. Es una petición anónima al día a las versiones públicas de GitHub,
+para conocer los números de la última versión del servidor y del agente; no
+se envía nada de tu instalación.
+
+Las instalaciones creadas desde la 0.27.0 la traen activada. Las anteriores
+tienen `UPDATE_CHECK=false` (o ninguna línea) en `.env`: cámbialo a `true` y
+ejecuta `docker compose up -d`. Para desactivarla, pon `false`.
+
+Sin ella —o además— sigue [Novedades](https://inframole.com/es/changelog):
+tiene un feed RSS / Atom para un lector de RSS, o para Slack y Teams con sus
+apps de RSS.
 
 ## Fijar una versión o volver atrás
 

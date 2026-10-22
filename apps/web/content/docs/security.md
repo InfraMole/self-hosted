@@ -122,7 +122,9 @@ each sample costs proportionally more.
 
 - **On your server.** InfraMole runs with Docker Compose (x86-64 or ARM64)
   and PostgreSQL. Agents talk only to your server, and the software does not
-  phone home. The optional update check (`UPDATE_CHECK`) is off by default.
+  phone home. The update check (`UPDATE_CHECK`, on in new installations)
+  only asks GitHub's public releases for the latest version numbers; nothing
+  about your installation is sent. Set it to `false` to turn it off.
 - **Workspaces are isolated twice**: in the application, and again by
   row-level security in the database.
 - **Stored credentials are encrypted.** Integration tokens and LDAP service

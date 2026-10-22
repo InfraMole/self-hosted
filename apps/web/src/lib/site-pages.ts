@@ -15,6 +15,7 @@ export function publicPaths(options: { demo: boolean }): string[] {
     "/agent",
     "/docs",
     ...docPages("en").map((p) => `/docs/${p.slug}`),
+    "/changelog",
     ...LISTED_LEGAL_DOCS.map((d) => `/legal/${d.slug}`),
   ];
 }

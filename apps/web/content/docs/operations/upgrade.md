@@ -7,8 +7,8 @@ apply database migrations automatically before the new version starts.
 
 ### Read the release notes
 
-Check [the releases page](https://github.com/InfraMole/self-hosted/releases)
-for anything that needs attention (for example a new setting).
+Check [What's new](https://inframole.com/changelog) for anything that
+needs attention (for example a new setting).
 
 ### Back up
 
@@ -77,9 +77,25 @@ running (`up -d` never ran): run `docker image prune -af`, then pull again.
 ## Which version is running
 
 **Settings › Workspace › InfraMole version**, or on the server
-`docker compose images web`. To be told in Settings when a newer release
-exists, set `UPDATE_CHECK=true` in `.env` (one anonymous request to GitHub
-per day; nothing about your installation is sent).
+`docker compose images web`.
+
+## Know when there is a new version
+
+With `UPDATE_CHECK=true` in `.env`, admins are told when a newer release
+exists: next to the version in Settings (with **Check now**), at the bottom
+of the sidebar, and in the weekly summary email if they turned it on.
+**Settings › Agents** also marks agents older than the latest agent release.
+It is one anonymous request per day to GitHub's public releases, for the
+latest server and agent version numbers; nothing about your installation is
+sent.
+
+Installations created from 0.27.0 on have it on. Older ones have
+`UPDATE_CHECK=false` (or no line) in `.env`: change it to `true` and run
+`docker compose up -d`. To turn it off, set `false`.
+
+Without it — or as well — follow [What's new](https://inframole.com/changelog):
+it has an RSS / Atom feed for a feed reader, or for Slack and Teams through
+their RSS apps.
 
 ## Pin or roll back a version
 

@@ -57,6 +57,19 @@ test("settings show which InfraMole is running", async ({ page }) => {
   await expect(page.getByText("development build")).toBeVisible();
 });
 
+test("what's new lists server and agent releases, with a feed (M36)", async ({ page, request }) => {
+  await page.goto("/changelog");
+  await expect(page.getByRole("heading", { name: "What's new", level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "InfraMole 0.26.0" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Agent 0.6.1" })).toBeVisible();
+  await expect(page.locator('[id="v0.26.0"]')).toContainText("caddy.d");
+  const feed = await request.get("/changelog/feed.xml");
+  expect(feed.headers()["content-type"]).toContain("application/atom+xml");
+  expect(await feed.text()).toContain("<title>InfraMole 0.26.0</title>");
+  await page.goto("/es/changelog");
+  await expect(page.getByText("Las notas de cada versión se publican en inglés.")).toBeVisible();
+});
+
 test("an installation without analytics loads none and allows no third-party origin", async ({
   page,
   request,

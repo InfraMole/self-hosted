@@ -104,6 +104,10 @@ sudo inframole-agent update
 Agents older than 0.4.0 update by running the install command again
 (**Settings › Agents › New enrollment token**).
 
+With the server's update check on (`UPDATE_CHECK=true`, see
+[Upgrade guide](/docs/operations/upgrade#know-when-there-is-a-new-version)),
+**Settings › Agents** marks the agents older than the latest release.
+
 ## Revoke an agent
 
 In **Settings › Agents**, revoke the agent. Its reports are rejected

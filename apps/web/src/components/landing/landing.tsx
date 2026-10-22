@@ -662,6 +662,9 @@ export function SiteFooter({ locale = "en" }: { locale?: Locale }) {
           <Link href={localePath(locale, "/docs")} className="hover:text-foreground">
             {t.footer.docs}
           </Link>
+          <Link href={localePath(locale, "/changelog")} className="hover:text-foreground">
+            {t.footer.changelog}
+          </Link>
           {LISTED_LEGAL_DOCS.map((d) => (
             <Link
               key={d.slug}
