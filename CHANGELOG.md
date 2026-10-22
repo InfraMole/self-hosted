@@ -5,6 +5,20 @@ images). The agent has its own changelog in the InfraMole/agent repository.
 To update an installation, see
 [Upgrade guide](https://inframole.com/docs/operations/upgrade).
 
+## 0.26.0 — 2026-10-22
+
+### Added
+
+- **Other apps behind the same Caddy**: put their sites in `*.caddy` files in
+  the new `caddy.d/` folder next to the `Caddyfile`. Upgrades replace the
+  `Caddyfile` but never touch `caddy.d/`, so those sites survive updates. See
+  [Configuration](https://inframole.com/docs/installation/configuration).
+
+### Fixed
+
+- Adding a SAML single sign-on connection could occasionally fail with a
+  certificate error (about one time in 500); trying again worked.
+
 ## 0.25.0 — 2026-10-22
 
 ### Added

@@ -145,6 +145,8 @@ services:
       - "${HTTPS_PORT:-443}:443/udp"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Extra sites (*.caddy) kept across upgrades; see the end of the Caddyfile.
+      - ./caddy.d:/etc/caddy/caddy.d:ro
       - caddy_data:/data
       - caddy_config:/config
     networks: [internal, public]

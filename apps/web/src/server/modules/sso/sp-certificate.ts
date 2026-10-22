@@ -19,6 +19,17 @@ const SHA256_RSA = "1.2.840.113549.1.1.11";
 const COMMON_NAME = "2.5.4.3";
 
 /**
+ * A certificate serial from random bytes: positive, and with a non-zero first
+ * byte so the DER INTEGER is minimally encoded (a redundant leading zero is
+ * "illegal padding" — it failed about one certificate in 500).
+ */
+export function certificateSerial(random: Uint8Array): Uint8Array {
+  const serial = new Uint8Array(random);
+  serial[0] = (serial[0]! % 0x7f) + 1; // 0x01…0x7f
+  return serial;
+}
+
+/**
  * A self-signed certificate and key for one SAML connection's service
  * provider (M33): InfraMole signs its authentication requests with it and
  * publishes the certificate in its SP metadata, as many identity providers
@@ -35,8 +46,7 @@ export function createSpCertificate(commonName: string): { certPem: string; keyP
     ]),
   ]);
   const algorithm = new AlgorithmIdentifier({ algorithm: SHA256_RSA, parameters: null });
-  const serial = randomBytes(16);
-  serial[0]! &= 0x7f; // positive INTEGER
+  const serial = certificateSerial(randomBytes(16));
   const now = new Date();
   const tbs = new TBSCertificate({
     version: Version.v3,

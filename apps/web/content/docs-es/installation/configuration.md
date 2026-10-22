@@ -86,6 +86,31 @@ Caddy publica los puertos 80 y 443. `HTTP_PORT` y `HTTPS_PORT` cambian los
 puertos del equipo, pero Let's Encrypt solo funciona en 80/443 — otros
 puertos son para instalaciones con `CADDY_TLS=tls internal`.
 
+## Otras aplicaciones en el mismo servidor
+
+El Caddy de InfraMole también puede publicar otras aplicaciones del mismo
+servidor (por ejemplo, una herramienta de analítica). Pon sus sitios en uno o
+varios ficheros `*.caddy` dentro de la carpeta `caddy.d/`, junto al
+`Caddyfile`; por ejemplo, `caddy.d/sites.caddy`:
+
+```
+analytics.example.com {
+	reverse_proxy analytics-app:3000
+}
+```
+
+El contenedor de la aplicación tiene que estar en la red Docker `public` de
+InfraMole (en un proyecto de Compose: una red externa llamada
+`inframole_public`). Después, `docker compose restart caddy`. Las
+actualizaciones sustituyen el `Caddyfile` pero nunca tocan `caddy.d/`, así que
+estos sitios sobreviven a cada actualización.
+
+:::warning Nada que se llame «web»
+Caddy encuentra InfraMole por el nombre `web`. No conectes a la red de
+InfraMole ningún otro contenedor cuyo servicio de Compose se llame `web`:
+pon delante un pequeño proxy con otro nombre.
+:::
+
 ## Prueba local sin nombre público
 
 Para una evaluación en un portátil o en una red privada:

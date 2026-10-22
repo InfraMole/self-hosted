@@ -32,3 +32,8 @@
 	{$CADDY_TLS}
 	redir https://{$DEPMAP_DOMAIN}{uri} permanent
 }
+
+# Your own extra sites on this host (another app behind the same Caddy): one
+# or more *.caddy files in the caddy.d/ folder next to this file. Upgrades
+# replace this Caddyfile but never touch caddy.d/ (docs/DEPLOYMENT.md §10d).
+import /etc/caddy/caddy.d/*.caddy

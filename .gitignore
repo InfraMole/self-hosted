@@ -42,3 +42,6 @@ agent/dist/
 deploy/.env
 deploy/backups/
 deploy/access.log
+
+# Extra Caddy sites of a deployment (deploy/Caddyfile imports them)
+deploy/caddy.d/*.caddy

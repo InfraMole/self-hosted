@@ -52,6 +52,17 @@ if (/^\s*build:/m.test(compose)) throw new Error("build section left in the bund
 writeFileSync(path.join(out, "docker-compose.yml"), compose);
 
 cpSync(path.join(root, "deploy/Caddyfile"), path.join(out, "Caddyfile"));
+// Extra sites live here; upgrades extract only this README, never *.caddy files.
+mkdirSync(path.join(out, "caddy.d"), { recursive: true });
+writeFileSync(
+  path.join(out, "caddy.d", "README.md"),
+  `# Extra sites
+
+Files named *.caddy in this folder are added to the Caddyfile (see its last
+lines), so Caddy can publish other apps on this host next to InfraMole.
+Upgrades never replace them. After a change: docker compose restart caddy
+`,
+);
 cpSync(path.join(root, "deploy/.env.production.example"), path.join(out, ".env.example"));
 for (const f of ["gen-secrets.sh", "gen-secrets.ps1", "restore.sh", "db-shell.sh"]) {
   cpSync(path.join(root, "deploy/scripts", f), path.join(out, "scripts", f));
