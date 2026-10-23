@@ -41,6 +41,6 @@ sesión.
 ## Cuánto tiempo se guarda
 
 En las instalaciones autoalojadas el historial de cambios se guarda 365
-días. En InfraMole Cloud (previsto) dependerá del plan. El **registro de
+días. En InfraMole Cloud depende del plan: 30, 90 o 365 días. El **registro de
 auditoría** (eventos de seguridad), que es independiente, se describe en
 [Miembros y seguridad](/es/docs/manual/members-and-security#registro-de-auditoria).

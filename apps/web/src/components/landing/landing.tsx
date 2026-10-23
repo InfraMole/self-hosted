@@ -51,12 +51,6 @@ export interface LandingOptions {
   demo: boolean;
   /** The visitor is signed in with the shared demo account: offer to go back to it. */
   inDemo?: boolean;
-  /**
-   * Show Cloud / Business prices. Only when InfraMole is actually sold here
-   * (EDITION=cloud); the public site of a non-commercial open source project
-   * shows Community and "planned" editions without prices.
-   */
-  showPrices?: boolean;
 }
 
 interface Localized {
@@ -427,11 +421,12 @@ function Security({ t }: Localized) {
   );
 }
 
-// Plans and prices: lib/billing-plans.ts (ADR-023 pricing, ADR-024 licensing, PRODUCT.md §10).
-// Only list capabilities that exist today — never sell roadmap items.
-function Pricing({ cloudSignup, showPrices, locale, t }: LandingOptions & Localized) {
-  if (!showPrices) return <PricingOpenSource locale={locale} t={t} />;
+// Plans and prices: lib/billing-plans.ts (ADR-055 prices, ADR-024 licensing, PRODUCT.md §10).
+// Only list capabilities that exist today — never sell roadmap items. Without
+// an open Cloud sign-up every plan is bought by email (ADR-056): no payment page.
+function Pricing({ cloudSignup, locale, t }: LandingOptions & Localized) {
   const p = t.pricing;
+  const euros = (n: number) => n.toLocaleString(locale === "es" ? "es-ES" : "en-GB");
   return (
     <section id="pricing" className="mx-auto max-w-6xl scroll-mt-14 px-4 py-20 sm:px-6">
       <SectionTitle eyebrow={p.eyebrow} title={p.title} />
@@ -446,8 +441,9 @@ function Pricing({ cloudSignup, showPrices, locale, t }: LandingOptions & Locali
             <span className="text-muted text-xs">{p.business.tag}</span>
           </div>
           <div className="mt-5 flex items-baseline gap-2">
-            <span className="text-muted text-sm">{p.business.from}</span>
-            <span className="text-3xl font-medium tracking-tight">{BUSINESS_FROM_EUR_YEAR} €</span>
+            <span className="text-3xl font-medium tracking-tight">
+              {euros(BUSINESS_FROM_EUR_YEAR)} €
+            </span>
             <span className="text-muted text-sm">{p.business.perYear}</span>
           </div>
           <ul className="text-muted mt-5 flex-1 space-y-2 text-sm">
@@ -456,7 +452,7 @@ function Pricing({ cloudSignup, showPrices, locale, t }: LandingOptions & Locali
             ))}
           </ul>
           <a
-            href="mailto:sales@inframole.com"
+            href={salesMail("InfraMole Business")}
             className="text-accent mt-6 text-sm font-medium hover:underline"
           >
             {p.business.contact}
@@ -479,7 +475,9 @@ function Pricing({ cloudSignup, showPrices, locale, t }: LandingOptions & Locali
                 {featured && <span className="text-accent text-xs font-medium">{p.mostTeams}</span>}
               </div>
               <div className="mt-5 flex items-baseline gap-2">
-                <span className="text-3xl font-medium tracking-tight">{tier.priceEur} €</span>
+                <span className="text-3xl font-medium tracking-tight">
+                  {euros(tier.priceEur)} €
+                </span>
                 <span className="text-muted text-sm">{p.perMonth}</span>
               </div>
               <ul className="text-muted mt-5 flex-1 space-y-2 text-sm">
@@ -500,8 +498,8 @@ function Pricing({ cloudSignup, showPrices, locale, t }: LandingOptions & Locali
                   <Link href="/sign-up">{p.startTrial}</Link>
                 </Button>
               ) : (
-                <Button variant="outline" className="mt-6 h-9" disabled>
-                  {p.comingSoon}
+                <Button asChild variant={featured ? "default" : "outline"} className="mt-6 h-9">
+                  <a href={salesMail(`InfraMole Cloud ${tier.name}`)}>{p.contactSales}</a>
                 </Button>
               )}
             </div>
@@ -509,14 +507,14 @@ function Pricing({ cloudSignup, showPrices, locale, t }: LandingOptions & Locali
         })}
       </div>
       <p className="text-muted mt-4 text-sm">
-        {cloudSignup ? p.trialOpen(CLOUD_TRIAL_DAYS) : p.trialSoon(CLOUD_TRIAL_DAYS)}{" "}
+        {cloudSignup ? p.trialOpen(CLOUD_TRIAL_DAYS) : p.trialByEmail(CLOUD_TRIAL_DAYS)}{" "}
         {p.moreThan(CLOUD_TIER.scale.nodes)}{" "}
-        <a href="mailto:sales@inframole.com" className="text-accent hover:underline">
+        <a href={salesMail("InfraMole Enterprise")} className="text-accent hover:underline">
           {p.talkToUs}
         </a>
         .
       </p>
-      <p className="text-subtle mt-6 text-xs">{p.earlyAccess}</p>
+      <p className="text-subtle mt-6 text-xs">{p.priceNote}</p>
     </section>
   );
 }
@@ -556,34 +554,9 @@ function CommunityCard({ locale, t }: Localized) {
   );
 }
 
-/** Pricing section while nothing is sold: Community + planned editions, no prices. */
-function PricingOpenSource({ locale, t }: Localized) {
-  const o = t.openSource;
-  return (
-    <section id="pricing" className="mx-auto max-w-6xl scroll-mt-14 px-4 py-20 sm:px-6">
-      <SectionTitle eyebrow={o.eyebrow} title={t.pricing.title} />
-      <p className="text-muted mt-4 max-w-2xl leading-relaxed">{o.intro}</p>
-      <div className="mt-10 grid gap-4 md:grid-cols-2">
-        <CommunityCard locale={locale} t={t} />
-        <div className="border-border bg-surface flex flex-col rounded-xl border p-6">
-          <div className="flex items-baseline justify-between gap-3">
-            <h3 className="text-lg font-semibold">{o.plannedTitle}</h3>
-            <span className="text-muted text-xs">{o.planned}</span>
-          </div>
-          <p className="text-muted mt-5 flex-1 text-sm leading-relaxed">
-            <span className="text-foreground font-medium">{o.cloud[0]}</span> {o.cloud[1]}{" "}
-            <span className="text-foreground font-medium">{o.business[0]}</span> {o.business[1]}
-          </p>
-          <a
-            href="mailto:sales@inframole.com"
-            className="text-accent mt-6 text-sm font-medium hover:underline"
-          >
-            {o.interested}
-          </a>
-        </div>
-      </div>
-    </section>
-  );
+/** Every purchase starts as an email to sales (ADR-056). */
+function salesMail(subject: string): string {
+  return `mailto:sales@inframole.com?subject=${encodeURIComponent(subject)}`;
 }
 
 function PathHeading({ label, note }: { label: string; note: string }) {

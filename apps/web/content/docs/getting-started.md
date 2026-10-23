@@ -50,7 +50,7 @@ confirms them, and impact results always say how certain each path is.
 InfraMole **Community** is free and open source (AGPL-3.0): you install it on
 your own server, with unlimited servers and VMs and one workspace. A hosted
 **InfraMole Cloud** (we run it for you) and a **Business** edition for larger
-teams are planned. See [Editions and limits](/docs/reference/editions).
+teams are available by email. See [Editions and limits](/docs/reference/editions).
 
 ## Next steps
 

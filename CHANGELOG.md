@@ -5,6 +5,15 @@ images). The agent has its own changelog in the InfraMole/agent repository.
 To update an installation, see
 [Upgrade guide](https://inframole.com/docs/operations/upgrade).
 
+## 0.29.1 — 2026-10-23
+
+### Changed
+
+- **InfraMole Cloud plans**: Starter up to 25 servers and VMs, Team up to
+  100, Scale up to 250, with unlimited users on every plan. The website
+  lists the prices of every edition; plans are arranged by email at
+  sales@inframole.com.
+
 ## 0.29.0 — 2026-10-23
 
 ### Added

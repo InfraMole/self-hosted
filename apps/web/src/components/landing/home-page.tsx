@@ -28,7 +28,6 @@ export async function HomePage({ locale }: { locale: Locale }) {
         cloudSignup={env.EDITION === "cloud" && env.SIGNUP === "open" && stripeConfigured(env)}
         demo={publicDemo()}
         inDemo={inDemo}
-        showPrices={env.EDITION === "cloud"}
       />
     );
   }

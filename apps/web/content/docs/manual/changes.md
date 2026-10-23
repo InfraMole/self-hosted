@@ -39,6 +39,6 @@ an **unsubscribe** link that works without signing in.
 ## How long it is kept
 
 Change history is kept for 365 days on self-hosted installations. On
-InfraMole Cloud (planned) it will depend on the plan. The separate
+InfraMole Cloud it depends on the plan: 30, 90 or 365 days. The separate
 **audit log** (security events) is described in
 [Members and security](/docs/manual/members-and-security#audit-log).

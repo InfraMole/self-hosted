@@ -52,8 +52,8 @@ de cada camino.
 
 InfraMole **Community** es gratis y de código abierto (AGPL-3.0): lo instalas
 en tu propio servidor, con servidores y máquinas virtuales ilimitados y un
-espacio de trabajo. Están previstos **InfraMole Cloud** (lo gestionamos
-nosotros) y una edición **Business** para equipos más grandes. Consulta
+espacio de trabajo. **InfraMole Cloud** (lo gestionamos nosotros) y la edición
+**Business** para equipos más grandes se contratan por correo. Consulta
 [Ediciones y límites](/es/docs/reference/editions).
 
 :::note Sobre el idioma

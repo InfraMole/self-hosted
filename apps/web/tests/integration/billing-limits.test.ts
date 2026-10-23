@@ -9,7 +9,6 @@ import { POST as enrollRoute } from "@/app/api/agent/v1/enroll/route";
 import type { WorkspaceContext } from "@/server/authz";
 import { createEnrollmentToken } from "@/server/modules/agents/agents";
 import {
-  MemberLimitError,
   PlanLimitError,
   PlanPausedError,
   assertDiscoveryActive,
@@ -92,8 +91,8 @@ describe("Cloud trial (Team limits, 14 days)", () => {
     const usage = await getUsage(ctx.workspaceId);
     expect(usage).toMatchObject({
       plan: "cloud-trial",
-      limit: 60,
-      memberLimit: 15,
+      limit: 100,
+      memberLimit: null,
       historyDays: 90,
       paused: false,
     });
@@ -102,20 +101,20 @@ describe("Cloud trial (Team limits, 14 days)", () => {
     expect(days).toBeLessThanOrEqual(14);
   });
 
-  it("counts only servers and VMs and blocks the 61st, without touching existing data", async () => {
+  it("counts only servers and VMs and blocks the 101st, without touching existing data", async () => {
     const ctx = await workspace();
-    await seedHosts(ctx, 60);
+    await seedHosts(ctx, 100);
     await createResource(ctx, { name: "app", type: "APPLICATION" }); // free, unlimited
-    expect(await getUsage(ctx.workspaceId)).toMatchObject({ nodes: 60, limit: 60 });
-    await expect(createResource(ctx, { name: "vm-61", type: "VM" })).rejects.toThrow(
-      /60 of 60 servers and VMs.*nothing was removed/,
+    expect(await getUsage(ctx.workspaceId)).toMatchObject({ nodes: 100, limit: 100 });
+    await expect(createResource(ctx, { name: "vm-101", type: "VM" })).rejects.toThrow(
+      /100 of 100 servers and VMs.*nothing was removed/,
     );
-    expect(await adminDb().resource.count({ where: { workspaceId: ctx.workspaceId } })).toBe(61);
+    expect(await adminDb().resource.count({ where: { workspaceId: ctx.workspaceId } })).toBe(101);
   });
 
   it("turning something into a host counts; archiving frees a slot", async () => {
     const ctx = await workspace();
-    await seedHosts(ctx, 59);
+    await seedHosts(ctx, 99);
     const host = await createResource(ctx, { name: "host", type: "SERVER" });
     const app = await createResource(ctx, { name: "app", type: "APPLICATION" });
     await expect(
@@ -130,10 +129,10 @@ describe("Cloud trial (Team limits, 14 days)", () => {
 
   it("imports: preview warns, apply refuses all-or-nothing", async () => {
     const ctx = await workspace();
-    await seedHosts(ctx, 59);
+    await seedHosts(ctx, 99);
     const csv = "name,type\nweb-a,server\nweb-b,vm\ndocs,application";
     const plan = await previewImport(ctx, { text: csv, format: "csv" });
-    expect(plan.warnings.join(" ")).toMatch(/59 of 60 servers and VMs.*would add 2/);
+    expect(plan.warnings.join(" ")).toMatch(/99 of 100 servers and VMs.*would add 2/);
     await expect(applyImport(ctx, { text: csv, format: "csv" })).rejects.toBeInstanceOf(
       PlanLimitError,
     );
@@ -142,7 +141,7 @@ describe("Cloud trial (Team limits, 14 days)", () => {
 
   it("new agents are refused with 402 (token use not consumed); known machines re-enroll", async () => {
     const ctx = await workspace();
-    await seedHosts(ctx, 59);
+    await seedHosts(ctx, 99);
     expect((await enroll(ctx, "machine-0001")).res.status).toBe(201);
     await createResource(ctx, { name: "machine-0001", type: "SERVER" }); // its first report
     const second = await enroll(ctx, "machine-0002");
@@ -180,8 +179,8 @@ describe("paid Cloud tiers", () => {
   it("each tier sets its limits; a cancelled plan after the trial pauses discovery", async () => {
     const ctx = await workspace();
     for (const [tier, limit, members, days] of [
-      ["starter", 15, 5, 30],
-      ["team", 60, 15, 90],
+      ["starter", 25, null, 30],
+      ["team", 100, null, 90],
       ["scale", 250, null, 365],
     ] as const) {
       await subscribe(ctx, tier);
@@ -203,7 +202,7 @@ describe("paid Cloud tiers", () => {
   it("going over the limit starts a grace period; after it, adding hosts is blocked", async () => {
     const ctx = await workspace();
     await subscribe(ctx, "starter");
-    await seedHosts(ctx, 15);
+    await seedHosts(ctx, 25);
     await createResource(ctx, { name: "extra-1", type: "SERVER" }); // allowed: grace starts
     const ws = await adminDb().workspace.findUniqueOrThrow({ where: { id: ctx.workspaceId } });
     expect(ws.overLimitSince).not.toBeNull();
@@ -230,23 +229,18 @@ describe("paid Cloud tiers", () => {
     ).toBeNull();
   });
 
-  it("members: people plus pending invitations count towards the plan", async () => {
+  it("members are unlimited on every plan (ADR-055)", async () => {
     const ctx = await workspace();
-    await subscribe(ctx, "starter"); // 5 members
-    for (let i = 0; i < 3; i++) {
+    await subscribe(ctx, "starter");
+    for (let i = 0; i < 6; i++) {
       const u = await createTestUser(`M${i}`);
       await adminDb().membership.create({
         data: { workspaceId: ctx.workspaceId, userId: u.id, role: "MEMBER" },
       });
     }
-    await createInvitation(ctx, { email: "fifth@example.test", role: "VIEWER" }); // 4 + 1
-    await expect(
-      createInvitation(ctx, { email: "sixth@example.test", role: "VIEWER" }),
-    ).rejects.toBeInstanceOf(MemberLimitError);
-    // Re-inviting the same address replaces its invitation rather than adding a seat.
-    await createInvitation(ctx, { email: "fifth@example.test", role: "MEMBER" });
-    await subscribe(ctx, "scale"); // unlimited
-    await createInvitation(ctx, { email: "sixth@example.test", role: "VIEWER" });
+    for (let i = 0; i < 4; i++)
+      await createInvitation(ctx, { email: `guest${i}@example.test`, role: "VIEWER" });
+    expect((await getUsage(ctx.workspaceId)).memberLimit).toBeNull();
   });
 
   it("change history is kept for the plan's days", async () => {

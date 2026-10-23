@@ -139,7 +139,7 @@ describe("webhook", () => {
       object: "subscription",
     });
     expect(res.status).toBe(200);
-    expect(await getUsage(ctx.workspaceId)).toMatchObject({ plan: "cloud-team", limit: 60 });
+    expect(await getUsage(ctx.workspaceId)).toMatchObject({ plan: "cloud-team", limit: 100 });
 
     // Tier change in the Customer Portal = a new price on the same subscription.
     subscriptions.sub_1 = sub({ workspaceId: ctx.workspaceId, priceId: "price_scale123" });

@@ -259,16 +259,16 @@ const en = {
     business: {
       name: "Business",
       tag: "Enterprise",
-      from: "from",
-      perYear: "per year",
+      perYear: "per year, per installation",
       lines: [
         "Everything in Community",
         "Multiple workspaces — one per client or department",
         "Signed offline licence — no phone-home",
-        "Priority email support",
+        "Email support — a reply within two business days",
+        "Help with the installation",
         "Commercial licence as an alternative to the AGPL",
       ],
-      contact: "Contact sales@inframole.com →",
+      contact: "Write to sales@inframole.com →",
     },
     mostTeams: "Most teams",
     perMonth: "per month",
@@ -282,14 +282,15 @@ const en = {
       "Applications, databases, containers, domains and discovered services unlimited",
     ],
     startTrial: "Start free trial",
-    comingSoon: "Coming soon",
+    contactSales: "Contact sales",
     trialOpen: (days: number) =>
       `Every Cloud workspace starts with ${days} days of Team, free — no card needed.`,
-    trialSoon: (days: number) =>
-      `InfraMole Cloud opens soon: every Cloud workspace will start with ${days} days of Team, free — no card needed.`,
+    trialByEmail: (days: number) =>
+      `Write to sales@inframole.com and we set up your Cloud workspace with ${days} days of Team, free — no card needed.`,
     moreThan: (n: number | null) => `More than ${n} servers?`,
     talkToUs: "Talk to us",
-    earlyAccess: "Early-access prices; they may change before general availability.",
+    priceNote:
+      "Prices in euros, excluding VAT. Billed by invoice — monthly, or yearly with two months free. No minimum term.",
   },
   community: {
     name: "Community",
@@ -306,19 +307,6 @@ const en = {
     ],
     installGuide: "Install guide →",
     sourceCode: "Source code →",
-  },
-  openSource: {
-    eyebrow: "Get InfraMole",
-    intro:
-      "InfraMole is free and open source: run it on your own server, with every server and VM you have. A hosted Cloud and a Business edition for larger teams are planned.",
-    plannedTitle: "Cloud & Business",
-    planned: "Planned",
-    cloud: ["InfraMole Cloud", "— we run and maintain InfraMole for you."],
-    business: [
-      "InfraMole Business",
-      "— self-hosted, with several workspaces, priority support and a commercial licence as an alternative to the AGPL.",
-    ],
-    interested: "Interested? Write to sales@inframole.com →",
   },
   finalCta: {
     title: "Know what is under the ground.",
@@ -598,13 +586,13 @@ const es: SiteCopy = {
     business: {
       name: "Business",
       tag: "Empresas",
-      from: "desde",
-      perYear: "al año",
+      perYear: "al año, por instalación",
       lines: [
         "Todo lo de Community",
         "Varios espacios de trabajo — uno por cliente o departamento",
         "Licencia firmada sin conexión — sin llamadas a casa",
-        "Soporte prioritario por correo",
+        "Soporte por correo — respuesta en dos días laborables",
+        "Ayuda con la instalación",
         "Licencia comercial como alternativa a la AGPL",
       ],
       contact: "Escribe a sales@inframole.com →",
@@ -621,14 +609,15 @@ const es: SiteCopy = {
       "Aplicaciones, bases de datos, contenedores, dominios y servicios descubiertos ilimitados",
     ],
     startTrial: "Prueba gratis",
-    comingSoon: "Próximamente",
+    contactSales: "Contactar con ventas",
     trialOpen: (days: number) =>
       `Cada espacio de trabajo Cloud empieza con ${days} días del plan Team gratis — sin tarjeta.`,
-    trialSoon: (days: number) =>
-      `InfraMole Cloud abrirá pronto: cada espacio de trabajo Cloud empezará con ${days} días del plan Team gratis — sin tarjeta.`,
+    trialByEmail: (days: number) =>
+      `Escribe a sales@inframole.com y preparamos tu espacio de trabajo Cloud con ${days} días del plan Team gratis — sin tarjeta.`,
     moreThan: (n: number | null) => `¿Más de ${n} servidores?`,
     talkToUs: "Hablemos",
-    earlyAccess: "Precios de acceso anticipado; pueden cambiar antes del lanzamiento general.",
+    priceNote:
+      "Precios en euros, sin IVA. Facturación mensual, o anual con dos meses gratis. Sin permanencia.",
   },
   community: {
     name: "Community",
@@ -645,19 +634,6 @@ const es: SiteCopy = {
     ],
     installGuide: "Guía de instalación →",
     sourceCode: "Código fuente →",
-  },
-  openSource: {
-    eyebrow: "Consigue InfraMole",
-    intro:
-      "InfraMole es gratis y de código abierto: instálalo en tu propio servidor, con todos los servidores y máquinas virtuales que tengas. Hay previstas una versión Cloud gestionada y una edición Business para equipos más grandes.",
-    plannedTitle: "Cloud y Business",
-    planned: "Previsto",
-    cloud: ["InfraMole Cloud", "— nosotros gestionamos y mantenemos InfraMole por ti."],
-    business: [
-      "InfraMole Business",
-      "— autoalojado, con varios espacios de trabajo, soporte prioritario y una licencia comercial como alternativa a la AGPL.",
-    ],
-    interested: "¿Te interesa? Escribe a sales@inframole.com →",
   },
   finalCta: {
     title: "Conoce lo que hay bajo tierra.",

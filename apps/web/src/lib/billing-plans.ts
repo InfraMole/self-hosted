@@ -47,14 +47,15 @@ export interface TierLimits {
   historyDays: number;
 }
 
+// ADR-055: sized by servers/VMs only — members are unlimited on every plan.
 export const CLOUD_TIER: Record<CloudTier, TierLimits & { name: string; priceEur: number }> = {
-  starter: { name: "Starter", priceEur: 19, nodes: 15, members: 5, historyDays: 30 },
-  team: { name: "Team", priceEur: 49, nodes: 60, members: 15, historyDays: 90 },
-  scale: { name: "Scale", priceEur: 99, nodes: 250, members: null, historyDays: 365 },
+  starter: { name: "Starter", priceEur: 29, nodes: 25, members: null, historyDays: 30 },
+  team: { name: "Team", priceEur: 79, nodes: 100, members: null, historyDays: 90 },
+  scale: { name: "Scale", priceEur: 179, nodes: 250, members: null, historyDays: 365 },
 };
 
-/** Business self-hosted licence: price floor shown on the landing page. */
-export const BUSINESS_FROM_EUR_YEAR = 499;
+/** Business self-hosted licence, per installation and year (ADR-055). */
+export const BUSINESS_FROM_EUR_YEAR = 1490;
 /** Change history on self-hosted editions (DATA_MODEL §7). */
 export const SELF_HOSTED_HISTORY_DAYS = 365;
 
