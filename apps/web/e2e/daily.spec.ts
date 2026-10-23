@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-/** Daily use (M29): quick search, find on map, owners and who to warn, version. */
+/** Daily use (M29): quick search, find on map, owners and who to warn, version, theme. */
 import { expect, test } from "@playwright/test";
 import { OWNER } from "./env";
 
@@ -84,4 +84,27 @@ test("an installation without analytics loads none and allows no third-party ori
   await page.waitForTimeout(1500);
   const origin = new URL(res!.url()).origin;
   expect(requested.filter((u) => !u.startsWith(origin) && !u.startsWith("data:"))).toEqual([]);
+});
+
+test("the theme is chosen per browser: dark, light or match system (ADR-054)", async ({ page }) => {
+  const html = page.locator("html");
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.goto(`${w}/library`);
+  await expect(html).toHaveClass(/\bdark\b/); // dark by default, whatever the system says
+
+  await page.getByRole("button", { name: "Switch to the light theme" }).click();
+  await expect(html).not.toHaveClass(/\bdark\b/);
+  await page.reload();
+  await expect(html).not.toHaveClass(/\bdark\b/);
+
+  await page.goto("/account");
+  await expect(page.getByRole("radio", { name: "Light" })).toBeChecked();
+  await page.getByRole("radio", { name: "Match system" }).click();
+  await expect(html).not.toHaveClass(/\bdark\b/);
+  await page.emulateMedia({ colorScheme: "dark" });
+  await expect(html).toHaveClass(/\bdark\b/);
+
+  await page.getByRole("radio", { name: "Dark" }).click();
+  await page.emulateMedia({ colorScheme: "light" });
+  await expect(html).toHaveClass(/\bdark\b/);
 });

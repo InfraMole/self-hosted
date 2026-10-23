@@ -416,6 +416,15 @@ the most-depended-on of up to 25 candidates by `impact()` size) feeds
 looked at (map, impact) is per-browser (`lib/first-steps.ts`, localStorage,
 `useSyncExternalStore`), marked by the map view and the impact page.
 
+## Theme (M38)
+
+`lib/theme.ts` (client): `THEME_SCRIPT` (inline in `app/layout.tsx`, runs
+before paint), `setThemePreference` / `setTheme`, `useThemePreference()`,
+`useTheme()`. Per browser (localStorage `inframole-theme`), nothing on the
+server (ADR-054). Used by the sidebar switch,
+`components/account/appearance-section.tsx` and
+`components/map/map-view.tsx` (`PALETTE`).
+
 ## Daily use (M29)
 
 Owners: `Resource.owner` / `ownerContact`, `resources.ts#setOwner` (bulk),

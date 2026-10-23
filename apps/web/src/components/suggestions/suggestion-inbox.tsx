@@ -337,7 +337,11 @@ export function SuggestionInbox({
                   {e.processes.length > 0 && <span>{e.processes.slice(0, 3).join(", ")}</span>}
                   {e.samples > 0 && <span>{e.samples} samples</span>}
                   {e.lastSeenAt && (
-                    <span className="font-sans" title={formatDateTime(e.lastSeenAt)}>
+                    <span
+                      className="font-sans"
+                      title={formatDateTime(e.lastSeenAt)}
+                      suppressHydrationWarning // relative to now (server vs browser)
+                    >
                       last seen {formatRelative(e.lastSeenAt)}
                     </span>
                   )}

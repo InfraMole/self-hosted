@@ -4,6 +4,7 @@ import { GeistMono } from "geist/font/mono";
 import { GeistSans } from "geist/font/sans";
 import { Analytics } from "@/components/analytics";
 import { SITE_URL } from "@/lib/i18n";
+import { THEME_SCRIPT, ThemeSync } from "@/lib/theme";
 import "./globals.css";
 
 const DESCRIPTION =
@@ -19,11 +20,19 @@ export const metadata: Metadata = {
   twitter: { card: "summary_large_image" },
 };
 
-// M0: dark only (reference theme). Light tokens exist; a toggle is in the backlog.
+// Dark is the reference theme; a browser that chose light or "system" switches before paint (ADR-054).
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`dark ${GeistSans.variable} ${GeistMono.variable} h-full`}>
+    <html
+      lang="en"
+      className={`dark ${GeistSans.variable} ${GeistMono.variable} h-full`}
+      suppressHydrationWarning
+    >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+      </head>
       <body className="flex min-h-full flex-col font-sans">
+        <ThemeSync />
         {children}
         {/* Public website only, and only where UMAMI_* is set (ADR-047). */}
         <Analytics />

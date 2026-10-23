@@ -184,7 +184,7 @@ function ResourceNodeImpl({ id, data, selected }: NodeProps<ResourceFlowNode>) {
         className={cn(
           "bg-surface-2 relative flex items-center justify-center overflow-hidden rounded-md border transition-opacity",
           borderClass(data, selected),
-          data.dimmed && "opacity-30",
+          data.dimmed && "opacity-55 dark:opacity-30",
         )}
         title={r.name}
       >
@@ -206,7 +206,7 @@ function ResourceNodeImpl({ id, data, selected }: NodeProps<ResourceFlowNode>) {
       className={cn(
         "bg-surface relative flex items-center gap-2 overflow-hidden rounded-md border px-2.5 transition-opacity",
         borderClass(data, selected),
-        data.dimmed && "opacity-30",
+        data.dimmed && "opacity-55 dark:opacity-30",
       )}
       title={r.name}
     >
@@ -234,7 +234,7 @@ function GroupNodeImpl({ id, data, selected, width, height }: NodeProps<Resource
       className={cn(
         "bg-surface/40 relative rounded-lg border transition-opacity",
         borderClass(data, selected),
-        data.dimmed && "opacity-40",
+        data.dimmed && "opacity-60 dark:opacity-40",
       )}
     >
       {r.criticality && CRITICALITY_BAR[r.criticality] && (

@@ -43,6 +43,9 @@ decidiendo su rol, sin invitación. Consulta
   servidor los tiene activados).
 - **Actividad de seguridad reciente**: tus inicios de sesión con hora, IP y
   navegador.
+- **Apariencia** (Appearance): oscura (la predeterminada), clara o la misma
+  que tu sistema. Se guarda solo en este navegador; el botón del sol y la
+  luna, abajo en la barra lateral, también la cambia.
 - **Borrar la cuenta**: elimina tus datos de usuario y los espacios de
   trabajo en los que eres el único miembro. Se rechaza mientras seas el
   único owner de un espacio de trabajo con otros miembros — transfiere antes

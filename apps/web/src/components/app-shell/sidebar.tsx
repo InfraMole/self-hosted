@@ -12,14 +12,17 @@ import {
   History,
   Inbox,
   LogOut,
+  Moon,
   Network,
   Plus,
   Settings,
   ShieldCheck,
+  Sun,
 } from "lucide-react";
 import { LogoMark } from "@/components/logo";
 import { FeedbackDialog, type FeedbackAction } from "./feedback-dialog";
 import { authClient } from "@/lib/auth-client";
+import { setTheme, useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 
 interface SidebarProps {
@@ -58,6 +61,7 @@ export function Sidebar({
 }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const theme = useTheme();
   const base = `/w/${workspace.slug}`;
 
   async function signOut() {
@@ -155,6 +159,15 @@ export function Sidebar({
           >
             <ShieldCheck className="size-3.5" />
           </Link>
+          <button
+            type="button"
+            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+            title={theme === "dark" ? "Light theme" : "Dark theme"}
+            aria-label={theme === "dark" ? "Switch to the light theme" : "Switch to the dark theme"}
+            className="text-subtle hover:bg-surface-2 hover:text-foreground rounded p-1"
+          >
+            {theme === "dark" ? <Sun className="size-3.5" /> : <Moon className="size-3.5" />}
+          </button>
           <button
             type="button"
             onClick={signOut}

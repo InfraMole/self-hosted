@@ -82,7 +82,8 @@ ports, running software and who talks to whom. For an attacker that is a
   server actions calling `auth.api.*` (that would bypass rate limiting).
 - Generic "Invalid email or password." copy (no account enumeration).
 - Security headers (`next.config.ts`): `Content-Security-Policy`
-  (baseline, `'unsafe-inline'` scripts — nonce-based CSP is backlog),
+  (baseline, `'unsafe-inline'` scripts — nonce-based CSP is backlog; it
+  must also cover the inline theme script of the root layout, ADR-054),
   `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options: DENY`,
   `Permissions-Policy`, HSTS in production builds, no `X-Powered-By`.
 - Workspace access via membership only; non-members and unknown slugs get the

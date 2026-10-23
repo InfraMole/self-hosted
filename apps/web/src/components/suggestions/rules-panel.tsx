@@ -86,7 +86,11 @@ export function RulesPanel({
                 {r.resource && <Chip label="to or from" value={r.resource.name} />}
               </div>
               {r.note && <span className="text-muted text-xs">{r.note}</span>}
-              <span className="text-subtle ml-auto text-xs" title={formatDateTime(r.createdAt)}>
+              <span
+                className="text-subtle ml-auto text-xs"
+                title={formatDateTime(r.createdAt)}
+                suppressHydrationWarning // relative to now (server vs browser)
+              >
                 added {formatRelative(r.createdAt)}
               </span>
               {canEdit && (

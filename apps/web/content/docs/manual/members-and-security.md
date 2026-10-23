@@ -38,6 +38,9 @@ their role — no invitation needed. See [Single sign-on](/docs/manual/single-si
 - **Sign-in methods**: connect Google or Microsoft (when the server has them
   enabled).
 - **Recent security activity**: your sign-ins with time, IP and browser.
+- **Appearance**: dark (the default), light, or match your system's
+  setting. It is saved in this browser only; the sun and moon button at
+  the bottom of the sidebar switches it too.
 - **Delete account**: removes your user data and the workspaces where you
   are the only member. Refused while you are the only owner of a workspace
   that has other members — transfer ownership first.

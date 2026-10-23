@@ -245,6 +245,8 @@ export function ResourceTable({
                 <td
                   className="text-subtle px-3 text-right text-xs whitespace-nowrap"
                   title={formatDateTime(r.updatedAt)}
+                  // Relative to now: the server and the browser may be a second apart.
+                  suppressHydrationWarning
                 >
                   {formatRelative(r.updatedAt)}
                 </td>

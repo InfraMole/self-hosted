@@ -5,6 +5,15 @@ images). The agent has its own changelog in the InfraMole/agent repository.
 To update an installation, see
 [Upgrade guide](https://inframole.com/docs/operations/upgrade).
 
+## 0.29.0 — 2026-10-23
+
+### Added
+
+- **Light theme.** Switch with the sun and moon button at the bottom of the
+  sidebar, or choose Dark, Light or Match system in Account & security ›
+  Appearance. The choice is saved in each browser; dark stays the default.
+  The map has its own light colours.
+
 ## 0.28.0 — 2026-10-23
 
 ### Security

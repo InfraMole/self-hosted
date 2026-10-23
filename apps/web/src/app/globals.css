@@ -11,7 +11,7 @@
   --surface: #ffffff;
   --surface-2: #f4f1fc;
   --border: #e6e2f2;
-  --border-strong: #d4cee8;
+  --border-strong: #c3bbdb;
   --foreground: #151329;
   --muted: #5d5878;
   --subtle: #8d88a6;
@@ -134,8 +134,9 @@
   }
 }
 
-/* React Flow (map) — align its dark theme with our tokens. */
-.react-flow.dark {
+/* React Flow (map) — align both of its themes with our tokens. */
+.react-flow.dark,
+.react-flow.light {
   --xy-background-color: var(--background);
   --xy-edge-label-background-color: var(--surface-2);
   --xy-edge-label-color: var(--foreground);

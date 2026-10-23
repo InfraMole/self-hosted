@@ -64,24 +64,49 @@ import { MapInspector } from "./map-inspector";
 import { GroupNode, ResourceNode, type ImpactLevel, type ResourceFlowNode } from "./resource-node";
 import { ShareViewDialog, type ShareResult } from "./share-view-dialog";
 import { ViewsMenu } from "./views-menu";
+import { useTheme } from "@/lib/theme";
 
 /** Below this zoom node names are unreadable: large maps open on their main group instead. */
 const READABLE_ZOOM = 0.55;
 
-/** Literal colours: SVG markers cannot use CSS variables reliably. Dark theme (docs/UI.md). */
-const COLORS = {
-  edge: "#6b737d",
-  informational: "#3b434c",
-  highlight: "#45d0bd",
-  impact: "#f0b43c",
-  label: "#e5e8eb",
-};
-const ENV_HEX: Record<string, string> = {
-  PRODUCTION: "#f2706a",
-  STAGING: "#f0b43c",
-  DEVELOPMENT: "#6fa6f7",
-  TEST: "#a48cf5",
-  OTHER: "#5a626c",
+/** Literal colours: SVG markers cannot use CSS variables reliably (docs/UI.md). */
+const PALETTE = {
+  dark: {
+    edge: "#6b737d",
+    informational: "#3b434c",
+    highlight: "#45d0bd",
+    impact: "#f0b43c",
+    label: "#e5e8eb",
+    dots: "#1d232a",
+    mask: "rgba(10,12,15,0.7)",
+    // Opacity of lines away from the selection.
+    fade: 0.2,
+    env: {
+      PRODUCTION: "#f2706a",
+      STAGING: "#f0b43c",
+      DEVELOPMENT: "#6fa6f7",
+      TEST: "#a48cf5",
+      OTHER: "#5a626c",
+    } as Record<string, string>,
+  },
+  light: {
+    edge: "#6f6888",
+    informational: "#b4aecb",
+    highlight: "#0e9384",
+    impact: "#c98a0b",
+    label: "#151329",
+    dots: "#cfc9e2",
+    mask: "rgba(244,241,252,0.7)",
+    // Opacity of lines away from the selection.
+    fade: 0.4,
+    env: {
+      PRODUCTION: "#d9423a",
+      STAGING: "#c98a0b",
+      DEVELOPMENT: "#2f6fdb",
+      TEST: "#6d45f0",
+      OTHER: "#a19cb8",
+    } as Record<string, string>,
+  },
 };
 const nodeTypes = { resource: ResourceNode, box: GroupNode };
 
@@ -144,6 +169,7 @@ function MapCanvas({
   saveView,
   deleteView,
 }: Props) {
+  const COLORS = PALETTE[useTheme()];
   const { setViewport, setCenter, getZoom } = useReactFlow();
   const store = useStoreApi();
   const byId = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
@@ -550,7 +576,7 @@ function MapCanvas({
             // faint until one end is selected (they are many on large maps).
             opacity:
               highlighted && !connected
-                ? 0.2
+                ? COLORS.fade
                 : impactLevels && !onImpactPath
                   ? 0.35
                   : (e as { derived?: boolean }).derived && !connected
@@ -570,6 +596,7 @@ function MapCanvas({
       sizeOf,
       standsFor,
       hubCounts,
+      COLORS,
     ],
   );
 
@@ -841,13 +868,13 @@ function MapCanvas({
           onPaneClick={() => setSelectedId(null)}
           nodesConnectable={false}
           edgesFocusable={false}
-          colorMode="dark"
+          colorMode={COLORS === PALETTE.light ? "light" : "dark"}
           minZoom={0.02}
           maxZoom={2}
           // Large maps (M15): skip rendering nodes and edges outside the viewport.
           onlyRenderVisibleElements={visibleIds.length > DETAILED_LAYOUT_LIMIT}
         >
-          <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#1d232a" />
+          <Background variant={BackgroundVariant.Dots} gap={20} size={1} color={COLORS.dots} />
           <Controls showInteractive={false} position="bottom-right" />
           <MiniMap
             position="bottom-right"
@@ -855,9 +882,9 @@ function MapCanvas({
             pannable
             zoomable
             nodeColor={(n) =>
-              ENV_HEX[(n as ResourceFlowNode).data.resource.environment ?? "OTHER"]!
+              COLORS.env[(n as ResourceFlowNode).data.resource.environment ?? "OTHER"]!
             }
-            maskColor="rgba(10,12,15,0.7)"
+            maskColor={COLORS.mask}
           />
         </ReactFlow>
 
@@ -1175,6 +1202,7 @@ function Toggle({
 }
 
 function Legend() {
+  const COLORS = PALETTE[useTheme()];
   const line = (dash: string | undefined, color: string) => (
     <svg width="28" height="6" aria-hidden>
       <line x1="0" y1="3" x2="28" y2="3" stroke={color} strokeWidth="1.5" strokeDasharray={dash} />

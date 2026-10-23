@@ -2,6 +2,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ShieldAlert } from "lucide-react";
+import { AppearanceSection } from "@/components/account/appearance-section";
 import { DeleteAccount } from "@/components/account/delete-account";
 import { DigestSection } from "@/components/account/digest-section";
 import { PasskeysSection } from "@/components/account/passkeys-section";
@@ -115,6 +116,15 @@ export default async function AccountPage({ searchParams }: PageProps<"/account"
             </CardContent>
           </Card>
         )}
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Appearance</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <AppearanceSection />
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader>
