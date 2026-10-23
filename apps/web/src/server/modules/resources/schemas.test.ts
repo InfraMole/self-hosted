@@ -27,6 +27,7 @@ describe("resourceInputSchema", () => {
       notes: null,
       owner: null,
       ownerContact: null,
+      redundancyGroup: null,
       tags: [],
       links: [],
       metadata: {},

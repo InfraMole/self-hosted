@@ -1,9 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import type { WorkspaceContext } from "@/server/authz";
-import { getResourceImpact } from "@/server/modules/impact/impact";
+import { getChangeImpact, getResourceImpact } from "@/server/modules/impact/impact";
+import { listChangesForSubject } from "@/server/modules/changes/changes";
 import { createRelationship } from "@/server/modules/relationships/relationships";
-import { createResource } from "@/server/modules/resources/resources";
+import {
+  createResource,
+  listRedundancyGroups,
+  listRedundancyPeers,
+  updateResource,
+} from "@/server/modules/resources/resources";
 import {
   createWorkspace,
   findWorkspaceContextForUser,
@@ -72,5 +78,65 @@ describe("getResourceImpact", () => {
     const globex = await ownerContext("Globex");
     const r = await createResource(acme, { name: "A", type: "SERVER" });
     expect(await getResourceImpact(globex, r.id)).toBeNull();
+  });
+});
+
+describe("redundancy groups (M39)", () => {
+  it("covers consumers while another member is up, and fails them when all are down", async () => {
+    const ctx = await ownerContext("Acme");
+    const host = await createResource(ctx, { name: "HV01", type: "SERVER" });
+    const sql1 = await createResource(ctx, {
+      name: "SQL01",
+      type: "DATABASE",
+      redundancyGroup: "SQL-Cluster",
+    });
+    const sql2 = await createResource(ctx, { name: "SQL02", type: "DATABASE" });
+    const app = await createResource(ctx, { name: "Billing", type: "APPLICATION" });
+    for (const db of [sql1, sql2])
+      await createRelationship(ctx, {
+        fromResourceId: app.id,
+        toResourceId: db.id,
+        type: "USES_DATABASE",
+      });
+    await createRelationship(ctx, {
+      fromResourceId: sql1.id,
+      toResourceId: host.id,
+      type: "RUNS_ON",
+    });
+
+    // Declared through a normal edit: recorded with its diff, matched case-insensitively.
+    await updateResource(ctx, sql2.id, {
+      name: "SQL02",
+      type: "DATABASE",
+      redundancyGroup: " sql-cluster ",
+    });
+    const events = await listChangesForSubject(ctx, "RESOURCE", sql2.id);
+    expect(events[0]!.diff).toEqual({ redundancyGroup: [null, "sql-cluster"] });
+    expect(await listRedundancyGroups(ctx)).toEqual(
+      expect.arrayContaining(["SQL-Cluster", "sql-cluster"]),
+    );
+    expect((await listRedundancyPeers(ctx, sql1)).map((p) => p.name)).toEqual(["SQL02"]);
+
+    // The host fails: SQL01 sits on it (placement always propagates), Billing is covered.
+    const one = (await getResourceImpact(ctx, host.id))!;
+    expect(one.affected.map((a) => a.resource.name)).toEqual(["SQL01"]);
+    expect(one.covered.map((c) => [c.resource.name, c.groupName])).toEqual([
+      ["Billing", "SQL-Cluster"],
+    ]);
+    expect(one.degraded).toEqual([
+      expect.objectContaining({
+        groupName: "SQL-Cluster",
+        down: [expect.objectContaining({ name: "SQL01" })],
+        up: [expect.objectContaining({ name: "SQL02" })],
+      }),
+    ]);
+
+    // Both replicas in one change: the group is down, Billing could be affected.
+    const both = await getChangeImpact(ctx, [sql1.id, sql2.id]);
+    expect(both.affected.map((a) => [a.resource.name, a.causeNames])).toEqual([
+      ["Billing", ["SQL01", "SQL02"]],
+    ]);
+    expect(both.covered).toEqual([]);
+    expect(both.degraded).toEqual([]);
   });
 });

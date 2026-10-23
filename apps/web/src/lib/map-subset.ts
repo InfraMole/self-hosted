@@ -15,11 +15,14 @@ import {
   type RelationshipType,
 } from "@depmap/graph";
 import { impactRootsOf } from "./map-view-state";
+import { redundancyGroups } from "./redundancy";
 
 export interface SubsetNode {
   id: string;
   type: string;
   environment: string | null;
+  /** M39: impact honours redundancy groups. */
+  redundancyGroup?: string | null;
 }
 
 export interface SubsetEdge {
@@ -126,7 +129,7 @@ export function viewSubset<N extends SubsetNode, E extends SubsetEdge>(
       ...e,
       confidence: edgeConfidence(e.status, e.origin),
     }));
-    const result = changeImpact(withConfidence, roots);
+    const result = changeImpact(withConfidence, roots, { groups: redundancyGroups(nodes) });
     impactIds = new Set([...roots, ...result.affected.map((a) => a.resourceId)]);
   }
   const candidates = candidateEdgesOf(edges, {

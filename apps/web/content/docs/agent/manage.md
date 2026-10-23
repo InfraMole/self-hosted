@@ -22,6 +22,30 @@ systemctl status inframole-agent
 `status` shows the server, the agent id and whether the service is running.
 In InfraMole, **Settings › Agents** lists every agent with its last report.
 
+## Incomplete reports
+
+When part of a report could not be collected, **Settings › Agents** and the
+host's page say **Last report incomplete** and name what is missing, for
+example _Could not read services (access denied)_. The rest of the report is
+used as usual; what InfraMole already knew about the missing part is kept.
+
+| Reason         | What it usually means                                                                                                  |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| access denied  | The agent's account lacks a right, or a token or password was rejected (Proxmox, vCenter, Kubernetes, a database user) |
+| timed out      | The source took too long to answer                                                                                     |
+| unreachable    | The address in the agent's configuration could not be reached                                                          |
+| failed         | Anything else — the agent's log has the details                                                                        |
+| reached limits | The host has more connections, services or listeners than one report carries; the busiest are kept                     |
+
+Only the name of what failed and the reason are sent — never the error text.
+The full message is in the agent's [log](#logs), and `inframole-agent
+dry-run` shows the same list under `issues`. The note clears with the next
+complete report.
+
+If a report cannot be delivered (the server is unreachable for a while), the
+connections it saw are not lost: they go with the next report. Restarting
+the agent starts a new window.
+
 ## Logs
 
 :::tabs

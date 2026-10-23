@@ -217,6 +217,16 @@ path: resourceId[] (root first), viaEdges: edgeId[] }] }`, sorted strongest
 confidence → fewest hops → id. `summarizeImpact(result, typeOf)` →
 `{ total, byConfidence, byType }`.
 
+Redundancy (M39, ADR-057): `options.groups` maps resource id → group key
+(`lib/redundancy.ts#redundancyGroups` over the graph's nodes). An edge
+leaving a group member is followed only when every member of its group is
+down, except placement edges (registry `placement: true`: RUNS_ON, HOSTS),
+which always propagate. The BFS repeats until the set of down groups is
+stable. The result adds `covered` (reached without redundancy, not with it,
+plus the covering group) and `degraded` (`{ group, down, up }`).
+`changeImpact` fails every changed resource at once. Without groups the
+result is identical to the M4 algorithm.
+
 Where it runs:
 
 - **Resource Impact page** (`/w/[slug]/resources/[id]/impact?depth=`):
@@ -228,7 +238,10 @@ maxDepth)`, over `getWorkspaceGraph` (archived resources and ignored
   graph. Shows only the root and affected resources; type/environment filters
   and the Unconfirmed toggle do not apply (confidence is drawn instead:
   node borders and edges solid/dashed/dotted); edges on reported paths are
-  highlighted. Impact and focus are mutually exclusive.
+  highlighted. Impact and focus are mutually exclusive. The map passes the
+  same redundancy groups (`lib/map-subset.ts` for saved and shared views
+  too), so its counts match the impact page; covered resources are not
+  drawn, the banner adds "· N covered by redundancy".
 
 ### 6.4 Map
 

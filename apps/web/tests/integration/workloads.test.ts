@@ -57,6 +57,8 @@ async function enrolledAgent(ctx: WorkspaceContext, machineId: string, hostname:
     "containers",
     "proxies",
     "kubernetes",
+    "collection-issues",
+    "dns-servers",
   ]);
   return (report: ReportV1) =>
     reportRoute(post(report, { authorization: `Bearer ${body.agentSecret}` }));
@@ -100,6 +102,8 @@ describe("windows workloads", () => {
       "containers",
       "proxies",
       "kubernetes",
+      "collection-issues",
+      "dns-servers",
     ]);
 
     const resources = await adminDb().resource.findMany({

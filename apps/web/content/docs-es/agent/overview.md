@@ -14,6 +14,8 @@ lectura**.
 | Servicios en ejecución (nombre, estado, tipo de inicio)                                                                    | Mostrar qué se ejecuta en el equipo                                                          |
 | Puertos TCP en escucha + nombre / ruta del proceso propietario                                                             | Saber qué ofrece el equipo                                                                   |
 | Conexiones TCP establecidas, **agregadas** por destino, puerto y proceso                                                   | Sugerir dependencias                                                                         |
+| Servidores DNS que el equipo tiene configurados (solo las direcciones)                                                     | Sugerir la dependencia de tus servidores DNS                                                 |
+| Qué recolectores han fallado y por qué — nunca el texto del error                                                          | Avisar cuando un informe está [incompleto](/es/docs/agent/manage#informes-incompletos)       |
 | Windows: nombres y enlaces de los sitios de IIS; nombres de las bases de datos de SQL Server si se activa                  | Mostrar qué se ejecuta en el servidor ([IIS y SQL Server](/es/docs/agent/windows-workloads)) |
 | Linux: nombres y puertos de los sitios de nginx / Apache; nombres de las bases de datos de PostgreSQL / MySQL si se activa | Lo mismo ([nginx, Apache y bases de datos](/es/docs/agent/linux-workloads))                  |
 
@@ -54,9 +56,16 @@ nombres de proceso.
 2. Las conexiones vistas al menos dos veces hacia una IP que pertenece a
    exactamente otro recurso se convierten en una relación **detectada** en
    Suggestions (por ejemplo `APP01 → SQL01:1433 (likely MSSQL)`).
-3. Una persona la confirma, le añade contexto o la ignora. Los pares
+3. Un servidor DNS que el equipo tiene configurado, cuando su dirección
+   pertenece a exactamente otro recurso, se convierte en una sugerencia
+   **inferida** de tipo "depends on" (`APP01 → DC01`, _configured as its DNS
+   server — no traffic observed_). El DNS viaja sobre todo por UDP, que el
+   agente no muestrea, así que es así como aparece la dependencia oculta más
+   habitual. Desaparece cuando el equipo deja de usar ese servidor, salvo que
+   alguien la haya confirmado.
+4. Una persona la confirma, le añade contexto o la ignora. Los pares
    ignorados no se vuelven a sugerir.
-4. Si un equipo deja de informar durante tres intervalos pasa a **Stale**
+5. Si un equipo deja de informar durante tres intervalos pasa a **Stale**
    (desactualizado); vuelve a su estado anterior cuando informa de nuevo.
 
 :::note Límites de la observación

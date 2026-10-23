@@ -69,6 +69,10 @@ export interface PlanReport {
   generatedAt: Date;
   changed: PlanResource[];
   affected: PlanAffected[];
+  /** Redundancy groups with members down and members still up (M39). */
+  degraded?: { group: string; down: string[]; up: string[] }[];
+  /** Names that redundancy still covers (M39). */
+  covered?: string[];
 }
 
 /**
@@ -111,7 +115,10 @@ export function planReportText(report: PlanReport): string {
     ),
     "",
   ];
-  if (!report.affected.length) {
+  const covered = report.covered ?? [];
+  if (!report.affected.length && covered.length) {
+    lines.push("Nothing else should be affected while the redundancy below holds.");
+  } else if (!report.affected.length) {
     lines.push(
       "No recorded relationship says that anything else depends on these resources.",
       "That does not prove nothing does.",
@@ -123,6 +130,17 @@ export function planReportText(report: PlanReport): string {
         `- ${a.name} (${a.typeLabel}) — ${a.depth === 1 ? "direct" : `via ${a.pathNames.slice(1, -1).join(" → ")}`}, through ${rootsLabel(a.causes)} · ${CONFIDENCE_WORD[a.confidence]}`,
       );
   }
+  if (report.degraded?.length) {
+    lines.push("", "Loses redundancy:");
+    for (const g of report.degraded)
+      lines.push(`- ${g.group}: ${g.down.join(", ")} down; still up: ${g.up.join(", ")}`);
+  }
+  if (covered.length)
+    lines.push(
+      "",
+      `Covered by redundancy (${covered.length}): ${covered.join(", ")}`,
+      "Still served by the remaining members, if they can carry the load.",
+    );
   const notify = planNotify(report);
   if (notify.groups.length || notify.unowned.length) {
     lines.push("", "Who to warn:");

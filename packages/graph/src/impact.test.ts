@@ -207,3 +207,72 @@ describe("changeImpact", () => {
     expect(summarizeImpact(change, () => "APPLICATION").total).toBe(single.affected.length);
   });
 });
+
+describe("redundancy groups (M39)", () => {
+  // app uses db; db runs on two replicas that are interchangeable; both
+  // replicas run on the same hypervisor; report calls app.
+  const edges = [
+    e("1", "app", "USES_DATABASE", "db1"),
+    e("2", "app", "USES_DATABASE", "db2"),
+    e("3", "report", "CALLS", "app"),
+    e("4", "db1", "RUNS_ON", "pve"),
+    e("5", "db2", "RUNS_ON", "pve"),
+    e("6", "cron", "CALLS", "db1", "detected"),
+  ];
+  const groups = new Map([
+    ["db1", "db-cluster"],
+    ["db2", "db-cluster"],
+  ]);
+
+  it("losing one member affects nothing behind it: its dependents lose redundancy", () => {
+    const r = impact(edges, "db1", { groups });
+    expect(r.affected).toEqual([]);
+    expect(r.covered.map((c) => [c.resourceId, c.group, c.confidence])).toEqual([
+      ["app", "db-cluster", "confirmed"],
+      ["report", "db-cluster", "confirmed"],
+      ["cron", "db-cluster", "detected"],
+    ]);
+    expect(r.degraded).toEqual([{ group: "db-cluster", down: ["db1"], up: ["db2"] }]);
+  });
+
+  it("a shared host takes the whole group down, and the failure flows on", () => {
+    const r = impact(edges, "pve", { groups });
+    expect(ids(r)).toEqual(["app", "cron", "db1", "db2", "report"]);
+    expect(r.covered).toEqual([]);
+    expect(r.degraded).toEqual([]);
+  });
+
+  it("without groups (or a group of one) it is the plain blast radius", () => {
+    expect(ids(impact(edges, "db1"))).toEqual(["app", "cron", "report"]);
+    const alone = impact(edges, "db1", { groups: new Map([["db1", "solo"]]) });
+    expect(ids(alone)).toEqual(["app", "cron", "report"]);
+    expect(alone.covered).toEqual([]);
+    expect(alone.degraded).toEqual([]);
+  });
+
+  it("changing every member at once takes the group down", () => {
+    const one = changeImpact(edges, ["db1"], { groups });
+    expect(one.affected).toEqual([]);
+    expect(one.covered.map((c) => c.resourceId)).toEqual(["app", "report", "cron"]);
+    const both = changeImpact(edges, ["db1", "db2"], { groups });
+    expect(both.affected.map((a) => [a.resourceId, a.causes])).toEqual([
+      ["app", ["db1", "db2"]],
+      ["report", ["db1", "db2"]],
+      ["cron", ["db1"]],
+    ]);
+    expect(both.covered).toEqual([]);
+    expect(both.degraded).toEqual([]);
+  });
+
+  it("a dependent still reachable another way is affected, not covered", () => {
+    const withBypass = [
+      ...edges,
+      e("7", "app", "DEPENDS_ON", "cache"),
+      e("8", "cache", "RUNS_ON", "db1"),
+    ];
+    const r = impact(withBypass, "db1", { groups });
+    // cache runs on db1 and is not redundant: it fails, and app with it.
+    expect(ids(r)).toEqual(["app", "cache", "report"]);
+    expect(r.covered.map((c) => c.resourceId)).toEqual(["cron"]);
+  });
+});

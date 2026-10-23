@@ -67,6 +67,12 @@ describe("resources CSV", () => {
     const batch = parseImport("name,type\nWeb,app\nweb,app", "csv");
     expect(batch.errors).toEqual([{ row: 3, message: 'Duplicate of row 2 ("web").' }]);
   });
+
+  it("reads the redundancy group column (M39)", () => {
+    const batch = parseImport("name,type,redundancy_group\nSQL01,database,sql-cluster", "csv");
+    expect(batch.resources[0]!.input.redundancyGroup).toBe("sql-cluster");
+    expect(batch.resources[0]!.provided).toContain("redundancyGroup");
+  });
 });
 
 describe("relationships", () => {

@@ -27,6 +27,8 @@ export interface MapNode {
   /** Who to contact about it (M29). */
   owner: string | null;
   ownerContact: string | null;
+  /** Human-declared redundancy group (M39, ADR-057). */
+  redundancyGroup: string | null;
 }
 
 export interface MapEdge {
@@ -64,6 +66,7 @@ export async function getWorkspaceGraph(ctx: WorkspaceContext): Promise<Workspac
         tags: true,
         owner: true,
         ownerContact: true,
+        redundancyGroup: true,
       },
       // No cap (M15): a truncated graph would silently hide dependencies from
       // the map and from impact. Load-tested at 2,000 servers (tests/load).

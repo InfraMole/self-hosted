@@ -40,6 +40,7 @@ export type ProvidedField =
   | "notes"
   | "owner"
   | "ownerContact"
+  | "redundancyGroup"
   | "tags"
   | "hostname"
   | "fqdn"
@@ -257,6 +258,7 @@ export function buildResourceRow(
     notes: mark("notes", text(get("notes"))),
     owner: mark("owner", text(get("owner"))),
     ownerContact: mark("ownerContact", text(get("owner_contact", "ownercontact", "contact"))),
+    redundancyGroup: mark("redundancyGroup", text(get("redundancy_group", "redundancygroup"))),
     tags: mark(
       "tags",
       list(get("tags")).map((t) => t.toLowerCase()),

@@ -50,6 +50,17 @@ test("a resource page shows its relationships", async ({ page }) => {
     await expect(page.getByRole("main").getByText(name, { exact: true }).first()).toBeVisible();
 });
 
+test("a redundancy group is set by editing a resource (M39)", async ({ page }) => {
+  await page.goto(library);
+  await page.locator("tbody").getByRole("link", { name: /NAS01/ }).click();
+  await page.getByRole("button", { name: "Edit" }).click();
+  // A group of one changes nothing, so the other tests' impact numbers hold.
+  await page.getByLabel("Redundancy group").fill("backup-pair");
+  await page.getByRole("button", { name: "Save changes" }).click();
+  await expect(page.getByText("backup-pair")).toBeVisible();
+  await expect(page.getByText("No other member yet — no effect on impact")).toBeVisible();
+});
+
 test("sorts by column and warns before creating a duplicate name", async ({ page }) => {
   await page.goto(library);
   await page.getByRole("link", { name: "Criticality", exact: true }).click();

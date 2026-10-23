@@ -5,6 +5,28 @@ images). The agent has its own changelog in the InfraMole/agent repository.
 To update an installation, see
 [Upgrade guide](https://inframole.com/docs/operations/upgrade).
 
+## 0.30.0 — 2026-10-24
+
+### Added
+
+- **Incomplete agent reports are visible**: Settings › Agents and the host's
+  page say "Last report incomplete" and what could not be read — for
+  example services (access denied) or Docker containers (timed out) — or
+  that the report reached its size limits. Needs agent 0.7.0 or later.
+- **DNS dependencies**: when an agent reports the DNS servers its host is
+  configured to use, and one of them is a resource in your inventory,
+  Suggestions proposes "depends on" that server — marked as inferred and
+  "configured as its DNS server — no traffic observed". It disappears when
+  the host stops using that server, unless you confirmed it. Needs agent
+  0.7.0 or later.
+- **Redundancy in impact**: give interchangeable resources — two database
+  replicas, a pair of load balancers — the same redundancy group (Edit, or
+  a `redundancy_group` import column). Impact and Plan a change then list
+  what depends on them as covered by redundancy while another member is up,
+  show which groups lose redundancy, and count them as could be affected
+  only when every member is down. Also in the map, shared views, the API
+  and the workspace export.
+
 ## 0.29.1 — 2026-10-23
 
 ### Changed

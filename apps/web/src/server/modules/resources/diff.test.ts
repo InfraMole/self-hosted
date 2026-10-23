@@ -12,6 +12,7 @@ const base: ResourceSnapshot = {
   notes: null,
   owner: null,
   ownerContact: null,
+  redundancyGroup: null,
   tags: ["web"],
   links: [],
   metadata: { ipAddresses: ["10.0.0.23"] },

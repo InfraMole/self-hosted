@@ -14,6 +14,7 @@ import {
   diffObserved,
   observedState,
 } from "@/server/modules/discovery/host-changes";
+import { refreshDnsSuggestions } from "@/server/modules/discovery/dns";
 import { markStaleHosts, restoreFromStale } from "@/server/modules/discovery/staleness";
 import { runImport } from "@/server/modules/importers/importers";
 import { recordAudit } from "@/server/modules/audit/audit";
@@ -180,6 +181,9 @@ export async function ingestReport(
         agentVersion: report.agentVersion,
         lastSeenAt: now,
         lastIp: meta.ip,
+        // M39: what this report could not collect (an older agent sends none).
+        lastReportIssues: report.issues ?? [],
+        lastReportTruncated: report.truncated ?? false,
       },
     });
 
@@ -204,6 +208,9 @@ export async function ingestReport(
     { agentId: agent.id },
     { onlyAgentFacts: !ipsChanged },
   );
+  // M39: configured DNS servers → INFERRED suggestions (absent = not collected).
+  if (report.dnsServers && hostId)
+    await refreshDnsSuggestions(agent.workspaceId, agent.id, hostId, report.dnsServers, now);
   // Other hosts of the workspace may have gone quiet (throttled, ADR-016).
   await markStaleHosts(agent.workspaceId);
 
@@ -290,6 +297,7 @@ const blank = {
   notes: null,
   owner: null,
   ownerContact: null,
+  redundancyGroup: null,
   tags: null,
   links: null,
 };

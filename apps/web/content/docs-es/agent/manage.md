@@ -23,6 +23,30 @@ systemctl status inframole-agent
 marcha. En InfraMole, **Settings › Agents** lista todos los agentes con su
 último informe.
 
+## Informes incompletos
+
+Cuando parte de un informe no se ha podido recoger, **Settings › Agents** y la
+página del servidor muestran **Last report incomplete** y dicen qué falta, por
+ejemplo _Could not read services (access denied)_. El resto del informe se usa
+con normalidad; lo que InfraMole ya sabía de la parte que falta se conserva.
+
+| Motivo         | Qué suele significar                                                                                                                           |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| access denied  | A la cuenta del agente le falta un permiso, o se rechazó un token o una contraseña (Proxmox, vCenter, Kubernetes, un usuario de base de datos) |
+| timed out      | El origen tardó demasiado en responder                                                                                                         |
+| unreachable    | No se pudo llegar a la dirección configurada en el agente                                                                                      |
+| failed         | Cualquier otro caso — el registro del agente tiene el detalle                                                                                  |
+| reached limits | El servidor tiene más conexiones, servicios o puertos de los que caben en un informe; se conservan los más activos                             |
+
+Solo se envía qué ha fallado y el motivo, nunca el texto del error. El mensaje
+completo está en el [registro](#registros-logs) del agente, y `inframole-agent
+dry-run` muestra la misma lista en `issues`. El aviso desaparece con el
+siguiente informe completo.
+
+Si un informe no se puede entregar (el servidor no responde durante un rato),
+las conexiones que vio no se pierden: van en el siguiente informe. Reiniciar el
+agente empieza una ventana nueva.
+
 ## Registros (logs)
 
 :::tabs

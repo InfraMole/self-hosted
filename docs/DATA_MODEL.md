@@ -266,6 +266,15 @@ free text), both nullable, set only by people or file imports (migration
 `resource_owner`). Part of the change diff (`DIFF_FIELDS`), the workspace
 export (`owner`, `owner_contact`) and the Library search.
 
+### Resource redundancy group ✅ M39 (ADR-057)
+
+`Resource.redundancyGroup` (≤ 64, free text, nullable; migration
+`resource_redundancy_group`). Resources sharing a group (matched
+case-insensitively) are interchangeable for impact. Set only by people
+(Edit) or file imports (`redundancy_group`). Part of the change diff
+(`DIFF_FIELDS`), the workspace export (`redundancy_group`), the API resource
+(`redundancyGroup`) and the map graph.
+
 ### SavedView ✅ M26 phase 3 (ADR-041)
 
 `id, workspaceId, name (unique per workspace, ≤ 80), state (JSON), createdById?,
@@ -279,9 +288,9 @@ overwrite, delete; at most 50 per workspace. Not change-tracked (presentation).
 
 ### RelationshipEvidence ✅ M6 (see §5)
 
-Why a detected relationship exists: `relationshipId, kind (TCP_CONNECTION,
-LISTENING_PORT_MATCH, IMPORTER), protocolGuess (e.g. MSSQL), port,
-firstSeenAt, lastSeenAt, sampleCount, agentId?`.
+Why a suggested relationship exists: `relationshipId, kind (TCP_CONNECTION,
+DNS_RESOLVER since M39), protocolGuess (e.g. MSSQL), port, firstSeenAt,
+lastSeenAt, sampleCount` — columns in §5.
 
 ## 5. Agents & discovery (✅ M5–M6)
 
@@ -294,7 +303,14 @@ useCount, revokedAt?, createdById, createdAt`
 
 `id, workspaceId, resourceId? (the host Resource it represents), hostname,
 os, osVersion, arch, agentVersion, secretHash, secretPrefix, status (ACTIVE,
-REVOKED), reportIntervalSec, lastSeenAt, lastIp, createdAt, revokedAt?`
+REVOKED), reportIntervalSec, lastSeenAt, lastIp, lastReportIssues (JSON,
+default [], M39), lastReportTruncated (default false, M39), createdAt,
+revokedAt?`
+
+`lastReportIssues` holds the last report's `issues` (`[{collector,
+error}]`, categories only — validated by `collectionIssuesSchema` on the
+way in and re-parsed with `parseIssues` on the way out); both fields are
+overwritten by every report, so a complete report clears them.
 
 ### Observation ✅ (raw, short retention — default 7 days)
 
@@ -322,8 +338,10 @@ processName)`. Retention 30 days since last seen.
 
 ### RelationshipEvidence ✅ M6
 
-`id, workspaceId, relationshipId (cascade), kind TCP_CONNECTION,
-connectionFactId? (SET NULL), port, protocolGuess?, processName?,
+`id, workspaceId, relationshipId (cascade), kind (TCP_CONNECTION |
+DNS_RESOLVER — M39: the source is configured to use the target as DNS
+server; no fact, port 53, sampleCount 0), connectionFactId? (SET NULL),
+port, protocolGuess?, processName?,
 sampleCount, firstSeenAt, lastSeenAt` — unique `(relationshipId,
 connectionFactId)`; mirrors the fact's counters. The demo seed creates
 evidence without a fact.

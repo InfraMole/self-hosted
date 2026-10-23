@@ -15,6 +15,7 @@ import { ResourceTabs } from "@/components/resources/resource-tabs";
 import { Button } from "@/components/ui/button";
 import { RESOURCE_TYPES } from "@/lib/resource-presentation";
 import { hasRole } from "@/server/authz";
+import { listRedundancyGroups } from "@/server/modules/resources/resources";
 import { deleteResourceAction, saveResourceAction } from "../actions";
 import { loadResource } from "./data";
 
@@ -25,6 +26,7 @@ export default async function ResourceLayout({
   const { slug, id } = await params;
   const { ctx, resource } = await loadResource(slug, id);
   const canWrite = hasRole(ctx.role, "MEMBER");
+  const redundancyGroups = canWrite ? await listRedundancyGroups(ctx) : [];
   const base = `/w/${ctx.workspaceSlug}/resources/${resource.id}`;
 
   return (
@@ -68,6 +70,7 @@ export default async function ResourceLayout({
                   mode="edit"
                   workspaceSlug={ctx.workspaceSlug}
                   initial={toFormValues(resource)}
+                  redundancyGroups={redundancyGroups}
                   action={saveResourceAction.bind(null, ctx.workspaceSlug, resource.id)}
                   trigger={
                     <Button variant="secondary" size="sm">

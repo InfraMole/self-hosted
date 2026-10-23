@@ -56,6 +56,7 @@ function snapshot(r: Resource): ResourceSnapshot {
     notes: r.notes,
     owner: r.owner,
     ownerContact: r.ownerContact,
+    redundancyGroup: r.redundancyGroup,
     tags: r.tags,
     links: r.links,
     metadata: r.metadata,
@@ -89,6 +90,39 @@ function libraryWhere(ctx: WorkspaceContext, filters: ResourceFilters) {
     ];
   }
   return where;
+}
+
+// ───────────────────────── Redundancy groups (M39, ADR-057) ─────────────────────────
+
+/** Group names in use, for the form's suggestions. */
+export async function listRedundancyGroups(ctx: WorkspaceContext): Promise<string[]> {
+  const rows = await tenantDb(ctx).resource.findMany({
+    where: { workspaceId: ctx.workspaceId, redundancyGroup: { not: null } },
+    distinct: ["redundancyGroup"],
+    select: { redundancyGroup: true },
+    orderBy: { redundancyGroup: "asc" },
+    take: 200,
+  });
+  return rows.map((r) => r.redundancyGroup!);
+}
+
+/** The other members of a resource's redundancy group (archived excluded). */
+export async function listRedundancyPeers(
+  ctx: WorkspaceContext,
+  resource: { id: string; redundancyGroup: string | null },
+) {
+  if (!resource.redundancyGroup) return [];
+  return tenantDb(ctx).resource.findMany({
+    where: {
+      workspaceId: ctx.workspaceId,
+      id: { not: resource.id },
+      status: { not: "ARCHIVED" },
+      redundancyGroup: { equals: resource.redundancyGroup, mode: "insensitive" },
+    },
+    select: { id: true, name: true, type: true, status: true },
+    orderBy: { name: "asc" },
+    take: 50,
+  });
 }
 
 export async function listResources(

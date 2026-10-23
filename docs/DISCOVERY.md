@@ -109,6 +109,20 @@ UNCONFIRMED)` + evidence (port, protocol guess, process, samples) and a
    deletes unreviewed suggestions not observed for 30 days (agent evidence
    only). **Incremental**: a report that changed no host IP re-plans only
    that agent's facts; a new host or an IP change re-plans the workspace.
+   6b. **Configured DNS servers** ✅ M39 (`discovery/dns-plan.ts` pure,
+   `dns.ts`): every report with `dnsServers` re-plans that host's DNS
+   suggestions. A resolver whose IP belongs to exactly one other resource
+   (same `resolveRemote` as connections; exclusion rules on port 53 or
+   either resource apply) becomes `host DEPENDS_ON target`, origin
+   **INFERRED**, UNCONFIRMED, with one `DNS_RESOLVER` evidence row (port 53,
+   protocolGuess "DNS", no fact, sampleCount 0, lastSeenAt = last report).
+   Any existing relationship of the pair — any type or status, IGNORED
+   included — is reused and only gains the evidence. A resolver no longer
+   configured: an unreviewed suggestion explained only by it is deleted
+   (`DELETED` change "… no longer uses … as DNS server"), otherwise just its
+   DNS evidence. The inbox says "configured as its DNS server — no traffic
+   observed" and "last reported", never "seen". Not expired by the 30-day
+   job (that one is DETECTED only).
 7. **Unknown endpoints** (unresolved facts) are listed on the host's Overview
    ("Observed on this host"); adding a resource with that IP turns them into
    suggestions immediately.
@@ -179,3 +193,5 @@ chatter), un-ignore, bulk review, suggestion expiry.
 - NAT / load balancers / proxies hide the real peer.
 - Containers and Kubernetes pods share host IPs or use overlay networks.
 - A connection does not prove a _dependency_.
+- UDP is not sampled: DNS is covered by the configured resolvers (M39), not
+  by traffic; NTP, syslog, RADIUS and SNMP are not seen.

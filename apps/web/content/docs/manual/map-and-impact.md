@@ -127,6 +127,34 @@ and **Copy message** gives you a text to paste into a change request or a
 chat. Resources without an owner are listed too, so you know what is
 missing.
 
+### Redundancy
+
+Two database replicas, a pair of load balancers, two domain controllers:
+when one of them fails, what depends on them keeps working. Tell InfraMole
+by giving them the same **Redundancy group** (in **Edit**, or a
+`redundancy_group` column in an [import](/docs/manual/imports)). Names match
+regardless of case; the resource page lists the other members.
+
+Impact then stops at a group while another member is still up:
+
+- what depends on the group is listed under **Redundancy** as _covered by
+  redundancy_ — still served by the remaining members — instead of _could
+  be affected_;
+- the group itself is listed as _losing redundancy_, with the members that
+  are down and the ones still up;
+- only when **every** member is down — for example when you plan a change
+  of both replicas together — does what depends on them count as could be
+  affected.
+
+What runs on a member (a database on a failing server) is always affected:
+redundancy covers the consumers of a group, not its contents.
+
+:::note Declared, not verified
+A redundancy group is what you say about your infrastructure. InfraMole does
+not check that the remaining members can carry the load, or that failover
+works.
+:::
+
 ## Plan a change
 
 Before a maintenance window, a migration or a shutdown, **Plan a change**
@@ -146,7 +174,9 @@ box (up to 50). Give the change a title and, if you like, when it happens.
 
 Every resource that could be affected is listed once, with the strongest
 evidence any path offers, how many hops away it is and — when several
-changed resources reach it — which ones.
+changed resources reach it — which ones. The changed resources are down at
+the same time, so changing every member of a
+[redundancy group](#redundancy) together takes the group down.
 
 ### Warn the right people
 

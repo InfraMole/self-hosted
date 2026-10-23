@@ -13,6 +13,8 @@ your InfraMole server every five minutes. It is strictly **read-only**.
 | Running services (name, state, start type)                                               | Showing what runs on the host                                                         |
 | Listening TCP ports + owning process name / path                                         | Knowing what the host offers                                                          |
 | Established TCP connections, **aggregated** per peer, port and process                   | Suggesting dependencies                                                               |
+| DNS servers the host is configured to use (addresses only)                               | Suggesting the dependency on your DNS servers                                         |
+| Which collectors failed and why — never the error text                                   | Showing when a report is [incomplete](/docs/agent/manage#incomplete-reports)          |
 | Windows: IIS site names and bindings; SQL Server database names if enabled               | Showing what runs on the server ([IIS and SQL Server](/docs/agent/windows-workloads)) |
 | Linux: nginx / Apache site names and ports; PostgreSQL / MySQL database names if enabled | Same ([nginx, Apache and databases](/docs/agent/linux-workloads))                     |
 
@@ -51,9 +53,15 @@ names.
 2. Connections seen at least twice to an IP that belongs to exactly one
    other resource become a **detected** relationship in Suggestions
    (for example `APP01 → SQL01:1433 (likely MSSQL)`).
-3. A person confirms, adds context or ignores it. Ignored pairs are never
+3. A DNS server the host is configured to use, when its address belongs to
+   exactly one other resource, becomes an **inferred** "depends on"
+   suggestion (`APP01 → DC01`, _configured as its DNS server — no traffic
+   observed_). DNS mostly travels over UDP, which the agent does not sample,
+   so this is how the most common hidden dependency shows up. It goes away
+   when the host stops using that server, unless someone confirmed it.
+4. A person confirms, adds context or ignores it. Ignored pairs are never
    suggested again.
-4. If a host stops reporting for three intervals it becomes **Stale**; it
+5. If a host stops reporting for three intervals it becomes **Stale**; it
    returns to its previous state when it reports again.
 
 :::note Limits of observation

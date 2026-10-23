@@ -293,6 +293,9 @@ model Resource {
   owner          String?
   /// How to reach the owner: email, phone, chat channel… free text.
   ownerContact   String?
+  /// Redundancy group (M39, ADR-057): resources sharing it are interchangeable
+  /// for impact — failure flows on only once every member is down. Set by people.
+  redundancyGroup String?
   notes          String?
   tags           String[]         @default([])
   /// [{ label, url }] — https only (validated in resources/schemas.ts)
@@ -509,31 +512,36 @@ enum AgentStatus {
 }
 
 model Agent {
-  id                String           @id @default(cuid())
-  workspaceId       String
-  workspace         Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  id                  String           @id @default(cuid())
+  workspaceId         String
+  workspace           Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   /// Host resource this agent reports for (created on first report).
-  resourceId        String?
-  resource          Resource?        @relation(fields: [resourceId], references: [id], onDelete: SetNull)
+  resourceId          String?
+  resource            Resource?        @relation(fields: [resourceId], references: [id], onDelete: SetNull)
   /// Stable machine id reported by the agent (MachineGuid / machine-id).
-  machineId         String
-  hostname          String
-  os                String
-  osVersion         String
-  arch              String
-  agentVersion      String
-  secretHash        String           @unique
-  secretPrefix      String
-  status            AgentStatus      @default(ACTIVE)
-  reportIntervalSec Int              @default(300)
-  lastSeenAt        DateTime?
-  lastIp            String?
-  enrolledAt        DateTime         @default(now())
-  revokedAt         DateTime?
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
-  observations      Observation[]
-  connectionFacts   ConnectionFact[]
+  machineId           String
+  hostname            String
+  os                  String
+  osVersion           String
+  arch                String
+  agentVersion        String
+  secretHash          String           @unique
+  secretPrefix        String
+  status              AgentStatus      @default(ACTIVE)
+  reportIntervalSec   Int              @default(300)
+  lastSeenAt          DateTime?
+  lastIp              String?
+  /// Collectors that failed in the last report (M39): [{collector, error}],
+  /// validated by collectionIssuesSchema. Category only, never error text.
+  lastReportIssues    Json             @default("[]")
+  /// The last report hit a protocol limit and dropped items (M39).
+  lastReportTruncated Boolean          @default(false)
+  enrolledAt          DateTime         @default(now())
+  revokedAt           DateTime?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  observations        Observation[]
+  connectionFacts     ConnectionFact[]
 
   /// Re-enrolling the same machine reuses the agent (and its host resource).
   @@unique([workspaceId, machineId])
@@ -600,6 +608,9 @@ model ConnectionFact {
 
 enum EvidenceKind {
   TCP_CONNECTION
+  /// The source host is configured to use the target as DNS server (M39):
+  /// configuration, not observed traffic; no connection fact, sampleCount 0.
+  DNS_RESOLVER
 }
 
 model RelationshipEvidence {

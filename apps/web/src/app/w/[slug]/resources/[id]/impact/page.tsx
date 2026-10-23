@@ -7,6 +7,7 @@ import { ConfidenceBadge } from "@/components/relationships/confidence-badge";
 import { EnvironmentLabel, TypeIcon } from "@/components/resources/resource-badges";
 import { CopyTextButton } from "@/components/impact/copy-text-button";
 import { DepthSelect } from "@/components/impact/depth-select";
+import { RedundancySection } from "@/components/impact/redundancy-section";
 import { Button } from "@/components/ui/button";
 import { planHref } from "@/lib/change-plan";
 import { notifyList, notifyText } from "@/lib/notify";
@@ -64,7 +65,9 @@ export default async function ImpactPage({
         </p>
         <p className="mt-2 text-lg">
           If <span className="font-mono">{resource.name}</span> fails,{" "}
-          {result.summary.total === 0 ? (
+          {result.summary.total === 0 && result.covered.length > 0 ? (
+            <>nothing should be affected while its redundancy holds.</>
+          ) : result.summary.total === 0 ? (
             <>nothing recorded depends on it.</>
           ) : (
             <>
@@ -115,7 +118,14 @@ export default async function ImpactPage({
 
       {result.summary.total > 0 && <WhoToWarn root={resource.name} affected={result.affected} />}
 
-      {result.summary.total === 0 ? (
+      <RedundancySection
+        slug={ctx.workspaceSlug}
+        covered={result.covered}
+        degraded={result.degraded}
+      />
+
+      {result.summary.total === 0 && result.covered.length > 0 ? null : result.summary.total ===
+        0 ? (
         <div className="border-border text-muted flex items-start gap-3 rounded-lg border border-dashed p-4 text-sm">
           <ShieldCheck className="text-subtle mt-0.5 size-4 shrink-0" />
           <p>

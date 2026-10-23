@@ -5,7 +5,8 @@ import { RELATIONSHIP_TYPE_INFO } from "@depmap/graph";
 import type { Prisma } from "@/generated/prisma/client";
 import type { WorkspaceContext } from "@/server/authz";
 import { tenantDb } from "@/server/db";
-import type { ReportV1 } from "@/server/modules/agents/protocol";
+import { parseIssues, type ReportV1 } from "@/server/modules/agents/protocol";
+import { reportGaps } from "@/lib/report-gaps";
 import type { ResourceRef } from "@/server/modules/relationships/relationships";
 import { resourceMetadataSchema } from "@/server/modules/resources/schemas";
 import { excludedSuggestions, planDiscovery, type FactInput } from "./plan";
@@ -366,6 +367,10 @@ export interface EvidenceSummary {
   lastSeenAt: Date | null;
   /** Suggested relationship type from the first recognised port. */
   suggestedType: keyof typeof RELATIONSHIP_TYPE_INFO | null;
+  /** M39: the source host is configured to use the target as DNS server. */
+  dnsResolver: boolean;
+  /** Any evidence comes from observed connections. */
+  observed: boolean;
 }
 
 export interface SuggestionView {
@@ -399,6 +404,7 @@ export async function listSuggestions(
       to: { select: refSelect },
       evidence: {
         select: {
+          kind: true,
           port: true,
           protocolGuess: true,
           processName: true,
@@ -431,6 +437,7 @@ export async function countSuggestions(
 
 function summarise(
   evidence: {
+    kind: "TCP_CONNECTION" | "DNS_RESOLVER";
     port: number;
     protocolGuess: string | null;
     processName: string | null;
@@ -448,6 +455,8 @@ function summarise(
     firstSeenAt: evidence.length ? minDate(evidence.map((e) => e.firstSeenAt)) : null,
     lastSeenAt: evidence.length ? maxDate(evidence.map((e) => e.lastSeenAt)) : null,
     suggestedType: suggestedTypeForPorts(ports),
+    dnsResolver: evidence.some((e) => e.kind === "DNS_RESOLVER"),
+    observed: evidence.some((e) => e.kind === "TCP_CONNECTION"),
   };
 }
 
@@ -456,6 +465,8 @@ function summarise(
 export interface HostDiscovery {
   agent: { hostname: string; lastSeenAt: Date | null; status: string };
   observedAt: Date | null;
+  /** M39: what the last report could not collect (plain-language lines). */
+  gaps: string[];
   listeners: { address: string; port: number; process: string | null }[];
   serviceCount: number;
   unknownEndpoints: {
@@ -476,7 +487,14 @@ export async function getHostDiscovery(
   const db = tenantDb(ctx);
   const agent = await db.agent.findFirst({
     where: { workspaceId: ctx.workspaceId, resourceId },
-    select: { id: true, hostname: true, lastSeenAt: true, status: true },
+    select: {
+      id: true,
+      hostname: true,
+      lastSeenAt: true,
+      status: true,
+      lastReportIssues: true,
+      lastReportTruncated: true,
+    },
   });
   if (!agent) return null;
   const [latest, unknown] = await Promise.all([
@@ -503,6 +521,7 @@ export async function getHostDiscovery(
   return {
     agent: { hostname: agent.hostname, lastSeenAt: agent.lastSeenAt, status: agent.status },
     observedAt: latest?.receivedAt ?? null,
+    gaps: reportGaps(parseIssues(agent.lastReportIssues), agent.lastReportTruncated),
     listeners: (payload?.listeners ?? [])
       .filter((l, i, all) => all.findIndex((x) => x.port === l.port) === i)
       .slice(0, 50)

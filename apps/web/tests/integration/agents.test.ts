@@ -12,7 +12,11 @@ import {
 } from "@/server/modules/agents/agents";
 import { sampleReport } from "@/server/modules/agents/fixtures";
 import { listChangesForResource, listWorkspaceChanges } from "@/server/modules/changes/changes";
-import { listRelationshipsForResource } from "@/server/modules/relationships/relationships";
+import { getHostDiscovery, listSuggestions } from "@/server/modules/discovery/discovery";
+import {
+  ignoreRelationship,
+  listRelationshipsForResource,
+} from "@/server/modules/relationships/relationships";
 import { listResources } from "@/server/modules/resources/resources";
 import {
   createWorkspace,
@@ -141,6 +145,8 @@ describe("agent reports", () => {
         "containers",
         "proxies",
         "kubernetes",
+        "collection-issues",
+        "dns-servers",
       ],
     });
 
@@ -237,6 +243,122 @@ describe("agent reports", () => {
     expect(await listResources(globex)).toHaveLength(0);
     expect(await listAgents(globex)).toEqual([]);
     await expect(revokeAgent(globex, body.agentId as string)).rejects.toThrow();
+  });
+
+  it("keeps what the last report could not collect, and clears it on a complete one (M39)", async () => {
+    const ctx = await ownerContext("Acme");
+    const { token } = await createEnrollmentToken(ctx, { name: "t", expiresInHours: 24 });
+    const { body } = await enroll(token);
+    const secret = body.agentSecret as string;
+
+    const res = await report(
+      secret,
+      sampleReport({
+        truncated: true,
+        issues: [
+          { collector: "services", error: "access-denied" },
+          { collector: "docker", error: "timeout" },
+        ],
+      }),
+    );
+    expect(res.status).toBe(202);
+    expect(((await res.json()) as { features: string[] }).features).toContain("collection-issues");
+    const [agent] = await listAgents(ctx);
+    expect(agent!.lastReportIssues).toEqual([
+      { collector: "services", error: "access-denied" },
+      { collector: "docker", error: "timeout" },
+    ]);
+    expect(agent!.lastReportTruncated).toBe(true);
+    const host = await getHostDiscovery(ctx, agent!.resourceId!);
+    expect(host!.gaps).toEqual([
+      "Could not read services (access denied), Docker containers (timed out).",
+      "Reached the report limits — some items were left out.",
+    ]);
+
+    // Only categories are accepted — never error text — and unknown collectors are rejected.
+    expect(
+      (
+        await report(
+          secret,
+          sampleReport({
+            issues: [
+              { collector: "services", error: "access-denied", message: "/etc/secret" },
+            ] as never,
+          }),
+        )
+      ).status,
+    ).toBe(422);
+    expect(
+      (
+        await report(
+          secret,
+          sampleReport({ issues: [{ collector: "registry", error: "failed" }] as never }),
+        )
+      ).status,
+    ).toBe(422);
+
+    expect((await report(secret)).status).toBe(202); // an older agent: no issues field
+    const [after] = await listAgents(ctx);
+    expect(after!.lastReportIssues).toEqual([]);
+    expect(after!.lastReportTruncated).toBe(false);
+  });
+
+  it("turns configured DNS servers into inferred suggestions, never observed ones (M39)", async () => {
+    const ctx = await ownerContext("Acme");
+    const { token } = await createEnrollmentToken(ctx, { name: "t", expiresInHours: 24 });
+    const { body } = await enroll(token);
+    const secret = body.agentSecret as string;
+    const dns = await adminDb().resource.create({
+      data: {
+        workspaceId: ctx.workspaceId,
+        name: "DNS01",
+        type: "SERVER",
+        metadata: { ipAddresses: ["10.0.0.53"] },
+      },
+    });
+
+    // 10.0.0.54 matches no resource: nothing is invented for it.
+    expect(
+      (await report(secret, sampleReport({ dnsServers: ["10.0.0.53", "10.0.0.54"] }))).status,
+    ).toBe(202);
+    const dnsSuggestions = async () =>
+      (await listSuggestions(ctx)).filter((s) => s.to.id === dns.id);
+    let [s] = await dnsSuggestions();
+    expect(s).toMatchObject({ type: "DEPENDS_ON", origin: "INFERRED", from: { name: "APP01" } });
+    expect(s!.evidence).toMatchObject({
+      ports: [53],
+      protocols: ["DNS"],
+      samples: 0,
+      dnsResolver: true,
+      observed: false,
+    });
+    const changes = await listWorkspaceChanges(ctx, {});
+    expect(changes.events.map((c) => c.summary)).toContain(
+      "Configured DNS server: APP01 uses DNS01 (port 53)",
+    );
+
+    // The next report refreshes it instead of adding another.
+    await report(secret, sampleReport({ dnsServers: ["10.0.0.53"] }));
+    expect(await dnsSuggestions()).toHaveLength(1);
+
+    // An older agent (no field) changes nothing; an empty list removes it.
+    await report(secret);
+    expect(await dnsSuggestions()).toHaveLength(1);
+    await report(secret, sampleReport({ dnsServers: [] }));
+    expect(await dnsSuggestions()).toHaveLength(0);
+
+    // Ignored by a person: reporting the resolver again does not bring it back.
+    await report(secret, sampleReport({ dnsServers: ["10.0.0.53"] }));
+    [s] = await dnsSuggestions();
+    await ignoreRelationship(ctx, s!.id);
+    await report(secret, sampleReport({ dnsServers: ["10.0.0.53"] }));
+    expect(await dnsSuggestions()).toHaveLength(0);
+    expect(await listSuggestions(ctx, "IGNORED")).toHaveLength(1);
+
+    // Only addresses are accepted.
+    expect((await report(secret, sampleReport({ dnsServers: ["dns.corp.local"] }))).status).toBe(
+      422,
+    );
   });
 
   it("rate limits reports per agent", async () => {

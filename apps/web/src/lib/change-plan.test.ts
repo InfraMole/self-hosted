@@ -114,6 +114,19 @@ describe("plan a change — report", () => {
     expect(text.startsWith("Change: Change to SQL01 and APP02")).toBe(true);
     expect(text).toContain("That does not prove nothing does.");
   });
+
+  it("lists lost redundancy and what it still covers (M39)", () => {
+    const text = planReportText({
+      ...report,
+      affected: [],
+      degraded: [{ group: "sql-cluster", down: ["SQL01"], up: ["SQL02"] }],
+      covered: ["APP02"],
+    });
+    expect(text).toContain("Nothing else should be affected while the redundancy below holds.");
+    expect(text).toContain("Loses redundancy:\n- sql-cluster: SQL01 down; still up: SQL02");
+    expect(text).toContain("Covered by redundancy (1): APP02");
+    expect(text).not.toContain("That does not prove nothing does.");
+  });
 });
 
 describe("saved views with several impact roots (M34)", () => {

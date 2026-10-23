@@ -21,6 +21,8 @@ export interface ExistingResource {
   /** M29; optional so callers that do not load them still type-check. */
   owner?: string | null;
   ownerContact?: string | null;
+  /** M39; optional like the owner fields. */
+  redundancyGroup?: string | null;
   tags: string[];
   metadata: ResourceMetadata;
 }
@@ -83,6 +85,7 @@ function currentValue(r: ExistingResource, field: ProvidedField): unknown {
     case "notes":
     case "owner":
     case "ownerContact":
+    case "redundancyGroup":
       return r[field];
     case "tags":
       return [...r.tags].sort();
@@ -100,6 +103,7 @@ function newValue(input: ResourceInput, field: ProvidedField): unknown {
     case "notes":
     case "owner":
     case "ownerContact":
+    case "redundancyGroup":
       return input[field];
     case "tags":
       return [...input.tags].sort();

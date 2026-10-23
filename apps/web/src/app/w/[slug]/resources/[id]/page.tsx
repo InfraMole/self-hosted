@@ -7,11 +7,13 @@ import {
   EnvironmentLabel,
   StatusBadge,
 } from "@/components/resources/resource-badges";
+import { ReportGaps } from "@/components/agents/report-gaps";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDateTime, formatRelative } from "@/lib/format";
 import { RESOURCE_TYPES } from "@/lib/resource-presentation";
 import { getHostDiscovery, type HostDiscovery } from "@/server/modules/discovery/discovery";
+import { listRedundancyPeers } from "@/server/modules/resources/resources";
 import { loadResource } from "./data";
 
 export async function generateMetadata({
@@ -29,7 +31,10 @@ export default async function ResourceOverviewPage({
 }: PageProps<"/w/[slug]/resources/[id]">) {
   const { slug, id } = await params;
   const { ctx, resource: r } = await loadResource(slug, id);
-  const host = r.source === "AGENT" ? await getHostDiscovery(ctx, r.id) : null;
+  const [host, peers] = await Promise.all([
+    r.source === "AGENT" ? getHostDiscovery(ctx, r.id) : null,
+    listRedundancyPeers(ctx, r),
+  ]);
   const m = r.metadata;
 
   const allIdentity: [string, React.ReactNode][] = [
@@ -118,6 +123,38 @@ export default async function ResourceOverviewPage({
               ["Type", RESOURCE_TYPES[r.type].label],
               ["Environment", <EnvironmentLabel key="e" environment={r.environment} />],
               ["Criticality", <CriticalityLabel key="c" criticality={r.criticality} />],
+              [
+                "Redundancy",
+                r.redundancyGroup ? (
+                  <span key="rg">
+                    {r.redundancyGroup}
+                    <span className="text-muted block text-xs">
+                      {peers.length === 0 ? (
+                        "No other member yet — no effect on impact"
+                      ) : (
+                        <>
+                          Interchangeable with{" "}
+                          {peers.map((p, i) => (
+                            <span key={p.id}>
+                              {i > 0 && ", "}
+                              <Link
+                                href={`/w/${ctx.workspaceSlug}/resources/${p.id}`}
+                                className="hover:text-accent font-mono"
+                              >
+                                {p.name}
+                              </Link>
+                            </span>
+                          ))}
+                        </>
+                      )}
+                    </span>
+                  </span>
+                ) : (
+                  <span key="rg" className="text-subtle">
+                    —
+                  </span>
+                ),
+              ],
               [
                 "Owner",
                 r.owner ? (
@@ -231,6 +268,7 @@ function ObservedOnHost({
         </span>
       </CardHeader>
       <CardContent className="space-y-4">
+        {host.gaps.length > 0 && <ReportGaps gaps={host.gaps} />}
         <div>
           <p className="text-muted mb-1.5 text-xs">Listening ports</p>
           {host.listeners.length === 0 ? (

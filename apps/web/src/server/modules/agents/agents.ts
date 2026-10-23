@@ -5,6 +5,7 @@ import { z } from "zod";
 import type { AgentStatus } from "@/generated/prisma/enums";
 import { assertRole, type WorkspaceContext } from "@/server/authz";
 import { tenantDb } from "@/server/db";
+import { parseIssues, type CollectionIssue } from "./protocol";
 import { generateSecret } from "./secrets";
 
 // ───────────────────────── Enrollment tokens (ADMIN+) ─────────────────────────
@@ -134,11 +135,14 @@ export interface AgentView {
   enrolledAt: Date;
   resourceId: string | null;
   secretPrefix: string;
+  /** M39: collectors that failed in the last report. */
+  lastReportIssues: CollectionIssue[];
+  lastReportTruncated: boolean;
 }
 
 /** Agents of the workspace (any member may see them). */
 export async function listAgents(ctx: WorkspaceContext): Promise<AgentView[]> {
-  return tenantDb(ctx).agent.findMany({
+  const agents = await tenantDb(ctx).agent.findMany({
     where: { workspaceId: ctx.workspaceId },
     orderBy: [{ status: "asc" }, { hostname: "asc" }],
     select: {
@@ -155,8 +159,11 @@ export async function listAgents(ctx: WorkspaceContext): Promise<AgentView[]> {
       enrolledAt: true,
       resourceId: true,
       secretPrefix: true,
+      lastReportIssues: true,
+      lastReportTruncated: true,
     },
   });
+  return agents.map((a) => ({ ...a, lastReportIssues: parseIssues(a.lastReportIssues) }));
 }
 
 /** Revoked agents get 401 on their next report. Their host resource is kept. */

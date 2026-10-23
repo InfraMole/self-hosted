@@ -45,6 +45,14 @@ const copy = {
         why: "Suggest who depends on whom. Shown as “detected”, never as confirmed.",
       },
       {
+        data: "DNS servers the host is configured to use (addresses only)",
+        why: "Suggest the dependency on your DNS servers — shown as “inferred”: it is configuration, not observed traffic.",
+      },
+      {
+        data: "Which collectors failed and why (access denied, timed out, unreachable or failed) — never the error text",
+        why: "Tell you when a report is incomplete, in Settings › Agents and on the host's page.",
+      },
+      {
         data: "Windows: IIS site names and their bindings (protocol, port, host name) — hourly",
         why: "Show the sites that run on the server, and point connections to the right one.",
       },
@@ -153,6 +161,14 @@ const copy = {
       {
         data: "Conexiones TCP establecidas, agregadas por destino, puerto y proceso — recuentos y primera/última vez vistas",
         why: "Sugerir quién depende de quién. Se muestran como «detectadas», nunca como confirmadas.",
+      },
+      {
+        data: "Servidores DNS que el equipo tiene configurados (solo las direcciones)",
+        why: "Sugerir la dependencia de tus servidores DNS — se muestra como «inferida»: es configuración, no tráfico observado.",
+      },
+      {
+        data: "Qué recolectores han fallado y por qué (acceso denegado, tiempo agotado, inalcanzable o fallo) — nunca el texto del error",
+        why: "Avisarte cuando un informe está incompleto, en Settings › Agents y en la página del equipo.",
       },
       {
         data: "Windows: nombres de los sitios de IIS y sus enlaces (protocolo, puerto, nombre de host) — cada hora",

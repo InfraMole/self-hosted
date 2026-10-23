@@ -77,6 +77,7 @@ Each resource:
   "notes": null,
   "owner": "DBA team",
   "ownerContact": "dba@example.com",
+  "redundancyGroup": "sql-cluster",
   "tags": ["sql-server"],
   "hostname": "sql01",
   "fqdn": "sql01.corp.local",
@@ -156,6 +157,7 @@ What could be affected if the resource went down. `depth` (1–10, default 10) l
       "byConfidence": { "confirmed": 1, "detected": 0, "inferred": 0 },
       "byType": { "APPLICATION": 1 }
     },
+    "redundancy": { "degraded": [], "covered": [] },
     "whoToWarn": {
       "owners": [
         { "owner": "Finance apps", "contact": "finance-apps@example.com", "resources": ["Billing"] }
@@ -168,6 +170,12 @@ What could be affected if the resource went down. `depth` (1–10, default 10) l
 
 Each affected resource carries the strongest confidence any path offers,
 and the shortest such path.
+
+`redundancy` reflects the [redundancy groups](/docs/manual/map-and-impact#redundancy)
+set on resources: `degraded` lists the groups that lose members
+(`{ group, down: [resource], up: [resource] }`) and `covered` what the
+remaining members still serve (`{ resource, group, path }`) — those are not
+in `affected`. Both are empty without groups.
 
 ### GET /api/v1/impact?ids={id},{id}
 
@@ -195,12 +203,14 @@ when none is found the answer is 404.
       }
     ],
     "summary": { "total": 1, "byConfidence": { … }, "byType": { … } },
+    "redundancy": { "degraded": [ … ], "covered": [ … ] },
     "whoToWarn": { "owners": [ … ], "withoutOwner": [ … ] }
   }
 }
 ```
 
-`whoToWarn` includes the owners of the changed resources too.
+`whoToWarn` includes the owners of the changed resources too. `redundancy`
+is as above, with every changed resource down at the same time.
 
 ### GET /api/v1/path?from={id}&to={id}
 

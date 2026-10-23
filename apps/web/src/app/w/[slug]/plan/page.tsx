@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ClipboardList, Network, ShieldCheck, Users } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
+import { RedundancySection } from "@/components/impact/redundancy-section";
 import { CopyTextButton } from "@/components/impact/copy-text-button";
 import { PlanEditor } from "@/components/plan/plan-editor";
 import { PrintButton } from "@/components/plan/print-button";
@@ -67,6 +68,12 @@ export default async function PlanPage({ params, searchParams }: PageProps<"/w/[
       causes: a.causeNames,
       pathNames: a.pathNames,
     })),
+    degraded: plan.degraded.map((g) => ({
+      group: g.groupName,
+      down: g.down.map((r) => r.name),
+      up: g.up.map((r) => r.name),
+    })),
+    covered: plan.covered.map((c) => c.resource.name),
   };
   const notify = planNotify(report);
   const groups = new Map<string, ChangeAffectedView[]>();
@@ -119,7 +126,9 @@ export default async function PlanPage({ params, searchParams }: PageProps<"/w/[
               <p className="mt-3">
                 If <span className="font-mono">{rootsLabel(changedNames)}</span>{" "}
                 {many ? "stop" : "stops"} working,{" "}
-                {plan.summary.total === 0 ? (
+                {plan.summary.total === 0 && plan.covered.length > 0 ? (
+                  <>nothing else should be affected while redundancy holds.</>
+                ) : plan.summary.total === 0 ? (
                   <>nothing recorded depends on {many ? "them" : "it"}.</>
                 ) : (
                   <>
@@ -227,7 +236,14 @@ export default async function PlanPage({ params, searchParams }: PageProps<"/w/[
               </section>
             )}
 
-            {plan.summary.total === 0 ? (
+            <RedundancySection
+              slug={ctx.workspaceSlug}
+              covered={plan.covered}
+              degraded={plan.degraded}
+            />
+
+            {plan.summary.total === 0 && plan.covered.length > 0 ? null : plan.summary.total ===
+              0 ? (
               <div className="border-border text-muted flex items-start gap-3 rounded-lg border border-dashed p-4 text-sm">
                 <ShieldCheck className="text-subtle mt-0.5 size-4 shrink-0" />
                 <p>

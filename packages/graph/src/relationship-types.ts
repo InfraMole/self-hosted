@@ -34,11 +34,16 @@ export interface RelationshipTypeInfo {
   /** Reads "to <inverseLabel> from", e.g. "database for". */
   inverseLabel: string;
   propagation: Propagation;
+  /**
+   * The dependent is placed on the dependency (runs on / is hosted by it): it
+   * shares its fate, so a redundancy group never covers it (M39).
+   */
+  placement?: true;
 }
 
 export const RELATIONSHIP_TYPE_INFO: Record<RelationshipType, RelationshipTypeInfo> = {
-  RUNS_ON: { label: "runs on", inverseLabel: "hosts", propagation: "reverse" },
-  HOSTS: { label: "hosts", inverseLabel: "runs on", propagation: "forward" },
+  RUNS_ON: { label: "runs on", inverseLabel: "hosts", propagation: "reverse", placement: true },
+  HOSTS: { label: "hosts", inverseLabel: "runs on", propagation: "forward", placement: true },
   DEPENDS_ON: { label: "depends on", inverseLabel: "required by", propagation: "reverse" },
   CONNECTS_TO: {
     label: "connects to",

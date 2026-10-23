@@ -136,6 +136,37 @@ afectado — agrupados y con su contacto — y **Copy message** te da un texto
 para pegar en una petición de cambio o en un chat. También se listan los
 recursos sin responsable, para que sepas qué falta.
 
+### Redundancia
+
+Dos réplicas de base de datos, un par de balanceadores, dos controladores de
+dominio: cuando uno falla, lo que depende de ellos sigue funcionando.
+Díselo a InfraMole dándoles el mismo **Redundancy group** (en **Edit**, o
+con una columna `redundancy_group` en una
+[importación](/es/docs/manual/imports)). Los nombres coinciden sin importar
+mayúsculas; la página del recurso muestra los demás miembros.
+
+El impacto se detiene entonces en un grupo mientras otro miembro sigue en
+pie:
+
+- lo que depende del grupo aparece en **Redundancy** como _covered by
+  redundancy_ (cubierto por la redundancia) — lo siguen sirviendo los demás
+  miembros — en lugar de _could be affected_;
+- el propio grupo aparece como _loses redundancy_ (pierde redundancia), con
+  los miembros caídos y los que siguen en pie;
+- solo cuando **todos** los miembros caen — por ejemplo, al planificar un
+  cambio de las dos réplicas a la vez — lo que depende de ellos cuenta como
+  que podría verse afectado.
+
+Lo que se ejecuta en un miembro (una base de datos en un servidor que falla)
+siempre se ve afectado: la redundancia cubre a quienes consumen el grupo, no
+lo que contiene.
+
+:::note Declarada, no verificada
+Un grupo de redundancia es lo que tú dices de tu infraestructura. InfraMole
+no comprueba que los miembros restantes aguanten la carga ni que el
+failover funcione.
+:::
+
 ## Planificar un cambio
 
 Antes de una ventana de mantenimiento, una migración o un apagado, **Plan a
@@ -155,7 +186,9 @@ change** en una página de impacto, o añádelos uno a uno con el buscador
 
 Cada recurso que podría verse afectado aparece una sola vez, con la
 evidencia más fuerte que ofrece algún camino, a cuántos saltos está y —
-cuando le llegan varios de los recursos que cambian — cuáles.
+cuando le llegan varios de los recursos que cambian — cuáles. Los recursos
+que cambian caen a la vez, así que cambiar todos los miembros de un
+[grupo de redundancia](#redundancia) juntos hace caer el grupo.
 
 ### Avisa a quien corresponde
 

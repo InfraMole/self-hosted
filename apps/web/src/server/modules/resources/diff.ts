@@ -11,6 +11,7 @@ export const DIFF_FIELDS = [
   "notes",
   "owner",
   "ownerContact",
+  "redundancyGroup",
   "tags",
   "links",
   "metadata",

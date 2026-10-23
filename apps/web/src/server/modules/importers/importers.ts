@@ -88,6 +88,7 @@ async function buildPlan(
         notes: true,
         owner: true,
         ownerContact: true,
+        redundancyGroup: true,
         tags: true,
         metadata: true,
       },
@@ -414,6 +415,7 @@ function snapshot(r: {
   notes: string | null;
   owner: string | null;
   ownerContact: string | null;
+  redundancyGroup?: string | null;
   tags: string[];
   links: unknown;
   metadata: unknown;
@@ -428,6 +430,7 @@ function snapshot(r: {
     notes: r.notes,
     owner: r.owner,
     ownerContact: r.ownerContact,
+    redundancyGroup: r.redundancyGroup ?? null,
     tags: r.tags,
     links: r.links,
     metadata: r.metadata,

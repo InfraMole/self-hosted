@@ -21,6 +21,7 @@ export const LIMITS = {
   version: 64,
   owner: 120,
   ownerContact: 200,
+  redundancyGroup: 64,
 } as const;
 
 const TAG_PATTERN = /^[a-z0-9][a-z0-9._:-]*$/;
@@ -70,6 +71,14 @@ export const resourceInputSchema = z.object({
   /** Who to contact about it (M29). */
   owner: z.string().trim().max(LIMITS.owner).nullable().default(null),
   ownerContact: z.string().trim().max(LIMITS.ownerContact).nullable().default(null),
+  /** Interchangeable with every resource of the same group (M39, ADR-057). */
+  redundancyGroup: z
+    .string()
+    .trim()
+    .max(LIMITS.redundancyGroup, `At most ${LIMITS.redundancyGroup} characters`)
+    .nullable()
+    .default(null)
+    .transform((v) => v || null),
   tags: z
     .array(tagSchema)
     .max(LIMITS.tags, `At most ${LIMITS.tags} tags`)
@@ -151,6 +160,7 @@ export function resourceFormToInput(form: FormData): unknown {
     notes: text(form, "notes"),
     owner: text(form, "owner"),
     ownerContact: text(form, "ownerContact"),
+    redundancyGroup: text(form, "redundancyGroup"),
     tags: list(text(form, "tags")),
     links: parseLinks(text(form, "links")),
     metadata,

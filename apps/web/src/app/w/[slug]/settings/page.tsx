@@ -9,7 +9,9 @@ import { SsoCard } from "@/components/settings/sso-card";
 import { InviteSheet, RoleSelect } from "@/components/members/invite-sheet";
 import { DeleteWorkspaceDialog } from "@/components/settings/delete-workspace-dialog";
 import { RequireTwoFactorToggle } from "@/components/settings/require-two-factor-toggle";
+import { ReportGaps } from "@/components/agents/report-gaps";
 import { RevokeButton } from "@/components/agents/revoke-button";
+import { reportGaps } from "@/lib/report-gaps";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -387,6 +389,10 @@ export default async function SettingsPage({ params }: PageProps<"/w/[slug]/sett
               <tbody className="divide-border divide-y">
                 {agents.map((a) => {
                   const health = HEALTH[agentHealth(a)];
+                  const gaps =
+                    a.status === "ACTIVE"
+                      ? reportGaps(a.lastReportIssues, a.lastReportTruncated)
+                      : [];
                   return (
                     <tr key={a.id}>
                       <td className="px-4 py-2">
@@ -407,6 +413,7 @@ export default async function SettingsPage({ params }: PageProps<"/w/[slug]/sett
                           )}
                         </div>
                         <p className="text-subtle mt-0.5 pl-3.5 text-[11px]">{health.label}</p>
+                        {gaps.length > 0 && <ReportGaps gaps={gaps} className="pl-3.5" />}
                       </td>
                       <td className="text-muted px-4 py-2 text-xs">
                         {a.os} <span className="text-subtle">{a.osVersion}</span>

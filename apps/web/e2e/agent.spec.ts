@@ -67,4 +67,12 @@ test("enrollment token → agent enrolls and reports → host in the Library", a
   // The token is shown once: the settings list never repeats it.
   await page.goto(`/w/${OWNER.slug}/settings`);
   await expect(page.getByText(token!)).toHaveCount(0);
+
+  // M39: the golden report is truncated and could not read the services.
+  const agentRow = page.locator("#agents tbody tr").filter({ hasText: "E2E-AGENT-01" });
+  await expect(agentRow).toContainText("Last report incomplete");
+  await expect(agentRow).toContainText("Could not read services (access denied).");
+  await expect(agentRow).toContainText("Reached the report limits");
+  await agentRow.getByRole("link", { name: "E2E-AGENT-01" }).click();
+  await expect(page.getByText("Last report incomplete")).toBeVisible();
 });

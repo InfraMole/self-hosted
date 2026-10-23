@@ -37,7 +37,55 @@ export const AGENT_FEATURES = [
   "containers",
   "proxies",
   "kubernetes",
+  "collection-issues",
+  "dns-servers",
 ] as const;
+
+/** Resolvers per host the server accepts (M39, feature "dns-servers"). */
+export const MAX_DNS_SERVERS = 8;
+
+/**
+ * Collectors an agent can name in `issues` (M39, feature "collection-issues").
+ * Adding one is a protocol change: an older server rejects an unknown name.
+ */
+export const AGENT_COLLECTORS = [
+  "sockets",
+  "host",
+  "interfaces",
+  "services",
+  "iis",
+  "nginx",
+  "apache",
+  "haproxy",
+  "sqlserver",
+  "postgresql",
+  "mysql",
+  "docker",
+  "proxmox",
+  "vcenter",
+  "hyperv",
+  "xenorchestra",
+  "kubernetes",
+  "dns",
+] as const;
+export type AgentCollector = (typeof AGENT_COLLECTORS)[number];
+
+/** Why a collector failed — a category, never the error text (M39). */
+export const COLLECTION_ERRORS = ["access-denied", "timeout", "unreachable", "failed"] as const;
+export type CollectionError = (typeof COLLECTION_ERRORS)[number];
+
+export const collectionIssuesSchema = z
+  .array(
+    z.object({ collector: z.enum(AGENT_COLLECTORS), error: z.enum(COLLECTION_ERRORS) }).strict(),
+  )
+  .max(AGENT_COLLECTORS.length);
+export type CollectionIssue = z.infer<typeof collectionIssuesSchema>[number];
+
+/** Stored issues, defensively parsed (anything unexpected reads as none). */
+export function parseIssues(raw: unknown): CollectionIssue[] {
+  const parsed = collectionIssuesSchema.safeParse(raw);
+  return parsed.success ? parsed.data : [];
+}
 
 /** Hypervisor platforms an agent-side collector can report (M24, ADR-035). */
 export const HYPERVISOR_SOURCES = ["vcenter", "hyperv", "xenorchestra"] as const;
@@ -235,6 +283,22 @@ export const reportSchemaV1 = z
       .max(AGENT_LIMITS.connections),
     /** Set when the agent had to drop items to respect the limits above. */
     truncated: z.boolean().optional(),
+    /**
+     * Collectors that failed (M39, feature "collection-issues"): which one and
+     * a category — never the error text, which can carry paths or names. Host
+     * collectors cover this window; slow ones (workloads, inventories) their
+     * latest run. Absent or empty = nothing failed.
+     */
+    issues: collectionIssuesSchema.optional(),
+    /**
+     * DNS servers this host is configured to use (M39, feature "dns-servers"):
+     * resolv.conf / the network adapters — configuration, not observed
+     * traffic. Routable addresses only. Absent = not collected; [] = none.
+     */
+    dnsServers: z
+      .array(z.union([z.ipv4(), z.ipv6()]))
+      .max(MAX_DNS_SERVERS)
+      .optional(),
     /**
      * Optional platform inventory from an agent-side collector (ADR-018 C),
      * configured only in the agent's local config. Only the fields the

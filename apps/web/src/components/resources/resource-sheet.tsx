@@ -26,6 +26,8 @@ interface ResourceSheetProps {
   action: (formData: FormData) => Promise<ResourceFormState>;
   initial?: ResourceFormValues;
   trigger: React.ReactNode;
+  /** Redundancy group names in use, suggested in the form (M39). */
+  redundancyGroups?: readonly string[];
 }
 
 export function ResourceSheet({
@@ -34,6 +36,7 @@ export function ResourceSheet({
   action,
   initial = EMPTY_FORM_VALUES,
   trigger,
+  redundancyGroups = [],
 }: ResourceSheetProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -245,6 +248,28 @@ export function ResourceSheet({
                   defaultValue={initial.tags}
                   aria-invalid={!!err.tags}
                 />
+              </Field>
+              <Field
+                label="Redundancy group"
+                name="redundancyGroup"
+                hint="Resources with the same group can stand in for each other: impact treats them as redundant"
+                error={err.redundancyGroup}
+              >
+                <Input
+                  id="redundancyGroup"
+                  name="redundancyGroup"
+                  defaultValue={initial.redundancyGroup}
+                  maxLength={64}
+                  placeholder="sql-cluster"
+                  list="redundancy-groups"
+                  autoComplete="off"
+                  aria-invalid={!!err.redundancyGroup}
+                />
+                <datalist id="redundancy-groups">
+                  {redundancyGroups.map((g) => (
+                    <option key={g} value={g} />
+                  ))}
+                </datalist>
               </Field>
               <Field
                 label="Links"

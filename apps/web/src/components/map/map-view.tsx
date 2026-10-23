@@ -64,6 +64,7 @@ import { MapInspector } from "./map-inspector";
 import { GroupNode, ResourceNode, type ImpactLevel, type ResourceFlowNode } from "./resource-node";
 import { ShareViewDialog, type ShareResult } from "./share-view-dialog";
 import { ViewsMenu } from "./views-menu";
+import { redundancyGroups } from "@/lib/redundancy";
 import { useTheme } from "@/lib/theme";
 
 /** Below this zoom node names are unreadable: large maps open on their main group instead. */
@@ -203,8 +204,10 @@ function MapCanvas({
   );
   const impactResult = useMemo(() => {
     const roots = impactIds.filter((id) => byId.has(id));
-    return roots.length ? changeImpact(confidenceEdges, roots) : null;
-  }, [impactIds, confidenceEdges, byId]);
+    return roots.length
+      ? changeImpact(confidenceEdges, roots, { groups: redundancyGroups(nodes) })
+      : null;
+  }, [impactIds, confidenceEdges, byId, nodes]);
 
   // Path mode (M30): only the chain linking two resources.
   const [pathEnds, setPathEnds] = useState<{ from: string; to: string } | null>(null);
@@ -740,7 +743,7 @@ function MapCanvas({
       } else if (impactResult && impactLabel) {
         const by = (c: string) => impactResult.affected.filter((a) => a.confidence === c).length;
         view = `Impact of ${impactLabel}`;
-        subtitle = `If ${impactLabel} ${impactVerb}, ${impactResult.affected.length} resources could be affected (${by("confirmed")} confirmed, ${by("detected")} detected, ${by("inferred")} inferred)`;
+        subtitle = `If ${impactLabel} ${impactVerb}, ${impactResult.affected.length} resources could be affected (${by("confirmed")} confirmed, ${by("detected")} detected, ${by("inferred")} inferred)${impactResult.covered.length ? `; ${impactResult.covered.length} covered by redundancy` : ""}`;
       } else if (focus && focusNode) {
         const dir =
           focus.direction === "both"
@@ -897,6 +900,12 @@ function MapCanvas({
                 If <span className="font-mono">{impactLabel}</span> {impactVerb},{" "}
                 <span className="text-warning font-medium">{impactResult.affected.length}</span>{" "}
                 could be affected
+                {impactResult.covered.length > 0 && (
+                  <span className="text-muted">
+                    {" "}
+                    · {impactResult.covered.length} covered by redundancy
+                  </span>
+                )}
               </span>
               {(["confirmed", "detected", "inferred"] as const).map((c) => {
                 const n = impactResult.affected.filter((a) => a.confidence === c).length;

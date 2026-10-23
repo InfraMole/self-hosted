@@ -109,6 +109,12 @@ ports, running software and who talks to whom. For an attacker that is a
   refused, config file ACL-restricted, token can be passed via env var.
 - Raw observations are deleted after 7 days (opportunistically on each
   report of that agent).
+- Collection issues (M39) are two enums per failed collector (which one,
+  and access-denied / timeout / unreachable / failed) — the schema is
+  strict, so no error text, path, host or user name can be sent; the full
+  message stays in the agent's local log.
+- DNS servers (M39): addresses only (`z.ipv4() | z.ipv6()`, at most 8) —
+  never search domains, resolver options or the contents of resolv.conf.
 
 ## 5c. Import controls (M8)
 
@@ -343,7 +349,8 @@ last IP, expired sessions and tokens) is deleted, not kept "just in case".
   the link's workspace. The server applies the view with
   `lib/map-subset.ts#viewSubset` and sends **only that subset**, with
   `ipAddresses: []`, `owner` / `ownerContact: null` and relationship
-  `note: null` (notes often hold IPs). No links into the workspace, no
+  `note: null` (notes often hold IPs). Redundancy group names stay, so the
+  shared impact matches the workspace's (ADR-057). No links into the workspace, no
   saved-view actions. `robots: noindex`, `referrer: no-referrer`, 120
   requests / min per IP. Malformed, unknown, revoked, expired → 404.
 - What a link reveals (names, types, environments, the shape of the graph)

@@ -20,6 +20,7 @@ import {
   DEFAULT_IMPACT_DEPTH,
   getChangeImpact,
   getResourceImpact,
+  type ResourceImpact,
   toImpactEdges,
 } from "@/server/modules/impact/impact";
 import { getWorkspaceGraph } from "@/server/modules/map/map";
@@ -63,6 +64,7 @@ export function toApiResource(r: Resource) {
     notes: r.notes,
     owner: r.owner,
     ownerContact: r.ownerContact,
+    redundancyGroup: r.redundancyGroup,
     tags: r.tags,
     hostname: m.hostname ?? null,
     fqdn: m.fqdn ?? null,
@@ -221,6 +223,27 @@ export async function apiListRelationships(ctx: WorkspaceContext, raw: unknown) 
 
 // ───────────────────────── Impact ─────────────────────────
 
+/** M39 (ADR-057): groups that lose redundancy, and what their remaining members still cover. */
+function apiRedundancy(result: Pick<ResourceImpact, "covered" | "degraded">) {
+  const ref = (n: { id: string; name: string; type: ResourceType }) => ({
+    id: n.id,
+    name: n.name,
+    type: n.type,
+  });
+  return {
+    degraded: result.degraded.map((g) => ({
+      group: g.groupName,
+      down: g.down.map(ref),
+      up: g.up.map(ref),
+    })),
+    covered: result.covered.map((c) => ({
+      resource: ref(c.resource),
+      group: c.groupName,
+      path: c.path.map((pid, i) => ({ id: pid, name: c.pathNames[i]! })),
+    })),
+  };
+}
+
 export const apiImpactQuery = z.object({
   depth: z.coerce.number().int().min(1).max(DEFAULT_IMPACT_DEPTH).default(DEFAULT_IMPACT_DEPTH),
 });
@@ -256,6 +279,7 @@ export async function apiImpact(ctx: WorkspaceContext, resourceId: string, raw: 
       ownerContact: a.resource.ownerContact,
     })),
     summary: result.summary,
+    redundancy: apiRedundancy(result),
     whoToWarn: {
       owners: warn.groups.map((g) => ({
         owner: g.owner,
@@ -319,6 +343,7 @@ export async function apiChangeImpact(ctx: WorkspaceContext, raw: unknown) {
       ownerContact: a.resource.ownerContact,
     })),
     summary: result.summary,
+    redundancy: apiRedundancy(result),
     whoToWarn: {
       owners: warn.groups.map((g) => ({
         owner: g.owner,
