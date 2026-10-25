@@ -63,6 +63,22 @@ test("selecting a resource shows its details and impact", async ({ page }) => {
   await expect(page).toHaveURL(/impact=/);
 });
 
+test("clicking a line explains the relationship and where it comes from (M40)", async ({
+  page,
+}) => {
+  await page.goto(map);
+  await expect(page.locator(".react-flow__edge").first()).toBeAttached();
+  // A synthetic click: a curve's bounding-box centre is not always on the line.
+  await page.locator(".react-flow__edge").first().dispatchEvent("click");
+  const details = page.getByRole("complementary", { name: "Relationship details" });
+  await expect(details).toBeVisible();
+  await expect(details).toContainText("Confirmed by a person");
+  await expect(details.getByRole("heading", { name: "Where it comes from" })).toBeVisible();
+  await expect(details).toContainText("Origin");
+  await details.getByRole("button", { name: "Close relationship details" }).click();
+  await expect(details).toHaveCount(0);
+});
+
 test("saves a view with its boxes and positions, and opens it by link", async ({ page }) => {
   page.on("dialog", (d) => void d.accept());
   await page.goto(map);

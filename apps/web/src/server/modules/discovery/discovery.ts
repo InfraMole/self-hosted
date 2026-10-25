@@ -7,6 +7,7 @@ import type { WorkspaceContext } from "@/server/authz";
 import { tenantDb } from "@/server/db";
 import { parseIssues, type ReportV1 } from "@/server/modules/agents/protocol";
 import { reportGaps } from "@/lib/report-gaps";
+import { listChangesForSubject } from "@/server/modules/changes/changes";
 import type { ResourceRef } from "@/server/modules/relationships/relationships";
 import { resourceMetadataSchema } from "@/server/modules/resources/schemas";
 import { excludedSuggestions, planDiscovery, type FactInput } from "./plan";
@@ -424,6 +425,68 @@ export async function listSuggestions(
     ...r,
     evidence: summarise(evidence),
   }));
+}
+
+/** One relationship explained for the map inspector (M40). */
+export interface RelationshipDetail {
+  id: string;
+  type: keyof typeof RELATIONSHIP_TYPE_INFO;
+  origin: "MANUAL" | "DETECTED" | "INFERRED";
+  status: "CONFIRMED" | "UNCONFIRMED" | "IGNORED";
+  note: string | null;
+  from: ResourceRef;
+  to: ResourceRef;
+  evidence: EvidenceSummary;
+  createdAt: Date;
+  confirmedAt: Date | null;
+  /** Who recorded it first: a person, an import, an agent or the system. */
+  addedBy: { actorType: string; name: string | null } | null;
+  confirmedBy: string | null;
+}
+
+/** Where a relationship comes from and how sure it is. Null outside this workspace. */
+export async function getRelationshipDetail(
+  ctx: WorkspaceContext,
+  id: string,
+): Promise<RelationshipDetail | null> {
+  const db = tenantDb(ctx);
+  const rel = await db.relationship.findFirst({
+    where: { id, workspaceId: ctx.workspaceId },
+    select: {
+      id: true,
+      type: true,
+      origin: true,
+      status: true,
+      note: true,
+      createdAt: true,
+      confirmedAt: true,
+      from: { select: refSelect },
+      to: { select: refSelect },
+      evidence: {
+        select: {
+          kind: true,
+          port: true,
+          protocolGuess: true,
+          processName: true,
+          sampleCount: true,
+          firstSeenAt: true,
+          lastSeenAt: true,
+        },
+      },
+    },
+  });
+  if (!rel) return null;
+  // Newest first: the last creation event is the first one recorded.
+  const events = await listChangesForSubject(ctx, "RELATIONSHIP", rel.id, 500);
+  const first = events.filter((e) => e.kind === "CREATED" || e.kind === "DISCOVERED").at(-1);
+  const confirmed = rel.confirmedAt ? events.find((e) => e.kind === "CONFIRMED") : undefined;
+  const { evidence, ...r } = rel;
+  return {
+    ...r,
+    evidence: summarise(evidence),
+    addedBy: first ? { actorType: first.actorType, name: first.actorName } : null,
+    confirmedBy: confirmed?.actorName ?? null,
+  };
 }
 
 export async function countSuggestions(

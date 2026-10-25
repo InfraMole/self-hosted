@@ -51,6 +51,20 @@ a larger icon and name only, and further out just their icon, so the shape
 of the map stays readable. Double-click a resource to focus on it, or filter
 by type or environment.
 
+### Ask a line why it is there
+
+Click a line to see what it says — for example _Billing uses database
+SQL01_ — how certain it is, and **where it comes from**: an observed
+connection (ports, process, how many times and when it was last seen), a
+host configured to use a DNS server, an import, or a person. A suggestion
+can be confirmed or ignored right there (members and above). A line
+between collapsed boxes stands for several relationships: pick one from the
+list.
+
+A small warning sign on a server means its data may be out of date: its
+agent stopped reporting, or its last report was incomplete. Hover it, or
+select the server, to see why.
+
 ### Move things and save views
 
 Drag a resource to put it where you expect it: it stays there (inside its
@@ -148,6 +162,10 @@ Impact then stops at a group while another member is still up:
 
 What runs on a member (a database on a failing server) is always affected:
 redundancy covers the consumers of a group, not its contents.
+
+On the map, the impact view draws what redundancy covers with a green
+dashed border and the members still up with a green border; every member
+of a group shows a small badge with the number of members.
 
 :::note Declared, not verified
 A redundancy group is what you say about your infrastructure. InfraMole does

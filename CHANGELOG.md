@@ -5,6 +5,20 @@ images). The agent has its own changelog in the InfraMole/agent repository.
 To update an installation, see
 [Upgrade guide](https://inframole.com/docs/operations/upgrade).
 
+## 0.31.0 — 2026-10-25
+
+### Added
+
+- **Ask a line on the map why it is there**: click a relationship to see
+  what it says, how certain it is and where it comes from — observed
+  connection (ports, process, last seen), configured DNS server, import or
+  a person — and confirm or ignore a suggestion without leaving the map.
+- **Redundancy on the map**: the impact view draws what redundancy still
+  covers and the members that keep their group up, also in exports; group
+  members carry a small badge, and selecting one keeps the others in view.
+- **Out-of-date hosts on the map**: a warning sign marks servers whose
+  agent stopped reporting or whose last report was incomplete.
+
 ## 0.30.0 — 2026-10-24
 
 ### Added

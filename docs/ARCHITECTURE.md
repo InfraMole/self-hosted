@@ -252,6 +252,21 @@ Saved views (M26 phase 3, ADR-041): `server/modules/map/views.ts`
 Pinned positions: `groups.ts#withPins` over `nestedLayout`. Semantic zoom:
 `resource-node.tsx#detailAt`.
 
+M40: clicking a line selects it (`onEdgeClick`; a line between collapsed
+boxes lists the relationships it stands for via `display.represents`).
+`components/map/relationship-inspector.tsx` loads its evidence on demand
+through `map/actions.ts#relationshipDetailAction` →
+`discovery.ts#getRelationshipDetail(ctx, id)` (evidence summary, first
+CREATED / DISCOVERED change for "where it comes from", confirmation), and
+reviews suggestions with the Suggestions server actions (MEMBER+). The share
+page gets neither the action nor evidence. `getWorkspaceGraph` adds
+`MapNode.health` (`lastReportAt`, `gaps` from `lib/report-gaps.ts`) for
+resources with an active agent; shares set it to null. Impact levels add
+`covered` and `holding` (still-up members of degraded groups), drawn and
+exported; `lib/map-subset.ts` includes them in impact views. Nodes of a
+redundancy group with ≥ 2 members on the map carry a badge. The map page
+runs the throttled `markStaleHosts`.
+
 ✅ M3. `server/modules/map/map.ts#getWorkspaceGraph(ctx)` returns all
 non-archived resources and non-ignored relationships of the workspace
 (no cap since M15: a truncated graph silently hid dependencies from the map

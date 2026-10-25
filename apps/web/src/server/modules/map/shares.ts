@@ -193,7 +193,13 @@ export async function resolveShare(token: string, now = new Date()): Promise<Sha
   return {
     viewName: share.savedView.name,
     workspaceName: share.workspace.name,
-    nodes: subset.nodes.map((n) => ({ ...n, ipAddresses: [], owner: null, ownerContact: null })),
+    nodes: subset.nodes.map((n) => ({
+      ...n,
+      ipAddresses: [],
+      owner: null,
+      ownerContact: null,
+      health: null,
+    })),
     edges: subset.edges.map((e) => ({ ...e, note: null })),
     state: sanitizeViewState(parsed.data, (id) => ids.has(id)),
   };

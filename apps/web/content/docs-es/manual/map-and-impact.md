@@ -54,6 +54,21 @@ grandes, y más lejos solo su icono, para que la forma del mapa siga siendo
 legible. Haz doble clic en un recurso para centrarte en él, o filtra por
 tipo o entorno.
 
+### Pregúntale a una línea por qué está ahí
+
+Haz clic en una línea para ver qué dice — por ejemplo _Billing uses
+database SQL01_ —, qué certeza tiene y **de dónde sale**: una conexión
+observada (puertos, proceso, cuántas veces y cuándo se vio por última vez),
+un host configurado para usar un servidor DNS, una importación o una
+persona. Una sugerencia se puede confirmar o ignorar ahí mismo (miembros y
+superiores). Una línea entre cajas plegadas representa varias relaciones:
+elige una de la lista.
+
+Una pequeña señal de aviso en un servidor indica que sus datos pueden estar
+desactualizados: su agente dejó de informar o su último informe salió
+incompleto. Pasa el ratón por encima, o selecciona el servidor, para ver
+por qué.
+
 ### Mover cosas y guardar vistas
 
 Arrastra un recurso para ponerlo donde lo esperas: se queda ahí (dentro de
@@ -160,6 +175,11 @@ pie:
 Lo que se ejecuta en un miembro (una base de datos en un servidor que falla)
 siempre se ve afectado: la redundancia cubre a quienes consumen el grupo, no
 lo que contiene.
+
+En el mapa, la vista de impacto dibuja lo que cubre la redundancia con un
+borde verde discontinuo y los miembros que siguen en pie con un borde
+verde; cada miembro de un grupo muestra una pequeña etiqueta con el número
+de miembros.
 
 :::note Declarada, no verificada
 Un grupo de redundancia es lo que tú dices de tu infraestructura. InfraMole

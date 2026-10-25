@@ -9,9 +9,11 @@ import type {
   ResourceStatus,
   ResourceType,
 } from "@/generated/prisma/enums";
+import { reportGaps } from "@/lib/report-gaps";
 import { resolveTech, type ResourceTech } from "@/lib/tech";
 import type { WorkspaceContext } from "@/server/authz";
 import { tenantDb } from "@/server/db";
+import { parseIssues } from "@/server/modules/agents/protocol";
 import { resourceMetadataSchema } from "@/server/modules/resources/schemas";
 
 export interface MapNode {
@@ -29,6 +31,14 @@ export interface MapNode {
   ownerContact: string | null;
   /** Human-declared redundancy group (M39, ADR-057). */
   redundancyGroup: string | null;
+  /** Hosts with an active agent (M40): when it last reported and what its last report missed. */
+  health: NodeHealth | null;
+}
+
+export interface NodeHealth {
+  lastReportAt: Date | null;
+  /** Plain-language gaps of the last report (lib/report-gaps.ts); empty when complete. */
+  gaps: string[];
 }
 
 export interface MapEdge {
@@ -52,7 +62,7 @@ export interface WorkspaceGraph {
  */
 export async function getWorkspaceGraph(ctx: WorkspaceContext): Promise<WorkspaceGraph> {
   const db = tenantDb(ctx);
-  const [resources, relationships] = await Promise.all([
+  const [resources, relationships, agents] = await Promise.all([
     db.resource.findMany({
       where: { workspaceId: ctx.workspaceId, status: { not: "ARCHIVED" } },
       select: {
@@ -84,7 +94,27 @@ export async function getWorkspaceGraph(ctx: WorkspaceContext): Promise<Workspac
         note: true,
       },
     }),
+    db.agent.findMany({
+      where: { workspaceId: ctx.workspaceId, status: "ACTIVE", resourceId: { not: null } },
+      select: {
+        resourceId: true,
+        lastSeenAt: true,
+        lastReportIssues: true,
+        lastReportTruncated: true,
+      },
+      orderBy: { lastSeenAt: { sort: "asc", nulls: "first" } },
+    }),
   ]);
+  // Latest-reporting agent wins when a host has several.
+  const health = new Map<string, NodeHealth>(
+    agents.map((a) => [
+      a.resourceId!,
+      {
+        lastReportAt: a.lastSeenAt,
+        gaps: reportGaps(parseIssues(a.lastReportIssues), a.lastReportTruncated),
+      },
+    ]),
+  );
 
   const nodes = resources.map(({ metadata, tags, ...r }) => {
     const parsed = resourceMetadataSchema.safeParse(metadata);
@@ -92,6 +122,7 @@ export async function getWorkspaceGraph(ctx: WorkspaceContext): Promise<Workspac
       ...r,
       ipAddresses: parsed.success ? (parsed.data.ipAddresses ?? []) : [],
       tech: resolveTech(tags, parsed.success ? parsed.data.os : null),
+      health: health.get(r.id) ?? null,
     };
   });
   const ids = new Set(nodes.map((n) => n.id));

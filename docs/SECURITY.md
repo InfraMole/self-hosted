@@ -350,7 +350,10 @@ last IP, expired sessions and tokens) is deleted, not kept "just in case".
   `lib/map-subset.ts#viewSubset` and sends **only that subset**, with
   `ipAddresses: []`, `owner` / `ownerContact: null` and relationship
   `note: null` (notes often hold IPs). Redundancy group names stay, so the
-  shared impact matches the workspace's (ADR-057). No links into the workspace, no
+  shared impact matches the workspace's (ADR-057). Agent health is
+  `null`, and the relationship inspector shows only the sentence and its
+  confidence: the evidence action (ports, processes) is never passed to a
+  share page (M40). No links into the workspace, no
   saved-view actions. `robots: noindex`, `referrer: no-referrer`, 120
   requests / min per IP. Malformed, unknown, revoked, expired → 404.
 - What a link reveals (names, types, environments, the shape of the graph)

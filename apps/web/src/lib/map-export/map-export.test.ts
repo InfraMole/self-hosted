@@ -108,6 +108,23 @@ describe("buildScene", () => {
     expect(scene.edges[0]!.color).toBe(PALETTE.impact);
     expect(scene.legend.slice(0, 2).map((l) => l.label)).toEqual(["Fails", "Could be affected"]);
   });
+
+  it("draws what redundancy covers in its own colour, with a legend (M40)", () => {
+    const scene = buildScene(
+      input({
+        impactMode: true,
+        nodes: input().nodes.map((n) => ({ ...n, impact: n.id === "sql" ? "holding" : "covered" })),
+      }),
+    );
+    expect(scene.nodes.map((n) => [n.border, n.dash])).toEqual([
+      [PALETTE.covered, DASH.detected],
+      [PALETTE.covered, []],
+    ]);
+    expect(scene.legend.slice(2, 4).map((l) => l.label)).toEqual([
+      "Covered by redundancy",
+      "Still up (redundancy)",
+    ]);
+  });
 });
 
 describe("export helpers", () => {

@@ -12,6 +12,7 @@ import {
   TypeIcon,
 } from "@/components/resources/resource-badges";
 import { Button } from "@/components/ui/button";
+import { formatDateTime, formatRelative } from "@/lib/format";
 import { RESOURCE_TYPES } from "@/lib/resource-presentation";
 import type { MapEdge, MapNode } from "@/server/modules/map/map";
 import { MapFind } from "./map-find";
@@ -34,6 +35,12 @@ interface Props {
   onClose: () => void;
   /** Collapsed box: what it contains and the relationships inside it. */
   inside?: { resources: MapNode[]; relationships: string[] };
+  /** Redundancy group with other members on the map (M40). */
+  redundancy?: { name: string; members: { id: string; name: string }[] };
+  /** Show a resource on the map whatever hides it (filters, focus, collapsed boxes). */
+  onFind?: (id: string) => void;
+  /** Impact view (M40): covered by its group's other members, or keeping its group up. */
+  impactRedundancy?: "covered" | "holding";
 }
 
 const SECTIONS: { bucket: Bucket; title: string }[] = [
@@ -56,6 +63,9 @@ export function MapInspector({
   onPath,
   onClose,
   inside,
+  redundancy,
+  impactRedundancy,
+  onFind,
 }: Props) {
   const [pathFrom, setPathFrom] = useState<string | null>(null);
   const rows: Record<
@@ -110,6 +120,60 @@ export function MapInspector({
                 {r.owner}
                 {r.ownerContact && (
                   <span className="text-muted block break-all">{r.ownerContact}</span>
+                )}
+              </dd>
+            </>
+          )}
+          {redundancy && (
+            <>
+              <dt className="text-muted">Redundancy</dt>
+              <dd>
+                <span className="font-mono">{redundancy.name}</span>
+                <span className="text-muted block">
+                  Interchangeable with{" "}
+                  {redundancy.members
+                    .filter((m) => m.id !== r.id)
+                    .map((m, i) => (
+                      <span key={m.id}>
+                        {i > 0 && ", "}
+                        <button
+                          type="button"
+                          onClick={() => (onFind ?? onSelect)(m.id)}
+                          className="text-foreground hover:text-accent font-mono underline-offset-2 hover:underline"
+                        >
+                          {m.name}
+                        </button>
+                      </span>
+                    ))}
+                </span>
+              </dd>
+            </>
+          )}
+          {r.health && (
+            <>
+              <dt className="text-muted">Agent</dt>
+              <dd>
+                {r.status === "STALE" ? (
+                  <span className="text-warning">
+                    Not reporting
+                    {r.health.lastReportAt && (
+                      <span title={formatDateTime(r.health.lastReportAt)}>
+                        {" "}
+                        since {formatRelative(r.health.lastReportAt)}
+                      </span>
+                    )}
+                  </span>
+                ) : r.health.lastReportAt ? (
+                  <span title={formatDateTime(r.health.lastReportAt)}>
+                    Last report {formatRelative(r.health.lastReportAt)}
+                  </span>
+                ) : (
+                  <span className="text-muted">No report yet</span>
+                )}
+                {r.health.gaps.length > 0 && (
+                  <span className="text-warning mt-0.5 block">
+                    Last report incomplete: {r.health.gaps.join(" ")}
+                  </span>
                 )}
               </dd>
             </>
@@ -180,6 +244,19 @@ export function MapInspector({
             </p>
             <p className="mt-1.5 font-mono text-[11px] leading-relaxed break-words">
               {impactInfo.pathNames.join(" → ")}
+            </p>
+          </div>
+        )}
+
+        {impactRedundancy && (
+          <div className="border-success/40 bg-surface-2 rounded-md border px-3 py-2.5">
+            <p className="text-success text-xs font-medium">
+              {impactRedundancy === "covered" ? "Covered by redundancy" : "Still up"}
+            </p>
+            <p className="text-muted mt-1 text-xs">
+              {impactRedundancy === "covered"
+                ? "Would be affected, but the other members of a redundancy group still serve it."
+                : `Another member of ${redundancy?.name ?? "its redundancy group"} is down; this one keeps the group running.`}
             </p>
           </div>
         )}

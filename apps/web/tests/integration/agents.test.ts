@@ -17,6 +17,7 @@ import {
   ignoreRelationship,
   listRelationshipsForResource,
 } from "@/server/modules/relationships/relationships";
+import { getWorkspaceGraph } from "@/server/modules/map/map";
 import { listResources } from "@/server/modules/resources/resources";
 import {
   createWorkspace,
@@ -274,6 +275,10 @@ describe("agent reports", () => {
       "Could not read services (access denied), Docker containers (timed out).",
       "Reached the report limits — some items were left out.",
     ]);
+    // M40: the map marks the host too.
+    const node = (await getWorkspaceGraph(ctx)).nodes.find((n) => n.id === agent!.resourceId);
+    expect(node!.health!.gaps).toEqual(host!.gaps);
+    expect(node!.health!.lastReportAt).toBeInstanceOf(Date);
 
     // Only categories are accepted — never error text — and unknown collectors are rejected.
     expect(

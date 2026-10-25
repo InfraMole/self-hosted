@@ -55,16 +55,19 @@ import {
   type SavedViewSummary,
   type ViewActionResult,
 } from "@/lib/map-view-state";
+import type { ReviewState } from "@/app/w/[slug]/suggestions/actions";
+import type { RelationshipDetail } from "@/server/modules/discovery/discovery";
 import type { MapEdge, MapNode } from "@/server/modules/map/map";
 import { downloadPdf, downloadPng, downloadSvg } from "./export-map";
 import { DETAILED_LAYOUT_LIMIT, NODE_HEIGHT, NODE_WIDTH, drawDirection } from "./layout";
 import { containment, displayGraph, hubs, nestedLayout, withPins, type Pin } from "./groups";
 import { MapFind } from "./map-find";
 import { MapInspector } from "./map-inspector";
+import { RelationshipInspector } from "./relationship-inspector";
 import { GroupNode, ResourceNode, type ImpactLevel, type ResourceFlowNode } from "./resource-node";
 import { ShareViewDialog, type ShareResult } from "./share-view-dialog";
 import { ViewsMenu } from "./views-menu";
-import { redundancyGroups } from "@/lib/redundancy";
+import { redundancyGroups, redundancyKey } from "@/lib/redundancy";
 import { useTheme } from "@/lib/theme";
 
 /** Below this zoom node names are unreadable: large maps open on their main group instead. */
@@ -145,6 +148,11 @@ interface Props {
    * URL rewriting; the data is already the view's subset, without IPs or owners.
    */
   shared?: boolean;
+  /** M40: where a relationship comes from (absent on a share page). */
+  loadRelationship?: (id: string) => Promise<RelationshipDetail | null>;
+  /** M40, MEMBER+: review a suggestion from the map. */
+  confirmSuggestion?: (id: string, input: { type?: string; note?: string }) => Promise<ReviewState>;
+  ignoreSuggestion?: (id: string) => Promise<ReviewState>;
 }
 
 export function MapView(props: Props) {
@@ -169,6 +177,9 @@ function MapCanvas({
   shared = false,
   saveView,
   deleteView,
+  loadRelationship,
+  confirmSuggestion,
+  ignoreSuggestion,
 }: Props) {
   const COLORS = PALETTE[useTheme()];
   const { setViewport, setCenter, getZoom } = useReactFlow();
@@ -196,7 +207,20 @@ function MapCanvas({
   const [impactIds, setImpactIds] = useState<string[]>(
     initial ? impactRootsOf(initial) : initialImpacts,
   );
-  const [selectedId, setSelectedId] = useState<string | null>(impactIds[0] ?? focus?.id ?? null);
+  const [selectedId, setSelectedIdState] = useState<string | null>(
+    impactIds[0] ?? focus?.id ?? null,
+  );
+  // M40: a selected line, the relationships it stands for and the one shown.
+  const [selectedLine, setSelectedLine] = useState<{
+    line: string;
+    ids: string[];
+    chosen: string | null;
+  } | null>(null);
+  /** Selecting a resource closes a selected line, and the other way round. */
+  const setSelectedId = useCallback((id: string | null) => {
+    setSelectedIdState(id);
+    setSelectedLine(null);
+  }, []);
 
   const confidenceEdges = useMemo(
     () => edges.map((e) => ({ ...e, confidence: edgeConfidence(e.status, e.origin) })),
@@ -224,8 +248,32 @@ function MapCanvas({
     if (!impactResult) return null;
     const levels = new Map<string, ImpactLevel>(impactResult.rootIds.map((id) => [id, "root"]));
     for (const a of impactResult.affected) levels.set(a.resourceId, a.confidence);
+    // M40: what redundancy still covers, and the members that keep their group up.
+    for (const c of impactResult.covered) levels.set(c.resourceId, "covered");
+    for (const g of impactResult.degraded)
+      for (const id of g.up) if (!levels.has(id)) levels.set(id, "holding");
     return levels;
   }, [impactResult]);
+
+  // Redundancy groups with at least two members on the map: name as a member spells it, and who.
+  const redundancyOf = useMemo(() => {
+    const members = new Map<string, MapNode[]>();
+    for (const n of nodes) {
+      if (!n.redundancyGroup) continue;
+      const key = redundancyKey(n.redundancyGroup);
+      members.set(key, [...(members.get(key) ?? []), n]);
+    }
+    const out = new Map<string, { name: string; members: { id: string; name: string }[] }>();
+    for (const list of members.values())
+      if (list.length > 1) {
+        const group = {
+          name: list[0]!.redundancyGroup!,
+          members: list.map((m) => ({ id: m.id, name: m.name })),
+        };
+        for (const n of list) out.set(n.id, group);
+      }
+    return out;
+  }, [nodes]);
 
   const impactEdgeIds = useMemo(
     () => new Set(impactResult?.affected.flatMap((a) => a.viaEdges) ?? []),
@@ -343,7 +391,7 @@ function MapCanvas({
         });
       setSelectedId(id);
     },
-    [contained, display],
+    [contained, display, setSelectedId],
   );
 
   // Find on map (M29): show it whatever hides it, select it, then centre on
@@ -398,11 +446,13 @@ function MapCanvas({
       if (e.from === selectedId) set.add(e.to);
       if (e.to === selectedId) set.add(e.from);
     }
-    // A box stays bright when something inside it is.
+    // M40: the other members of its redundancy group stay bright too.
+    for (const m of redundancyOf.get(selectedId)?.members ?? []) set.add(m.id);
+    // A box stays bright when something inside it is (even inside a collapsed box).
     for (const id of [...set])
-      for (let p = display.parentOf.get(id); p; p = display.parentOf.get(p)) set.add(p);
+      for (let p = contained.parentOf.get(id); p; p = contained.parentOf.get(p)) set.add(p);
     return set;
-  }, [selectedId, display, impactIds, pathResult]);
+  }, [selectedId, display, contained, impactIds, pathResult, redundancyOf]);
 
   const [flowNodes, setFlowNodes, onNodesChange] = useNodesState<ResourceFlowNode>([]);
 
@@ -433,11 +483,23 @@ function MapCanvas({
               ? (display.inside.get(id) ?? []).map(describe)
               : undefined,
             onToggle: hasChildren && !subset ? toggleGroup : undefined,
+            redundancy: redundancyOf.get(id),
           },
         };
       }),
     );
-  }, [display, layout, sizeOf, byId, subset, toggleGroup, describe, hubCounts, setFlowNodes]);
+  }, [
+    display,
+    layout,
+    sizeOf,
+    byId,
+    subset,
+    toggleGroup,
+    describe,
+    hubCounts,
+    redundancyOf,
+    setFlowNodes,
+  ]);
 
   // Framing: when the set of visible resources changes (filters, focus,
   // impact) or after Expand all / Collapse all — toggling one box keeps the
@@ -534,7 +596,9 @@ function MapCanvas({
         const phrase = informational
           ? RELATIONSHIP_TYPE_INFO[e.type].label
           : perspective(e, source).phrase;
-        const connected = selectedId !== null && (source === selectedId || target === selectedId);
+        const connected =
+          e.id === selectedLine?.line ||
+          (selectedId !== null && (source === selectedId || target === selectedId));
         const onImpactPath = impactEdgeIds.has(e.id);
         const onPath = pathEdgeIds.has(e.id);
         const color =
@@ -568,6 +632,8 @@ function MapCanvas({
           labelBgPadding: [6, 3] as [number, number],
           labelBgBorderRadius: 4,
           zIndex: connected ? 10 : 0,
+          // M40: a line can be selected to see where it comes from.
+          interactionWidth: 14,
           markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14, color },
           style: {
             stroke: color,
@@ -600,6 +666,7 @@ function MapCanvas({
       standsFor,
       hubCounts,
       COLORS,
+      selectedLine,
     ],
   );
 
@@ -684,29 +751,38 @@ function MapCanvas({
       setSelectedId(s.impact ?? s.focus?.id ?? null);
       setActiveViewId(view?.id ?? null);
     },
-    [byId],
+    [byId, setSelectedId],
   );
 
-  const focusOn = useCallback((id: string) => {
-    setImpactIds([]);
-    setPathEnds(null);
-    setFocus((f) => ({ id, depth: f?.depth ?? 2, direction: f?.direction ?? "both" }));
-    setSelectedId(id);
-  }, []);
+  const focusOn = useCallback(
+    (id: string) => {
+      setImpactIds([]);
+      setPathEnds(null);
+      setFocus((f) => ({ id, depth: f?.depth ?? 2, direction: f?.direction ?? "both" }));
+      setSelectedId(id);
+    },
+    [setSelectedId],
+  );
 
-  const showImpact = useCallback((id: string) => {
-    setFocus(null);
-    setPathEnds(null);
-    setImpactIds([id]);
-    setSelectedId(id);
-  }, []);
+  const showImpact = useCallback(
+    (id: string) => {
+      setFocus(null);
+      setPathEnds(null);
+      setImpactIds([id]);
+      setSelectedId(id);
+    },
+    [setSelectedId],
+  );
 
-  const showPath = useCallback((from: string, to: string) => {
-    setFocus(null);
-    setImpactIds([]);
-    setPathEnds({ from, to });
-    setSelectedId(from);
-  }, []);
+  const showPath = useCallback(
+    (from: string, to: string) => {
+      setFocus(null);
+      setImpactIds([]);
+      setPathEnds({ from, to });
+      setSelectedId(from);
+    },
+    [setSelectedId],
+  );
   const pathText = useMemo(
     () =>
       pathResult
@@ -868,7 +944,15 @@ function MapCanvas({
               return next;
             });
           }}
+          onEdgeClick={(_, line) => {
+            const ids = (display.represents.get(line.id) ?? []).map((e) => e.id);
+            if (!ids.length) return;
+            setSelectedIdState(null);
+            setSelectedLine({ line: line.id, ids, chosen: ids.length === 1 ? ids[0]! : null });
+          }}
           onPaneClick={() => setSelectedId(null)}
+          // Dragging moves a resource; only a click selects it (and opens the inspector).
+          selectNodesOnDrag={false}
           nodesConnectable={false}
           edgesFocusable={false}
           colorMode={COLORS === PALETTE.light ? "light" : "dark"}
@@ -1058,7 +1142,11 @@ function MapCanvas({
           <ExportMenu onExport={exportView} />
         </div>
 
-        <Legend />
+        <Legend
+          redundancy={
+            !!impactResult && (impactResult.covered.length > 0 || impactResult.degraded.length > 0)
+          }
+        />
         {sharing && shareView && (
           <ShareViewDialog
             view={sharing}
@@ -1083,7 +1171,21 @@ function MapCanvas({
         )}
       </div>
 
-      {selected && (
+      {selectedLine && (
+        <LineInspector
+          selection={selectedLine}
+          edges={edges}
+          byId={byId}
+          describe={describe}
+          onChoose={(id) => setSelectedLine({ ...selectedLine, chosen: id })}
+          onSelectResource={selectAndReveal}
+          onClose={() => setSelectedLine(null)}
+          loadDetail={shared ? undefined : loadRelationship}
+          confirm={shared ? undefined : confirmSuggestion}
+          ignore={shared ? undefined : ignoreSuggestion}
+        />
+      )}
+      {selected && !selectedLine && (
         <MapInspector
           workspaceSlug={shared ? null : workspaceSlug}
           resource={selected}
@@ -1102,6 +1204,15 @@ function MapCanvas({
           }
           onSelect={selectAndReveal}
           inside={selectedInside}
+          redundancy={redundancyOf.get(selected.id)}
+          onFind={findOnMap}
+          impactRedundancy={
+            impactLevels?.get(selected.id) === "covered"
+              ? "covered"
+              : impactLevels?.get(selected.id) === "holding"
+                ? "holding"
+                : undefined
+          }
           onFocus={focusOn}
           onImpact={showImpact}
           onPath={showPath}
@@ -1210,8 +1321,14 @@ function Toggle({
   );
 }
 
-function Legend() {
+function Legend({ redundancy }: { redundancy: boolean }) {
   const COLORS = PALETTE[useTheme()];
+  const box = (className: string) => (
+    <span
+      aria-hidden
+      className={cn("bg-surface inline-block h-2.5 w-7 rounded-sm border", className)}
+    />
+  );
   const line = (dash: string | undefined, color: string) => (
     <svg width="28" height="6" aria-hidden>
       <line x1="0" y1="3" x2="28" y2="3" stroke={color} strokeWidth="1.5" strokeDasharray={dash} />
@@ -1231,8 +1348,97 @@ function Legend() {
       <span className="flex items-center gap-2">
         {line(undefined, COLORS.informational)} Informational (no impact)
       </span>
+      {redundancy && (
+        <>
+          <span className="flex items-center gap-2">
+            {box("border-success border-dashed")} Covered by redundancy
+          </span>
+          <span className="flex items-center gap-2">
+            {box("border-success")} Still up — keeps its group running
+          </span>
+        </>
+      )}
       <span className="text-subtle mt-1">Arrows point to what a resource depends on.</span>
+      <span className="text-subtle">Click a line to see where it comes from.</span>
     </div>
+  );
+}
+
+/** M40: the selected line — one relationship, or the ones a box-to-box line stands for. */
+function LineInspector({
+  selection,
+  edges,
+  byId,
+  describe,
+  onChoose,
+  onSelectResource,
+  onClose,
+  loadDetail,
+  confirm,
+  ignore,
+}: {
+  selection: { line: string; ids: string[]; chosen: string | null };
+  edges: MapEdge[];
+  byId: Map<string, MapNode>;
+  describe: (e: MapEdge) => string;
+  onChoose: (id: string) => void;
+  onSelectResource: (id: string) => void;
+  onClose: () => void;
+  loadDetail?: (id: string) => Promise<RelationshipDetail | null>;
+  confirm?: (id: string, input: { type?: string; note?: string }) => Promise<ReviewState>;
+  ignore?: (id: string) => Promise<ReviewState>;
+}) {
+  const present = selection.ids
+    .map((id) => edges.find((e) => e.id === id))
+    .filter((e): e is MapEdge => !!e);
+  const chosen = present.find((e) => e.id === selection.chosen);
+  if (chosen)
+    return (
+      <RelationshipInspector
+        edge={chosen}
+        byId={byId}
+        loadDetail={loadDetail}
+        confirm={confirm}
+        ignore={ignore}
+        onSelectResource={onSelectResource}
+        onClose={onClose}
+      />
+    );
+  return (
+    <aside
+      className="border-border bg-surface flex w-80 shrink-0 flex-col border-l"
+      aria-label="Relationship details"
+    >
+      <div className="border-border flex items-start gap-3 border-b px-4 py-3">
+        <p className="text-muted min-w-0 flex-1 text-xs">
+          {present.length === 0
+            ? "This relationship is no longer on the map."
+            : `This line stands for ${present.length} relationships. Pick one:`}
+        </p>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close relationship details"
+          className="text-subtle hover:bg-surface-2 hover:text-foreground rounded p-1"
+        >
+          <X className="size-4" />
+        </button>
+      </div>
+      <ul className="space-y-0.5 overflow-y-auto px-2 py-2">
+        {present.map((e) => (
+          <li key={e.id}>
+            <button
+              type="button"
+              onClick={() => onChoose(e.id)}
+              className="hover:bg-surface-2 flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs"
+            >
+              <span className="min-w-0 flex-1">{describe(e)}</span>
+              <ConfidenceBadge confidence={edgeConfidence(e.status, e.origin)!} />
+            </button>
+          </li>
+        ))}
+      </ul>
+    </aside>
   );
 }
 

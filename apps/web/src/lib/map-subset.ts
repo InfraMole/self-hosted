@@ -130,7 +130,13 @@ export function viewSubset<N extends SubsetNode, E extends SubsetEdge>(
       confidence: edgeConfidence(e.status, e.origin),
     }));
     const result = changeImpact(withConfidence, roots, { groups: redundancyGroups(nodes) });
-    impactIds = new Set([...roots, ...result.affected.map((a) => a.resourceId)]);
+    impactIds = new Set([
+      ...roots,
+      ...result.affected.map((a) => a.resourceId),
+      // M40: what redundancy covers and the members still up are drawn too.
+      ...result.covered.map((c) => c.resourceId),
+      ...result.degraded.flatMap((g) => g.up),
+    ]);
   }
   const candidates = candidateEdgesOf(edges, {
     showUnconfirmed: state.showUnconfirmed,

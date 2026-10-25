@@ -8,10 +8,20 @@ import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { parseResourceIds } from "@/lib/change-plan";
 import { hasRole } from "@/server/authz";
+import { markStaleHosts } from "@/server/modules/discovery/staleness";
 import { getWorkspaceGraph } from "@/server/modules/map/map";
 import { listSavedViews } from "@/server/modules/map/views";
 import { requireWorkspace } from "@/server/tenancy";
-import { deleteViewAction, saveViewAction, shareViewAction } from "./actions";
+import {
+  confirmSuggestionAction,
+  ignoreSuggestionAction,
+} from "@/app/w/[slug]/suggestions/actions";
+import {
+  deleteViewAction,
+  relationshipDetailAction,
+  saveViewAction,
+  shareViewAction,
+} from "./actions";
 
 export const metadata: Metadata = { title: "Map" };
 
@@ -19,6 +29,7 @@ export default async function MapPage({ params, searchParams }: PageProps<"/w/[s
   const { slug } = await params;
   const ctx = await requireWorkspace(slug);
   const { focus, impact, view } = await searchParams;
+  await markStaleHosts(ctx.workspaceId); // throttled (ADR-016)
   const [graph, views] = await Promise.all([getWorkspaceGraph(ctx), listSavedViews(ctx)]);
   // ?view= opens a saved view of this workspace; it wins over ?focus= / ?impact=.
   const initialViewId = typeof view === "string" && views.some((v) => v.id === view) ? view : null;
@@ -27,6 +38,7 @@ export default async function MapPage({ params, searchParams }: PageProps<"/w/[s
     typeof v === "string" && graph.nodes.some((n) => n.id === v);
   // ?impact= takes one resource, or several separated by commas (a change, M34).
   const initialImpacts = initialViewId ? [] : parseResourceIds(impact).filter(inGraph);
+  const canReview = hasRole(ctx.role, "MEMBER");
   const initialFocus = !initialViewId && !initialImpacts.length && inGraph(focus) ? focus : null;
 
   return (
@@ -58,11 +70,18 @@ export default async function MapPage({ params, searchParams }: PageProps<"/w/[s
             initialImpacts={initialImpacts}
             views={views}
             initialViewId={initialViewId}
-            canEditViews={hasRole(ctx.role, "MEMBER")}
+            canEditViews={canReview}
             saveView={saveViewAction.bind(null, ctx.workspaceSlug)}
             deleteView={deleteViewAction.bind(null, ctx.workspaceSlug)}
             shareView={
               hasRole(ctx.role, "ADMIN") ? shareViewAction.bind(null, ctx.workspaceSlug) : undefined
+            }
+            loadRelationship={relationshipDetailAction.bind(null, ctx.workspaceSlug)}
+            confirmSuggestion={
+              canReview ? confirmSuggestionAction.bind(null, ctx.workspaceSlug) : undefined
+            }
+            ignoreSuggestion={
+              canReview ? ignoreSuggestionAction.bind(null, ctx.workspaceSlug) : undefined
             }
           />
         </div>

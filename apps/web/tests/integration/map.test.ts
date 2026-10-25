@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { ForbiddenError, type WorkspaceContext } from "@/server/authz";
+import { getRelationshipDetail } from "@/server/modules/discovery/discovery";
 import { getWorkspaceGraph } from "@/server/modules/map/map";
 import { getFirstStepsFacts } from "@/server/modules/workspaces/first-steps";
 import {
@@ -9,7 +10,10 @@ import {
   listSavedViews,
   saveView,
 } from "@/server/modules/map/views";
-import { createRelationship } from "@/server/modules/relationships/relationships";
+import {
+  confirmRelationship,
+  createRelationship,
+} from "@/server/modules/relationships/relationships";
 import { createResource } from "@/server/modules/resources/resources";
 import {
   createWorkspace,
@@ -152,5 +156,75 @@ describe("first steps (M28)", () => {
     expect(facts.showcase).toEqual({ id: sql.id, name: "SQL01", affected: 2 });
     // Another workspace sees none of it.
     expect((await getFirstStepsFacts(await ownerContext("Globex"))).resources).toBe(0);
+  });
+});
+
+describe("getRelationshipDetail (M40)", () => {
+  it("explains where a relationship comes from, only inside its workspace", async () => {
+    const acme = await ownerContext("Acme");
+    const globex = await ownerContext("Globex");
+    const app = await createResource(acme, { name: "Billing", type: "APPLICATION" });
+    const db = await createResource(acme, { name: "SQL01", type: "DATABASE" });
+    const manual = await createRelationship(acme, {
+      fromResourceId: app.id,
+      toResourceId: db.id,
+      type: "USES_DATABASE",
+      note: "Nightly invoices",
+    });
+    const added = (await getRelationshipDetail(acme, manual.id))!;
+    expect(added).toMatchObject({
+      status: "CONFIRMED",
+      origin: "MANUAL",
+      note: "Nightly invoices",
+      from: { name: "Billing" },
+      to: { name: "SQL01" },
+      addedBy: { actorType: "USER", name: "Acme" },
+      evidence: { observed: false, ports: [] },
+    });
+    expect(await getRelationshipDetail(globex, manual.id)).toBeNull();
+
+    // A detected suggestion with its evidence, then confirmed by a person.
+    const web = await createResource(acme, { name: "WEB01", type: "SERVER" });
+    const detected = await adminDb().relationship.create({
+      data: {
+        workspaceId: acme.workspaceId,
+        fromResourceId: web.id,
+        toResourceId: db.id,
+        type: "CONNECTS_TO",
+        origin: "DETECTED",
+        status: "UNCONFIRMED",
+      },
+    });
+    const seen = new Date("2026-10-20T10:00:00Z");
+    await adminDb().relationshipEvidence.create({
+      data: {
+        workspaceId: acme.workspaceId,
+        relationshipId: detected.id,
+        port: 1433,
+        protocolGuess: "MSSQL",
+        processName: "w3wp.exe",
+        sampleCount: 12,
+        firstSeenAt: seen,
+        lastSeenAt: seen,
+      },
+    });
+    const suggestion = (await getRelationshipDetail(acme, detected.id))!;
+    expect(suggestion).toMatchObject({
+      status: "UNCONFIRMED",
+      confirmedAt: null,
+      evidence: {
+        observed: true,
+        ports: [1433],
+        protocols: ["MSSQL"],
+        processes: ["w3wp.exe"],
+        samples: 12,
+        suggestedType: "USES_DATABASE",
+      },
+    });
+    await confirmRelationship(acme, detected.id);
+    const confirmed = (await getRelationshipDetail(acme, detected.id))!;
+    expect(confirmed.status).toBe("CONFIRMED");
+    expect(confirmed.confirmedAt).toBeInstanceOf(Date);
+    expect(confirmed.confirmedBy).toBe("Acme");
   });
 });

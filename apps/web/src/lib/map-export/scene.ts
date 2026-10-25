@@ -7,7 +7,8 @@
  */
 
 export type ExportConfidence = "confirmed" | "detected" | "inferred";
-export type ExportImpact = "root" | ExportConfidence;
+/** M40: "covered" by redundancy, "holding" = still-up member of a group that lost one. */
+export type ExportImpact = "root" | ExportConfidence | "covered" | "holding";
 
 export interface ExportNodeInput {
   id: string;
@@ -61,6 +62,8 @@ export const PALETTE = {
   critical: "#d13b34",
   high: "#c2710c",
   impactFill: "#fff7ec",
+  covered: "#1a7f46",
+  coveredFill: "#eef8f1",
   rootFill: "#fdeeee",
   groupFill: "#f6f7f9",
 } as const;
@@ -146,13 +149,17 @@ export function buildScene(input: ExportInput): Scene {
   // Boxes first: they are painted behind what they contain.
   const ordered = [...nodes].sort((a, b) => Number(!!b.group) - Number(!!a.group));
   const sceneNodes: SceneNode[] = ordered.map((n) => {
+    const base = { ...n, sx: n.x + offsetX, sy: n.y + offsetY, width: wOf(n), height: hOf(n) };
+    if (n.impact === "covered" || n.impact === "holding")
+      return {
+        ...base,
+        border: PALETTE.covered,
+        fill: PALETTE.coveredFill,
+        dash: n.impact === "covered" ? DASH.detected : [],
+      };
     const impact = n.impact;
     return {
-      ...n,
-      sx: n.x + offsetX,
-      sy: n.y + offsetY,
-      width: wOf(n),
-      height: hOf(n),
+      ...base,
       border:
         impact === "root"
           ? PALETTE.root
@@ -198,6 +205,13 @@ export function buildScene(input: ExportInput): Scene {
       { label: "Fails", color: PALETTE.root, dash: [] },
       { label: "Could be affected", color: PALETTE.impact, dash: [] },
     );
+    if (nodes.some((n) => n.impact === "covered" || n.impact === "holding"))
+      legend.splice(
+        2,
+        0,
+        { label: "Covered by redundancy", color: PALETTE.covered, dash: DASH.detected },
+        { label: "Still up (redundancy)", color: PALETTE.covered, dash: [] },
+      );
   }
 
   return {

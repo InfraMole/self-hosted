@@ -9,6 +9,10 @@ import { getEnv } from "@/server/env";
 import { ShareError, createShare } from "@/server/modules/map/shares";
 import { ForbiddenError } from "@/server/authz";
 import { SavedViewError, deleteSavedView, saveView } from "@/server/modules/map/views";
+import {
+  getRelationshipDetail,
+  type RelationshipDetail,
+} from "@/server/modules/discovery/discovery";
 import { requireWorkspace } from "@/server/tenancy";
 
 function known(error: unknown): ViewActionResult | null {
@@ -67,4 +71,14 @@ export async function shareViewAction(
     if (k && !k.ok) return k;
     throw error;
   }
+}
+
+/** M40: where a relationship on the map comes from (inspector). Any member may read it. */
+export async function relationshipDetailAction(
+  slug: string,
+  id: string,
+): Promise<RelationshipDetail | null> {
+  const ctx = await requireWorkspace(slug);
+  if (typeof id !== "string" || id.length > 64) return null;
+  return getRelationshipDetail(ctx, id);
 }

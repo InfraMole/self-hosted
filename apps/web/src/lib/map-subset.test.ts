@@ -85,6 +85,20 @@ describe("viewSubset", () => {
     ).toEqual({ nodes: ["portal", "billing", "nas"], edges: ["3"] });
   });
 
+  it("impact with redundancy: covered resources and the members still up are shown (M40)", () => {
+    const grouped = [
+      ...nodes.map((x) =>
+        x.id === "db" ? { ...x, redundancyGroup: "sql" } : { ...x, redundancyGroup: null },
+      ),
+      { ...n("db2", "DATABASE"), redundancyGroup: "SQL" },
+    ];
+    const withReplica = [...edges, e("6", "billing", "USES_DATABASE", "db2")];
+    expect(ids(viewSubset(grouped, withReplica, { ...base, impact: "sql01" }))).toEqual({
+      nodes: ["portal", "billing", "db", "sql01", "db2"],
+      edges: ["1", "2", "3", "6"],
+    });
+  });
+
   it("ignores focus and impact on resources that are gone", () => {
     expect(viewSubset(nodes, edges, { ...base, impact: "gone" }).nodes).toHaveLength(6);
     expect(

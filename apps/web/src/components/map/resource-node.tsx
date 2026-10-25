@@ -3,15 +3,21 @@
 
 import { memo } from "react";
 import { Handle, Position, useStore, type Node, type NodeProps } from "@xyflow/react";
-import { ArrowDownToDot, Link2, Minus, Plus } from "lucide-react";
+import { ArrowDownToDot, Layers, Link2, Minus, Plus, TriangleAlert } from "lucide-react";
 import type { Confidence } from "@depmap/graph";
 import { TypeIcon } from "@/components/resources/resource-badges";
+import { formatDateTime } from "@/lib/format";
 import { ENVIRONMENTS } from "@/lib/resource-presentation";
 import { cn } from "@/lib/utils";
 import type { MapNode } from "@/server/modules/map/map";
 import { NODE_HEIGHT, NODE_WIDTH } from "./layout";
 
-export type ImpactLevel = "root" | Confidence;
+/**
+ * Impact view: the failing resource, what could be affected (by confidence)
+ * and, with redundancy groups (M40), what the remaining members still cover
+ * and the members that keep their group up.
+ */
+export type ImpactLevel = "root" | Confidence | "covered" | "holding";
 
 /**
  * Semantic zoom (M26 phase 3, ADR-041). Below DETAIL_ZOOM a 12 px name is
@@ -40,6 +46,8 @@ export interface ResourceNodeData extends Record<string, unknown> {
   insideRelationships?: string[];
   /** Expand / collapse this group. */
   onToggle?: (id: string) => void;
+  /** Member of a redundancy group with other members on the map (M40). */
+  redundancy?: { name: string; members: { id: string; name: string }[] };
 }
 
 export type ResourceFlowNode = Node<ResourceNodeData, "resource" | "box">;
@@ -50,7 +58,20 @@ const IMPACT_BORDER: Record<ImpactLevel, string> = {
   confirmed: "border-warning",
   detected: "border-warning border-dashed",
   inferred: "border-muted border-dotted",
+  covered: "border-success border-dashed",
+  holding: "border-success ring-2 ring-success/25",
 };
+
+/** Why a host's data may be out of date (M40): its agent stopped, or missed something. */
+export function healthWarning(r: MapNode): string | null {
+  if (!r.health) return null;
+  if (r.status === "STALE")
+    return r.health.lastReportAt
+      ? `Agent not reporting since ${formatDateTime(r.health.lastReportAt)}`
+      : "Agent not reporting";
+  if (r.health.gaps.length) return ["Last report incomplete:", ...r.health.gaps].join("\n");
+  return null;
+}
 
 const CRITICALITY_BAR: Record<string, string> = {
   CRITICAL: "bg-danger",
@@ -128,6 +149,25 @@ function Header({ id, data, detail }: { id: string; data: ResourceNodeData; deta
           className={cn("size-1.5 shrink-0 rounded-full", ENVIRONMENTS[r.environment].dot)}
           title={ENVIRONMENTS[r.environment].label}
         />
+      )}
+      {data.redundancy && (
+        <span
+          className="border-success/50 text-success inline-flex h-4 shrink-0 items-center gap-0.5 rounded border px-1 font-mono text-[10px]"
+          title={`Redundancy group ${data.redundancy.name}: ${data.redundancy.members.map((m) => m.name).join(", ")}`}
+          aria-label={`Redundancy group ${data.redundancy.name}`}
+        >
+          <Layers className="size-3" />
+          {data.redundancy.members.length}
+        </span>
+      )}
+      {healthWarning(r) && (
+        <span
+          className="text-warning inline-flex shrink-0"
+          title={healthWarning(r)!}
+          aria-label={healthWarning(r)!.split("\n")[0]}
+        >
+          <TriangleAlert className="size-3" />
+        </span>
       )}
       {data.hubOf !== undefined && (
         <span
