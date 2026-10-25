@@ -2,6 +2,7 @@
 "use client";
 
 import Link from "next/link";
+import { CopyIconButton } from "@/components/impact/copy-text-button";
 import { useState, useTransition } from "react";
 import { FileUp } from "lucide-react";
 import { RELATIONSHIP_TYPE_INFO, type RelationshipType } from "@depmap/graph";
@@ -93,7 +94,7 @@ export function ImportForm({ slug, preview: previewAction, apply: applyAction }:
     preview.counts.create + preview.counts.update + preview.counts.relationships > 0;
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
       <div className="flex min-w-0 flex-col gap-4">
         <div className="flex flex-wrap items-end gap-3">
           <div className="flex flex-col gap-1.5">
@@ -252,9 +253,13 @@ export function ImportForm({ slug, preview: previewAction, apply: applyAction }:
         {PLATFORM_COMMANDS.map(([label, command]) => (
           <div key={label}>
             <span className="text-foreground">{label}</span>
-            <pre className="border-border bg-surface mt-1 overflow-x-auto rounded-md border px-2 py-1.5 font-mono text-[10px] leading-relaxed whitespace-pre">
-              {command}
-            </pre>
+            {/* M41: wraps instead of clipping, and copies in one click. */}
+            <div className="border-border bg-surface mt-1 flex items-start gap-1 rounded-md border py-1 pr-1 pl-2">
+              <pre className="min-w-0 flex-1 py-0.5 font-mono text-[10px] leading-relaxed break-all whitespace-pre-wrap">
+                {command}
+              </pre>
+              <CopyIconButton text={command} label={`Copy the ${label} command`} />
+            </div>
           </div>
         ))}
         <p className="text-foreground mt-2 text-sm font-medium">Formats</p>

@@ -33,7 +33,7 @@ describe("diffResource", () => {
       environment: ["PRODUCTION", "STAGING"],
       metadata: [{ ipAddresses: ["10.0.0.23"] }, { ipAddresses: ["10.0.0.24"] }],
     });
-    expect(updateSummary("APP01", diff)).toBe("Updated APP01: environment, metadata");
+    expect(updateSummary("APP01", diff)).toBe("Updated APP01: environment, host details");
   });
 
   it("ignores object key order (JSONB reorders keys)", () => {

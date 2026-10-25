@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ExternalLink } from "lucide-react";
+import { ArrowRight, ExternalLink } from "lucide-react";
+import { perspective, type Bucket } from "@depmap/graph";
 import {
   CriticalityLabel,
   EnvironmentLabel,
@@ -13,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDateTime, formatRelative } from "@/lib/format";
 import { RESOURCE_TYPES } from "@/lib/resource-presentation";
 import { getHostDiscovery, type HostDiscovery } from "@/server/modules/discovery/discovery";
+import { listRelationshipsForResource } from "@/server/modules/relationships/relationships";
 import { listRedundancyPeers } from "@/server/modules/resources/resources";
 import { loadResource } from "./data";
 
@@ -31,10 +33,22 @@ export default async function ResourceOverviewPage({
 }: PageProps<"/w/[slug]/resources/[id]">) {
   const { slug, id } = await params;
   const { ctx, resource: r } = await loadResource(slug, id);
-  const [host, peers] = await Promise.all([
+  const [host, peers, relationships] = await Promise.all([
     r.source === "AGENT" ? getHostDiscovery(ctx, r.id) : null,
     listRedundancyPeers(ctx, r),
+    listRelationshipsForResource(ctx, r.id),
   ]);
+  // M41: the Dependencies tab at a glance, bucketed like that tab.
+  const counts: Record<Bucket, number> = { dependsOn: 0, usedBy: 0, related: 0 };
+  let toReview = 0;
+  for (const rel of relationships) {
+    if (rel.status === "IGNORED") continue;
+    counts[
+      perspective({ id: rel.id, from: rel.from.id, to: rel.to.id, type: rel.type }, r.id).bucket
+    ]++;
+    if (rel.status === "UNCONFIRMED") toReview++;
+  }
+  const dependenciesHref = `/w/${ctx.workspaceSlug}/resources/${r.id}/dependencies`;
   const m = r.metadata;
 
   const allIdentity: [string, React.ReactNode][] = [
@@ -114,6 +128,37 @@ export default async function ResourceOverviewPage({
       </div>
 
       <aside className="flex flex-col gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Dependencies</CardTitle>
+          </CardHeader>
+          <Link
+            href={dependenciesHref}
+            className="hover:bg-surface-2/60 grid grid-cols-3 gap-2 px-4 py-3 text-center"
+          >
+            {(
+              [
+                ["dependsOn", "Depends on"],
+                ["usedBy", "Used by"],
+                ["related", "Related"],
+              ] as const
+            ).map(([bucket, label]) => (
+              <span key={bucket}>
+                <span className="block font-mono text-lg">{counts[bucket]}</span>
+                <span className="text-muted text-xs">{label}</span>
+              </span>
+            ))}
+          </Link>
+          {toReview > 0 && (
+            <Link
+              href={dependenciesHref}
+              className="border-border text-accent flex items-center gap-1 border-t px-4 py-2 text-xs hover:underline"
+            >
+              {toReview} detected, waiting for review <ArrowRight className="size-3" />
+            </Link>
+          )}
+        </Card>
+
         <Card>
           <CardHeader>
             <CardTitle>Details</CardTitle>

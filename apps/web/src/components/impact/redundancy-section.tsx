@@ -46,25 +46,29 @@ export function RedundancySection({
           <p className="text-muted mt-3 text-xs">
             Covered by redundancy — would be affected, but the remaining members still serve them:
           </p>
-          <ul className="border-border divide-border mt-2 divide-y rounded-lg border">
-            {covered.map((c) => (
-              <li key={c.resourceId} className="flex items-center gap-3 px-3 py-2">
-                <Link
-                  href={`/w/${slug}/resources/${c.resourceId}/impact`}
-                  className="hover:text-accent flex w-48 shrink-0 items-center gap-2 font-mono text-[13px]"
-                >
-                  <TypeIcon type={c.resource.type} />
-                  <span className="truncate">{c.resource.name}</span>
-                </Link>
-                <span
-                  className="text-subtle min-w-0 flex-1 truncate font-mono text-xs"
-                  title={c.pathNames.join(" → ")}
-                >
-                  still served by {c.groupName}
-                </span>
-              </li>
-            ))}
-          </ul>
+          {/* M41: once per group, not "still served by …" on every row. */}
+          {byGroup(covered).map(([group, items]) => (
+            <div key={group} className="mt-2">
+              <p className="text-xs">
+                Still served by <span className="font-medium">{group}</span>{" "}
+                <span className="text-subtle font-mono">({items.length})</span>
+              </p>
+              <ul className="mt-1.5 flex flex-wrap gap-1.5">
+                {items.map((c) => (
+                  <li key={c.resourceId}>
+                    <Link
+                      href={`/w/${slug}/resources/${c.resourceId}/impact`}
+                      title={c.pathNames.join(" → ")}
+                      className="border-border hover:border-border-strong hover:text-accent flex max-w-56 items-center gap-1.5 rounded-md border px-2 py-1 font-mono text-xs"
+                    >
+                      <TypeIcon type={c.resource.type} className="size-3.5 shrink-0" />
+                      <span className="truncate">{c.resource.name}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </>
       )}
       <p className="text-subtle mt-3 text-xs leading-relaxed">
@@ -73,4 +77,10 @@ export function RedundancySection({
       </p>
     </section>
   );
+}
+
+function byGroup(covered: readonly CoveredView[]): [string, CoveredView[]][] {
+  const groups = new Map<string, CoveredView[]>();
+  for (const c of covered) groups.set(c.groupName, [...(groups.get(c.groupName) ?? []), c]);
+  return [...groups];
 }

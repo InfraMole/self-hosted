@@ -4,6 +4,7 @@ import { CHANGE_KINDS } from "@/lib/change-presentation";
 import { formatDateTime, formatRelative } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { listChangesForResource } from "@/server/modules/changes/changes";
+import { fieldLabel, readableSummary } from "@/lib/change-fields";
 import { DIFF_FIELDS } from "@/server/modules/resources/diff";
 import { loadResource } from "../data";
 
@@ -38,7 +39,7 @@ export default async function ResourceActivityPage({
             >
               {mark.sign}
             </span>
-            <p className="text-sm">{e.summary}</p>
+            <p className="text-sm">{readableSummary(e.summary)}</p>
             <p className="text-subtle mt-0.5 text-xs">
               {e.actorName ?? e.actorType.toLowerCase()} ·{" "}
               <time dateTime={e.occurredAt.toISOString()} title={formatDateTime(e.occurredAt)}>
@@ -48,8 +49,8 @@ export default async function ResourceActivityPage({
             {Object.keys(diff).length > 0 && (
               <dl className="border-border bg-surface mt-2 rounded-md border px-3 py-2 font-mono text-xs">
                 {orderedDiff(diff).map(([field, [before, after]]) => (
-                  <div key={field} className="grid grid-cols-[96px_1fr] gap-3 py-0.5">
-                    <dt className="text-subtle">{field}</dt>
+                  <div key={field} className="grid grid-cols-[128px_1fr] gap-3 py-0.5">
+                    <dt className="text-subtle font-sans">{fieldLabel(field)}</dt>
                     <dd className="min-w-0 break-words">
                       <span className="text-danger/80 line-through">{show(before)}</span>{" "}
                       <span className="text-success">{show(after)}</span>

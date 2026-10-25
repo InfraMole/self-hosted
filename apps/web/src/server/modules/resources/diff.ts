@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /** Pure change-diff helpers for ChangeEvent.diff (bounded, human-readable). */
+import { fieldLabel } from "@/lib/change-fields";
 
 export const DIFF_FIELDS = [
   "name",
@@ -57,5 +58,5 @@ export function diffResource(before: ResourceSnapshot, after: ResourceSnapshot):
 
 export function updateSummary(name: string, diff: ResourceDiff): string {
   const fields = Object.keys(diff);
-  return `Updated ${name}: ${fields.join(", ")}`;
+  return `Updated ${name}: ${fields.map(fieldLabel).join(", ")}`;
 }

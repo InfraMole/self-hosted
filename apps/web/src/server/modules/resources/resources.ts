@@ -11,6 +11,7 @@ import { diffResource, updateSummary, type ResourceSnapshot } from "./diff";
 import {
   resourceFiltersSchema,
   resourceInputSchema,
+  resourceUpdateSchema,
   resourceLinkSchema,
   resourceMetadataSchema,
   type ResourceFilters,
@@ -271,13 +272,14 @@ export async function updateResource(
   rawInput: unknown,
 ): Promise<ResourceView> {
   assertRole(ctx, "MEMBER");
-  const input = resourceInputSchema.parse(rawInput);
+  const { status, ...rest } = resourceUpdateSchema.parse(rawInput);
   if (!id || id.length > MAX_ID_LENGTH) throw new ResourceNotFoundError();
   const key = { workspaceId_id: { workspaceId: ctx.workspaceId, id } };
 
   const resource = await tenantDb(ctx).$transaction(async (tx) => {
     const before = await tx.resource.findUnique({ where: key });
     if (!before) throw new ResourceNotFoundError();
+    const input = { ...rest, status: status ?? before.status };
     // Becoming a billable node (e.g. unarchived, or APPLICATION → SERVER) counts as adding one.
     if (!isBillable(before) && isBillable(input)) await assertCanAddNodes(ctx.workspaceId, 1);
     // Ports are set by discovery (IIS bindings, M16) and not on the form: keep them.

@@ -28,7 +28,7 @@ export default async function WorkspaceLayout({ children, params }: LayoutProps<
   const newer = hasRole(ctx.role, "ADMIN") ? cachedVersionInfo().newer : null;
 
   return (
-    <div className="flex h-dvh print:block print:h-auto">
+    <div className="flex h-dvh flex-col md:flex-row print:block print:h-auto">
       <div className="contents print:hidden">
         <Sidebar
           workspace={{ name: ctx.workspaceName, slug: ctx.workspaceSlug }}

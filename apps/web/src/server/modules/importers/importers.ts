@@ -14,6 +14,7 @@ import { assertRole, type WorkspaceContext } from "@/server/authz";
 import { tenantDb } from "@/server/db";
 import { refreshDetectedRelationships } from "@/server/modules/discovery/discovery";
 import { diffResource, type ResourceSnapshot } from "@/server/modules/resources/diff";
+import { fieldLabel } from "@/lib/change-fields";
 import { resourceMetadataSchema } from "@/server/modules/resources/schemas";
 import {
   IMPORT_LIMITS,
@@ -285,7 +286,7 @@ export async function runImport(
           subjectId: after.id,
           subjectLabel: after.name,
           kind: "UPDATED",
-          summary: `Updated ${after.name} from ${source}: ${r.changes.join(", ")}`,
+          summary: `Updated ${after.name} from ${source}: ${r.changes.map(fieldLabel).join(", ")}`,
           diff: diff as Prisma.InputJsonValue,
         });
       }

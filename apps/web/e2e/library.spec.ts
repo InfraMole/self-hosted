@@ -80,3 +80,22 @@ test("sorts by column and warns before creating a duplicate name", async ({ page
   await sheet.getByRole("button", { name: "Cancel" }).click();
   await expect(sheet).toBeHidden();
 });
+
+test("on a phone the sidebar is a menu, and a resource's tabs include Impact (M41)", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(library);
+  const nav = page.getByRole("navigation", { name: "Primary" });
+  await expect(nav).not.toBeInViewport();
+  await page.getByRole("button", { name: "Open menu" }).click();
+  await expect(nav).toBeInViewport();
+  await nav.getByRole("link", { name: "Library" }).click();
+  await expect(nav).not.toBeInViewport();
+
+  await page.locator("tbody").getByRole("link", { name: /SQL01/ }).click();
+  const tabs = page.getByRole("navigation", { name: "Resource sections" });
+  await tabs.getByRole("link", { name: "Impact" }).click();
+  await expect(tabs.getByRole("link", { name: "Impact" })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByText("Potential blast radius")).toBeVisible();
+});

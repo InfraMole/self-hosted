@@ -110,12 +110,31 @@ describe("resources: lifecycle and change events", () => {
 
     const events = await listChangesForSubject(ctx, "RESOURCE", r.id);
     expect(events.map((e) => e.kind)).toEqual(["DELETED", "UPDATED", "CREATED"]);
-    expect(events[1]!.summary).toBe("Updated SQL01: metadata");
+    expect(events[1]!.summary).toBe("Updated SQL01: host details");
     expect(events[1]!.diff).toEqual({
       metadata: [{ ipAddresses: ["10.0.0.40"] }, { ipAddresses: ["10.0.0.41"] }],
     });
     expect(events.every((e) => e.actorName === "Acme")).toBe(true);
     expect(await getResource(ctx, r.id)).toBeNull();
+  });
+
+  it("editing keeps a status set by discovery unless a person picks one (M41)", async () => {
+    const ctx = await ownerContext("Acme");
+    const r = await createResource(ctx, { name: "DC02", type: "SERVER" });
+    await adminDb().resource.update({ where: { id: r.id }, data: { status: "DISCOVERED" } });
+
+    await updateResource(ctx, r.id, { name: "DC02", type: "SERVER", redundancyGroup: "dcs" });
+    expect((await getResource(ctx, r.id))!.status).toBe("DISCOVERED");
+    const [edited] = await listChangesForSubject(ctx, "RESOURCE", r.id);
+    expect(edited!.summary).toBe("Updated DC02: redundancy group");
+
+    await updateResource(ctx, r.id, {
+      name: "DC02",
+      type: "SERVER",
+      redundancyGroup: "dcs",
+      status: "ACTIVE",
+    });
+    expect((await getResource(ctx, r.id))!.status).toBe("ACTIVE");
   });
 
   it("rejects invalid input without writing anything", async () => {

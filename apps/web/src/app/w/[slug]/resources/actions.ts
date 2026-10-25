@@ -18,6 +18,7 @@ import {
   fieldErrors,
   resourceFormToInput,
   resourceInputSchema,
+  resourceUpdateSchema,
 } from "@/server/modules/resources/schemas";
 import { requireWorkspace } from "@/server/tenancy";
 
@@ -37,7 +38,9 @@ export async function saveResourceAction(
   formData: FormData,
 ): Promise<ResourceFormState> {
   const ctx = await requireWorkspace(slug);
-  const parsed = resourceInputSchema.safeParse(resourceFormToInput(formData));
+  const parsed = (resourceId ? resourceUpdateSchema : resourceInputSchema).safeParse(
+    resourceFormToInput(formData),
+  );
   if (!parsed.success) return { fieldErrors: fieldErrors(parsed.error) };
 
   // A warning, never a block: two "web01" of different clients are legitimate.

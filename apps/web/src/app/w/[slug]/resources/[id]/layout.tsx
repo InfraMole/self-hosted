@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import Link from "next/link";
-import { ChevronRight, Network, Pencil, Radar } from "lucide-react";
+import { ChevronRight, Network, Pencil } from "lucide-react";
 import { toFormValues } from "@/components/resources/form-values";
 import { DeleteResourceButton } from "@/components/resources/delete-resource-button";
 import {
@@ -39,7 +39,7 @@ export default async function ResourceLayout({
           <ChevronRight className="size-3" />
           <span className="text-muted">{RESOURCE_TYPES[resource.type].label}</span>
         </nav>
-        <div className="mt-2 flex items-start justify-between gap-4">
+        <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
           <div className="flex min-w-0 items-center gap-3">
             <div className="border-border-strong bg-surface-2 flex size-9 shrink-0 items-center justify-center rounded-md border">
               <TypeIcon type={resource.type} className="text-foreground" />
@@ -54,11 +54,6 @@ export default async function ResourceLayout({
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-1">
-            <Button variant="outline" size="sm" asChild>
-              <Link href={`${base}/impact`}>
-                <Radar /> Impact
-              </Link>
-            </Button>
             <Button variant="ghost" size="sm" asChild>
               <Link href={`/w/${ctx.workspaceSlug}/map?focus=${resource.id}`}>
                 <Network /> Map

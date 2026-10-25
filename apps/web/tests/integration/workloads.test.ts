@@ -159,7 +159,7 @@ describe("windows workloads", () => {
     );
     expect(status).toMatchObject({
       "Intranet (WEB01)": "STALE",
-      "Portal (WEB01)": "ACTIVE", // a person edited it: human-owned status
+      "Portal (WEB01)": "DISCOVERED", // edited, but nobody marked it Active (M41)
       "Customers (WEB01)": "DISCOVERED", // an absent kind is never reconciled
     });
 

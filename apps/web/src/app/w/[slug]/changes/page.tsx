@@ -17,6 +17,7 @@ import {
 } from "@/server/modules/changes/changes";
 import { markStaleHosts } from "@/server/modules/discovery/staleness";
 import { requireWorkspace } from "@/server/tenancy";
+import { fieldLabel, readableSummary } from "@/lib/change-fields";
 
 export const metadata: Metadata = { title: "Changes" };
 
@@ -180,10 +181,10 @@ function ChangeRow({ event: e, base }: { event: ChangeView; base: string }) {
         <p className="text-sm">
           {href ? (
             <Link href={href} className="hover:text-accent">
-              {e.summary}
+              {readableSummary(e.summary)}
             </Link>
           ) : (
-            e.summary
+            readableSummary(e.summary)
           )}
         </p>
         <p className="text-subtle mt-0.5 text-xs">
@@ -196,8 +197,8 @@ function ChangeRow({ event: e, base }: { event: ChangeView; base: string }) {
             </summary>
             <dl className="border-border bg-surface mt-1.5 rounded-md border px-3 py-2 font-mono text-xs">
               {diff.map(([field, value]) => (
-                <div key={field} className="grid grid-cols-[120px_1fr] gap-3 py-0.5">
-                  <dt className="text-subtle">{field}</dt>
+                <div key={field} className="grid grid-cols-[128px_1fr] gap-3 py-0.5">
+                  <dt className="text-subtle font-sans">{fieldLabel(field)}</dt>
                   <dd className="min-w-0 break-words">{describeValue(value)}</dd>
                 </div>
               ))}

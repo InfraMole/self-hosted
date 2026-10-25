@@ -133,7 +133,10 @@ rejected so it can never become a secrets bucket):
 | ports          | 1–65535, ≤ 50 — set by discovery (IIS bindings, M16); kept when a person edits the resource |
 
 **Status**: humans may set only `ACTIVE` / `ARCHIVED`; `DISCOVERED` and `STALE`
-are reserved for discovery. The Library hides `ARCHIVED` unless filtered.
+are reserved for discovery. Editing keeps the current status unless the person
+picks one (`resourceUpdateSchema`, M41): saving a Discovered resource never marks
+it reviewed. Change summaries name fields as people read them
+(`lib/change-fields.ts`, e.g. "Updated DC02: redundancy group"). The Library hides `ARCHIVED` unless filtered.
 **Links**: `https://` only, ≤ 20. **Search** (`q`) matches name/description
 (case-insensitive), exact tag, hostname substring and exact IP.
 

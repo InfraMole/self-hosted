@@ -267,6 +267,12 @@ exported; `lib/map-subset.ts` includes them in impact views. Nodes of a
 redundancy group with ≥ 2 members on the map carry a badge. The map page
 runs the throttled `markStaleHosts`.
 
+M41: below 768 px (`max-md:` variants) the workspace layout stacks
+(`flex-col md:flex-row`), `components/app-shell/sidebar.tsx` renders a top
+bar and turns the sidebar into a drawer (client state; following a link,
+the backdrop or Escape closes it), and the map's inspectors become a bottom
+sheet over the canvas. No server code depends on the viewport.
+
 ✅ M3. `server/modules/map/map.ts#getWorkspaceGraph(ctx)` returns all
 non-archived resources and non-ignored relationships of the workspace
 (no cap since M15: a truncated graph silently hid dependencies from the map

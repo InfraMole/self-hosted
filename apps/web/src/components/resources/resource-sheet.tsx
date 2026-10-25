@@ -152,8 +152,18 @@ export function ResourceSheet({
                 </Field>
                 {mode === "edit" && (
                   <Field label="Status" name="status" error={err.status}>
-                    <Select id="status" name="status" defaultValue={initial.status}>
-                      {(["ACTIVE", "ARCHIVED"] as const).map((value) => (
+                    <Select
+                      id="status"
+                      name="status"
+                      defaultValue={isManualStatus(initial.status) ? initial.status : ""}
+                    >
+                      {/* Set by discovery: kept unless the person picks one (M41). */}
+                      {!isManualStatus(initial.status) && (
+                        <option value="">
+                          {STATUSES[initial.status as keyof typeof STATUSES].label} (unchanged)
+                        </option>
+                      )}
+                      {MANUAL_STATUSES.map((value) => (
                         <option key={value} value={value}>
                           {STATUSES[value].label}
                         </option>
@@ -344,6 +354,12 @@ export function ResourceSheet({
       </SheetContent>
     </Dialog>
   );
+}
+
+/** Statuses a person may set; Discovered / Stale come from discovery. */
+const MANUAL_STATUSES = ["ACTIVE", "ARCHIVED"] as const;
+function isManualStatus(status: string): status is (typeof MANUAL_STATUSES)[number] {
+  return (MANUAL_STATUSES as readonly string[]).includes(status);
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {

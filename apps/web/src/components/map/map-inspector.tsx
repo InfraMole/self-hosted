@@ -82,7 +82,7 @@ export function MapInspector({
 
   return (
     <aside
-      className="border-border bg-surface flex w-80 shrink-0 flex-col border-l"
+      className="border-border bg-surface flex w-80 shrink-0 flex-col border-l max-md:absolute max-md:inset-x-0 max-md:bottom-0 max-md:z-20 max-md:max-h-[60%] max-md:w-auto max-md:overflow-y-auto max-md:border-t max-md:border-l-0 max-md:shadow-lg"
       aria-label={`${r.name} details`}
     >
       <div className="border-border flex items-start gap-3 border-b px-4 py-3">

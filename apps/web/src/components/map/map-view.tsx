@@ -25,6 +25,7 @@ import {
   Minimize2,
   Radar,
   RotateCcw,
+  SlidersHorizontal,
   Route,
   X,
 } from "lucide-react";
@@ -195,6 +196,10 @@ function MapCanvas({
   const [envFilter, setEnvFilter] = useState<string>(initial?.environment ?? "");
   const [showUnconfirmed, setShowUnconfirmed] = useState(initial?.showUnconfirmed ?? false);
   const [showInformational, setShowInformational] = useState(initial?.showInformational ?? true);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const activeFilters = [typeFilter, envFilter, showUnconfirmed, !showInformational].filter(
+    Boolean,
+  ).length;
   const [focus, setFocus] = useState<Focus | null>(
     initial
       ? initial.focus
@@ -922,7 +927,7 @@ function MapCanvas({
   const selectedImpact = impactResult?.affected.find((a) => a.resourceId === selectedId);
 
   return (
-    <div className="flex h-full min-h-0">
+    <div className="relative flex h-full min-h-0">
       <div className="relative min-w-0 flex-1">
         <ReactFlow
           nodes={flowNodes}
@@ -1018,40 +1023,59 @@ function MapCanvas({
               onClose={() => setPathEnds(null)}
             />
           ) : (
-            <div className="border-border bg-surface/95 pointer-events-auto flex flex-wrap items-center gap-2 rounded-lg border p-1.5 backdrop-blur">
-              <Select
-                aria-label="Type"
-                value={typeFilter}
-                onChange={(e) => setTypeFilter(e.target.value)}
-                className="w-36"
+            <>
+              {/* Phones (M41): filters fold behind one button so the map stays visible. */}
+              <button
+                type="button"
+                onClick={() => setFiltersOpen((v) => !v)}
+                aria-expanded={filtersOpen}
+                className="border-border bg-surface/95 text-muted hover:text-foreground pointer-events-auto inline-flex h-8 items-center gap-1.5 rounded-lg border px-2 text-xs backdrop-blur md:hidden"
               >
-                <option value="">All types</option>
-                {entries(RESOURCE_TYPES).map(([value, { label }]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </Select>
-              <Select
-                aria-label="Environment"
-                value={envFilter}
-                onChange={(e) => setEnvFilter(e.target.value)}
-                className="w-40"
+                <SlidersHorizontal className="size-3.5" /> Filters
+                {activeFilters > 0 && (
+                  <span className="text-accent font-mono">{activeFilters}</span>
+                )}
+              </button>
+              <div
+                className={cn(
+                  "border-border bg-surface/95 pointer-events-auto flex flex-wrap items-center gap-2 rounded-lg border p-1.5 backdrop-blur",
+                  !filtersOpen && "max-md:hidden",
+                )}
               >
-                <option value="">All environments</option>
-                {entries(ENVIRONMENTS).map(([value, { label }]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </Select>
-              <Toggle checked={showUnconfirmed} onChange={setShowUnconfirmed}>
-                Unconfirmed
-              </Toggle>
-              <Toggle checked={showInformational} onChange={setShowInformational}>
-                Informational
-              </Toggle>
-            </div>
+                <Select
+                  aria-label="Type"
+                  value={typeFilter}
+                  onChange={(e) => setTypeFilter(e.target.value)}
+                  className="w-36"
+                >
+                  <option value="">All types</option>
+                  {entries(RESOURCE_TYPES).map(([value, { label }]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </Select>
+                <Select
+                  aria-label="Environment"
+                  value={envFilter}
+                  onChange={(e) => setEnvFilter(e.target.value)}
+                  className="w-40"
+                >
+                  <option value="">All environments</option>
+                  {entries(ENVIRONMENTS).map(([value, { label }]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </Select>
+                <Toggle checked={showUnconfirmed} onChange={setShowUnconfirmed}>
+                  Unconfirmed
+                </Toggle>
+                <Toggle checked={showInformational} onChange={setShowInformational}>
+                  Informational
+                </Toggle>
+              </div>
+            </>
           )}
 
           {!impactResult && focusNode && focus && (
@@ -1111,7 +1135,7 @@ function MapCanvas({
               )}
             </button>
           )}
-          <span className="text-subtle pointer-events-auto ml-auto font-mono text-[11px]">
+          <span className="text-subtle pointer-events-auto ml-auto font-mono text-[11px] max-md:hidden">
             {visibleIds.length} resources · {visibleEdges.length} relationships
           </span>
           {pinsActive && Object.keys(pins).length > 0 && (
@@ -1139,7 +1163,9 @@ function MapCanvas({
               onShare={shareView ? setSharing : undefined}
             />
           )}
-          <ExportMenu onExport={exportView} />
+          <div className="contents max-md:hidden">
+            <ExportMenu onExport={exportView} />
+          </div>
         </div>
 
         <Legend
@@ -1334,8 +1360,8 @@ function Legend({ redundancy }: { redundancy: boolean }) {
       <line x1="0" y1="3" x2="28" y2="3" stroke={color} strokeWidth="1.5" strokeDasharray={dash} />
     </svg>
   );
-  return (
-    <div className="border-border bg-surface/95 text-muted pointer-events-none absolute bottom-3 left-3 flex flex-col gap-1 rounded-lg border px-3 py-2 text-[11px] backdrop-blur">
+  const items = (
+    <>
       <span className="flex items-center gap-2">
         {line(undefined, COLORS.edge)} Confirmed dependency
       </span>
@@ -1360,7 +1386,23 @@ function Legend({ redundancy }: { redundancy: boolean }) {
       )}
       <span className="text-subtle mt-1">Arrows point to what a resource depends on.</span>
       <span className="text-subtle">Click a line to see where it comes from.</span>
-    </div>
+    </>
+  );
+  const panel =
+    "border-border bg-surface/95 text-muted absolute bottom-3 left-3 rounded-lg border px-3 py-2 text-[11px] backdrop-blur";
+  return (
+    <>
+      <div className={cn(panel, "pointer-events-none flex flex-col gap-1 max-md:hidden")}>
+        {items}
+      </div>
+      {/* Phones (M41): folded, so it does not cover the map. */}
+      <details className={cn(panel, "md:hidden")}>
+        <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+          Legend
+        </summary>
+        <div className="mt-1.5 flex flex-col gap-1">{items}</div>
+      </details>
+    </>
   );
 }
 
@@ -1406,7 +1448,7 @@ function LineInspector({
     );
   return (
     <aside
-      className="border-border bg-surface flex w-80 shrink-0 flex-col border-l"
+      className="border-border bg-surface flex w-80 shrink-0 flex-col border-l max-md:absolute max-md:inset-x-0 max-md:bottom-0 max-md:z-20 max-md:max-h-[60%] max-md:w-auto max-md:overflow-y-auto max-md:border-t max-md:border-l-0 max-md:shadow-lg"
       aria-label="Relationship details"
     >
       <div className="border-border flex items-start gap-3 border-b px-4 py-3">

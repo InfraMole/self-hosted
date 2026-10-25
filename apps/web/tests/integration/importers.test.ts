@@ -68,7 +68,7 @@ describe("CSV / JSON import", () => {
     expect(feed.events[0]).toMatchObject({
       actorType: "IMPORTER",
       actorName: "csv",
-      summary: "Updated APP01 from csv: ipAddresses",
+      summary: "Updated APP01 from csv: IP addresses",
     });
   });
 

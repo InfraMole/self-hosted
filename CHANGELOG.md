@@ -5,6 +5,29 @@ images). The agent has its own changelog in the InfraMole/agent repository.
 To update an installation, see
 [Upgrade guide](https://inframole.com/docs/operations/upgrade).
 
+## 0.32.0 — 2026-10-25
+
+### Changed
+
+- **Works on phones**: the sidebar becomes a menu, the map folds its filters
+  and legend and shows details as a sheet from the bottom, and resource pages
+  fit the screen.
+- **Resource pages**: Impact is a tab next to Overview, Dependencies and
+  Activity, and Overview shows how many things a resource depends on and is
+  used by, with suggestions still waiting for review.
+- **Clearer redundancy on the impact page and in plans**: resources still
+  covered are listed once per group instead of on every row.
+- **Settings** has an index that jumps to each section; the import page's
+  platform commands wrap and copy in one click.
+
+### Fixed
+
+- Editing a Discovered or Stale resource no longer marks it Active: the
+  status only changes when you pick one.
+- The change history names fields as people read them ("redundancy group",
+  not "redundancyGroup"), also for earlier changes.
+- First steps keep the "Review suggestions" link while suggestions wait.
+
 ## 0.31.0 — 2026-10-25
 
 ### Added

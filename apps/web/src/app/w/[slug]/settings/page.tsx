@@ -128,6 +128,19 @@ export default async function SettingsPage({ params }: PageProps<"/w/[slug]/sett
     ["Workspace ID", ctx.workspaceId, true],
     ["Your role", ctx.role.toLowerCase(), false],
   ];
+  // M41: a long page — an index that jumps to each section this person can see.
+  const sections = (
+    [
+      ["workspace", "Workspace", true],
+      ["members", "Members", true],
+      ["agents", "Agents", true],
+      ["integrations", "Integrations", isAdmin],
+      ["api", "API tokens", isAdmin],
+      ["sso", "Single sign-on", isAdmin && ssoAvailable()],
+      ["shares", "Public map links", isAdmin],
+      ["data", "Data", isAdmin],
+    ] as const
+  ).filter(([, , shown]) => shown);
 
   return (
     <>
@@ -135,8 +148,22 @@ export default async function SettingsPage({ params }: PageProps<"/w/[slug]/sett
         title="Settings"
         description="Workspace configuration, members, discovery agents and integrations."
       />
-      <div className="flex max-w-4xl flex-col gap-6 p-6">
-        <Card>
+      <nav
+        aria-label="Settings sections"
+        className="border-border bg-background/95 sticky top-0 z-10 flex shrink-0 gap-4 overflow-x-auto border-b px-6 py-2 text-xs backdrop-blur"
+      >
+        {sections.map(([id, label]) => (
+          <a
+            key={id}
+            href={`#${id}`}
+            className="text-muted hover:text-foreground whitespace-nowrap"
+          >
+            {label}
+          </a>
+        ))}
+      </nav>
+      <div className="flex max-w-4xl flex-col gap-6 p-6 [&_[id]]:scroll-mt-14">
+        <Card id="workspace">
           <CardHeader className="flex items-center justify-between gap-4">
             <CardTitle>Workspace</CardTitle>
             {isAdmin && (

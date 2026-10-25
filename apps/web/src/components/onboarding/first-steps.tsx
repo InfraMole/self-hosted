@@ -146,6 +146,9 @@ function Step({
       }
       break;
   }
+  // Done once something was confirmed, but suggestions still waiting keep their link (M41).
+  const showLinks =
+    links.length > 0 && (!step.done || (step.id === "confirm" && facts.pendingSuggestions > 0));
   return (
     <li
       className={cn(
@@ -168,7 +171,7 @@ function Step({
         {step.done && <span className="sr-only">(done)</span>}
       </p>
       <p className="text-muted mt-1 text-xs leading-relaxed">{body}</p>
-      {!step.done && links.length > 0 && (
+      {showLinks && (
         <p className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1">
           {links.map((l) => (
             <Link

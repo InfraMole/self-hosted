@@ -10,11 +10,13 @@ export function ResourceTabs({ base }: { base: string }) {
   const tabs = [
     { href: base, label: "Overview" },
     { href: `${base}/dependencies`, label: "Dependencies" },
+    // M41: a tab like the others (it was a header button, so no tab looked active on it).
+    { href: `${base}/impact`, label: "Impact" },
     { href: `${base}/activity`, label: "Activity" },
   ];
 
   return (
-    <nav className="mt-3 -mb-px flex gap-4" aria-label="Resource sections">
+    <nav className="mt-3 -mb-px flex gap-4 overflow-x-auto" aria-label="Resource sections">
       {tabs.map((tab) => {
         const active = pathname === tab.href;
         return (
@@ -23,7 +25,7 @@ export function ResourceTabs({ base }: { base: string }) {
             href={tab.href}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "border-b-2 pb-2.5 text-sm transition-colors",
+              "border-b-2 pb-2.5 text-sm whitespace-nowrap transition-colors",
               active
                 ? "border-accent text-foreground"
                 : "text-muted hover:text-foreground border-transparent",

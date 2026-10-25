@@ -89,6 +89,15 @@ export const resourceInputSchema = z.object({
 });
 export type ResourceInput = z.infer<typeof resourceInputSchema>;
 
+/**
+ * Editing (M41): no status means "keep it", so saving a Discovered or Stale
+ * resource never marks it reviewed (Active) behind the person's back.
+ */
+export const resourceUpdateSchema = resourceInputSchema.extend({
+  status: z.enum(MANUAL_STATUSES).optional(),
+});
+export type ResourceUpdate = z.infer<typeof resourceUpdateSchema>;
+
 /** Library filters from URL search params. Invalid values are dropped, not errors. */
 export const resourceFiltersSchema = z.object({
   q: z.string().trim().max(100).optional().catch(undefined),
