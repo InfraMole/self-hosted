@@ -37,6 +37,7 @@ export const SAMPLE_REPORT = {
       remoteAddress: "10.20.4.40",
       remotePort: 1433,
       process: { name: "w3wp.exe", path: "C:\\Windows\\System32\\inetsrv\\w3wp.exe" },
+      site: "Portal",
       count: 42,
       firstSeen: "2026-09-29T10:00:00Z",
       lastSeen: "2026-09-29T10:04:30Z",

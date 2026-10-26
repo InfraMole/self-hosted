@@ -5,6 +5,7 @@ import { systemDb } from "@/server/db";
 import { getEnv } from "@/server/env";
 import { sendMail } from "@/server/mail";
 import { recordAudit } from "@/server/modules/audit/audit";
+import { deleteWorkspaceRows } from "@/server/modules/workspaces/workspaces";
 import { getUsage } from "./limits";
 
 const DAY = 86_400_000;
@@ -55,9 +56,7 @@ export async function retirePausedWorkspaces(
 
     if (daysLeft <= 0) {
       await db.$transaction(async (tx) => {
-        // Lets the cascade remove this workspace's audit rows (append-only trigger).
-        await tx.$executeRaw`SELECT set_config('depmap.allow_audit_delete', 'on', true)`;
-        await tx.workspace.delete({ where: { id: ws.id } });
+        await deleteWorkspaceRows(tx, ws.id);
         await recordAudit(tx, {
           workspaceId: null,
           action: "workspace.deleted",

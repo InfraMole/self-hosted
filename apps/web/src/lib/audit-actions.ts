@@ -31,6 +31,7 @@ export const AUDIT_ACTIONS = {
   "api.token_revoked": { group: "workspace", label: "revoked the API token" },
   "share.created": { group: "workspace", label: "created a public link to the map view" },
   "share.revoked": { group: "workspace", label: "revoked the public link to the map view" },
+  "share.view_changed": { group: "workspace", label: "changed the publicly linked map view" },
   "agent.token_created": { group: "agents", label: "created the enrollment token" },
   "agent.token_revoked": { group: "agents", label: "revoked the enrollment token" },
   "agent.enrolled": { group: "agents", label: "enrolled" },

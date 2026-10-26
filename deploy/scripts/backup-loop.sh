@@ -6,8 +6,16 @@
 # - encrypted with age when BACKUP_AGE_RECIPIENT is set;
 # - optionally copied off the host to S3-compatible storage (BACKUP_S3_*),
 #   only when encrypted, and pruned there after the same number of days.
-# BACKUP_ONCE=1 runs a single backup and exits (tests, manual runs).
+# BACKUP_ONCE=1 runs a single backup and exits with its status (tests, manual
+# runs). A failed dump is never kept, uploaded or counted as a backup, and
+# nothing is pruned after a failure.
 set -u
+# Without pipefail, `pg_dump | age` reports age's status: a failed dump
+# would become an "encrypted backup" of nothing (busybox ash supports it).
+set -o pipefail || {
+  echo "ERROR: this shell has no pipefail - refusing to run backups"
+  exit 1
+}
 umask 077
 KEEP="${BACKUP_KEEP_DAYS:-14}"
 
@@ -40,18 +48,30 @@ offsite() {
 once() {
   f="/backups/depmap-$(date -u +%Y%m%dT%H%M%SZ).dump"
   if [ -n "${BACKUP_AGE_RECIPIENT:-}" ]; then
-    pg_dump -h db -U depmap -d depmap -Fc | age -r "$BACKUP_AGE_RECIPIENT" -o "$f.age.tmp" &&
-      mv "$f.age.tmp" "$f.age" && echo "backup $f.age (encrypted)" && offsite "$f.age"
+    out="$f.age"
+    note=" (encrypted)"
+    pg_dump -h db -U depmap -d depmap -Fc | age -r "$BACKUP_AGE_RECIPIENT" -o "$out.tmp"
+    status=$?
   else
     echo "WARNING: BACKUP_AGE_RECIPIENT unset - backup is NOT encrypted"
-    pg_dump -h db -U depmap -d depmap -Fc -f "$f.tmp" && mv "$f.tmp" "$f" && echo "backup $f" &&
-      offsite "$f"
+    out="$f"
+    note=""
+    pg_dump -h db -U depmap -d depmap -Fc -f "$out.tmp"
+    status=$?
   fi
+  if [ "$status" -ne 0 ] || ! mv "$out.tmp" "$out"; then
+    rm -f "$out.tmp"
+    echo "ERROR: backup failed (exit $status) - previous backups kept, nothing pruned"
+    return 1
+  fi
+  echo "backup $out$note"
   find /backups -name 'depmap-*.dump*' -mtime +"$KEEP" -delete
+  offsite "$out"
 }
 
 while true; do
   once
-  [ "${BACKUP_ONCE:-}" = "1" ] && exit 0
+  status=$?
+  [ "${BACKUP_ONCE:-}" = "1" ] && exit "$status"
   sleep 86400
 done

@@ -8,14 +8,17 @@ import {
   savedViewStateSchema,
   type SavedViewSummary,
 } from "@/lib/map-view-state";
-import { assertRole, type WorkspaceContext } from "@/server/authz";
+import { assertRole, hasRole, type WorkspaceContext } from "@/server/authz";
 import { tenantDb } from "@/server/db";
+import { recordAudit, userActor } from "@/server/modules/audit/audit";
 
 /**
  * Saved map views (M26 phase 3, ADR-041). Shared with the whole workspace:
  * anyone can open them, MEMBER+ save and delete them. They are presentation
  * (filters, boxes, positions), not infrastructure data, so they record no
- * ChangeEvent and are not security events (no audit entry).
+ * ChangeEvent. Exception (M43): a view with an active public link publishes
+ * outside the workspace, so only ADMIN+ (who create links) may change it,
+ * and the change is audited.
  */
 
 export const saveViewSchema = z.object({
@@ -55,11 +58,30 @@ export async function saveView(ctx: WorkspaceContext, rawInput: unknown): Promis
   try {
     return await db.$transaction(async (tx) => {
       if (input.id) {
+        const shared = await tx.mapShare.count({
+          where: {
+            workspaceId: ctx.workspaceId,
+            savedViewId: input.id,
+            revokedAt: null,
+            OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+          },
+        });
+        if (shared && !hasRole(ctx.role, "ADMIN"))
+          throw new SavedViewError(
+            "This view has a public link, so only an admin can change it. Save it as a new view instead.",
+          );
         const { count } = await tx.savedView.updateMany({
           where: { id: input.id, workspaceId: ctx.workspaceId },
           data: { name: input.name, state: input.state },
         });
         if (count === 0) throw new SavedViewError("That view no longer exists.");
+        if (shared)
+          await recordAudit(tx, {
+            workspaceId: ctx.workspaceId,
+            action: "share.view_changed",
+            actor: userActor(ctx),
+            target: { type: "saved_view", id: input.id, label: input.name },
+          });
         return { id: input.id };
       }
       if (

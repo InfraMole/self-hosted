@@ -62,7 +62,7 @@ ports, running software and who talks to whom. For an attacker that is a
 | T17 | SSRF through server-side integration sync                         | https only, public endpoints only (block private/link-local/metadata ranges), timeouts, response caps                                                                                                                          | ✅ `server/safe-fetch.ts` (https only, public destinations checked at connect time — DNS-rebinding safe —, no redirects, timeout, size cap). M27 (ADR-042): local sources only may also reach `INTEGRATIONS_PRIVATE_NETWORKS` (self-hosted, refused on cloud); loopback / link-local / multicast always refused; self-signed certificates only by SHA-256 pin, checked before the request      |
 | T18 | Agent collector credential theft on the host                      | Token only in a separate private file (Unix mode checked, Windows ACL documented), read-only PVEAuditor role, never sent to Depmap, collectors only enabled locally (server cannot configure them), TLS verified, no redirects | ✅ M8b (`agent/internal/inventory`); M24 (ADR-035): same for vCenter password / Xen Orchestra token files (read-only roles documented), vSphere login faults never echoed, Hyper-V via a fixed read-only PowerShell script (full path, nothing interpolated, mutating verbs forbidden by a test)                                                                                               |
 | T19 | Invitation link forwarded / leaked                                | Token hashed, 7-day expiry, single use, revocable; bound to the invited email (must sign in with it); email masked on the page; `Referrer-Policy: no-referrer` on `/invite`; accept rate-limited per user                      | ✅ M8b (`modules/members`)                                                                                                                                                                                                                                                                                                                                                                     |
-| T20 | Privilege escalation through role management                      | ADMIN cannot grant/change/remove OWNER; at least one OWNER always; invitations never downgrade; every check server-side and tenant-scoped (tests)                                                                              | ✅ M8b                                                                                                                                                                                                                                                                                                                                                                                         |
+| T20 | Privilege escalation through role management                      | ADMIN cannot grant/change/remove OWNER; at least one OWNER always (counted under a lock on the workspace row, M43); invitations never downgrade; every check server-side and tenant-scoped (tests)                             | ✅ M8b                                                                                                                                                                                                                                                                                                                                                                                         |
 | T21 | Open redirect after sign-in (`?next=`)                            | Only same-origin absolute paths (`lib/safe-next.ts`, unit tested)                                                                                                                                                              | ✅ M8b                                                                                                                                                                                                                                                                                                                                                                                         |
 | T22 | Tenant leak through an application bug (missing workspace filter) | Postgres RLS with a non-bypass runtime role, explicit scopes, fail-closed default, regression tests (incl. Prisma query batching)                                                                                              | ✅ M8c (ADR-020)                                                                                                                                                                                                                                                                                                                                                                               |
 | T15 | Insider / support access                                          | Workspace audit log (customer-visible); staff DB sessions only via `db-shell.sh` with a mandatory reason, recorded as `operator.db_access` + `access.log`; encrypted backups whose key is kept off the server                  | ✅ M8c (accountability; host root remains trusted)                                                                                                                                                                                                                                                                                                                                             |
@@ -251,14 +251,20 @@ last IP, expired sessions and tokens) is deleted, not kept "just in case".
   relationships in the JSON importer's shape (re-importable, tested),
   suggestions, agents (no secrets), integrations (config only — credentials
   never exported), discovery exclusion rules (M15), changes, audit log. Audited as `workspace.exported`.
-- **Workspace deletion** (OWNER, exact-name confirmation): cascades
-  everything (sealed credentials included); only an account-level audit event
-  with counts remains.
+- **Workspace deletion** (OWNER, exact-name confirmation; also account
+  deletion and retention of paused workspaces, all through
+  `workspaces.ts#deleteWorkspaceRows`): cascades everything (sealed
+  credentials included) and removes the SSO plugin's provider rows of its
+  connections (sealed OIDC client secret, SAML key), which have no workspace
+  column (M43; migration `delete_orphan_sso_providers` removed the ones
+  left by earlier deletions). Only an account-level audit event with counts
+  remains.
 - **Account deletion** (Better Auth `deleteUser` with password or a fresh
   SSO session): workspaces where the user is the only member are deleted;
   shared workspaces record `member.left`; refused while the user is the only
   owner of a workspace with other members. Sessions, accounts, 2FA and
-  passkeys go with the user.
+  passkeys go with the user. Shared workspaces are left before anything is
+  deleted, under the same owner lock as role changes (M43).
 
 ## 5z. Staying up to date (M36, ADR-052)
 
@@ -356,6 +362,11 @@ last IP, expired sessions and tokens) is deleted, not kept "just in case".
   only (they publish data outside the workspace), audited
   (`share.created` / `share.revoked`), deleted 90 days after ending, and
   with their view.
+- A view with an active link is changed only by ADMIN+ (members get "save
+  it as a new view"), audited as `share.view_changed` (M43): otherwise a
+  MEMBER could widen what an admin published.
+- A view narrowed by focus or impact whose resources no longer exist shows
+  **nothing**, never the whole map (`viewSubset`, M43).
 - `/share/<token>` needs no session. Lookup by hash through
   `systemDb("public map link by token hash")`, then everything scoped to
   the link's workspace. The server applies the view with
@@ -421,7 +432,8 @@ last IP, expired sessions and tokens) is deleted, not kept "just in case".
 
 - **Local network access is opt-in and narrow**: `INTEGRATIONS_PRIVATE_NETWORKS`
   is empty by default, validated (CIDR, /8 or longer), refused with
-  `EDITION=cloud`. Only the PROXMOX / TRUENAS / SYNOLOGY providers receive
+  `EDITION=cloud`. Only the local-source providers (PROXMOX / TRUENAS /
+  SYNOLOGY, and NETBOX / ZABBIX / PRTG since M31, §5v) receive
   `deps.local`; every other provider keeps the public-only dispatcher.
   Loopback, 0.0.0.0/8, 169.254/16 (cloud metadata), fe80::/10 and multicast
   are refused even when listed. Checks run on every resolved address at
@@ -564,6 +576,17 @@ last IP, expired sessions and tokens) is deleted, not kept "just in case".
   runs read-only, non-root, `no-new-privileges`. Caddy caps request bodies
   at 4 MB and replaces client `X-Forwarded-*`; `X-Real-IP` is set to the TCP
   peer.
+- **Access logs never hold bearer links** (M43): Caddy's log filter replaces
+  the token in `/share/…`, `/invite/…`, `/reset-password/…` and in the
+  `token`, `t`, `code` and `state` query parameters (also in `Referer`)
+  with `REDACTED`. Caddy already redacts `Cookie` and `Authorization`.
+  Extra sites in `caddy.d/` need their own filter.
+- **Backups fail loudly** (M43): `backup-loop.sh` runs with `pipefail`; a
+  failed `pg_dump` (or `age`) leaves no file, uploads nothing, prunes
+  nothing and makes `BACKUP_ONCE=1` exit non-zero.
+- **CI and releases**: every third-party action is pinned to a commit SHA;
+  CI workflows run with a read-only token (`contents: read`); only the
+  release workflows get write, packages, id-token and attestation rights.
 - Client-IP spoofing verified end to end: requests carrying different fake
   `X-Real-IP`/`X-Forwarded-For` values still hit the same sign-up rate limit.
 - Secrets from `deploy/scripts/gen-secrets.sh` (openssl), `deploy/.env`
@@ -586,8 +609,14 @@ last IP, expired sessions and tokens) is deleted, not kept "just in case".
 
 ## 8. Backlog hardening
 
-- Postgres Row Level Security as a second tenancy layer.
-- Audit log (who changed what; admin actions).
-- 2FA / passkeys (Better Auth plugins), SSO for MSPs.
+Row Level Security (§5i), the audit log (§5f), 2FA / passkeys (§5g), SSO
+(§5h, §5y) and export / deletion (§5j) are done. Still open:
+
 - mTLS for agents.
-- Per-workspace data export & deletion (GDPR).
+- Composite `(workspaceId, id)` foreign keys on the remaining tenant
+  references (agent → resource, observation → agent, connection facts,
+  evidence, discovery rules); RLS already enforces the workspace.
+- DNS pinned at connect time for the SSO plugin's OIDC discovery requests
+  (integrations and LDAP already connect to the checked address).
+- Base images pinned by digest; a detached signature for the self-hosted
+  bundle like the agent's.

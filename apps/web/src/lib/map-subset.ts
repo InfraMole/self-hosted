@@ -105,8 +105,9 @@ export function visibleIdsOf(
 
 /**
  * Applies a saved view's filters, focus or impact to a graph: the resources
- * and relationships it shows, nothing else. Ids the graph no longer has are
- * ignored.
+ * and relationships it shows, nothing else. A view narrowed to resources the
+ * graph no longer has shows nothing: a public link must never widen to the
+ * whole map because its focus or impact resource was deleted.
  */
 export function viewSubset<N extends SubsetNode, E extends SubsetEdge>(
   nodes: readonly N[],
@@ -123,7 +124,10 @@ export function viewSubset<N extends SubsetNode, E extends SubsetEdge>(
 ): { nodes: N[]; edges: E[] } {
   const ids = new Set(nodes.map((n) => n.id));
   let impactIds: Set<string> | null = null;
-  const roots = impactRootsOf(state).filter((id) => ids.has(id));
+  const wanted = impactRootsOf(state);
+  const roots = wanted.filter((id) => ids.has(id));
+  if ((wanted.length && !roots.length) || (state.focus && !ids.has(state.focus.id)))
+    return { nodes: [], edges: [] };
   if (roots.length) {
     const withConfidence = edges.map((e) => ({
       ...e,
@@ -148,7 +152,7 @@ export function viewSubset<N extends SubsetNode, E extends SubsetEdge>(
       type: state.type,
       environment: state.environment,
       showInformational: state.showInformational,
-      focus: state.focus && ids.has(state.focus.id) ? state.focus : null,
+      focus: state.focus,
       impactIds,
     }),
   );

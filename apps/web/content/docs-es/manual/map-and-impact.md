@@ -89,7 +89,11 @@ enlace en ese momento: no se vuelve a mostrar. Quien lo abra ve esa vista
 tal como está ahora, solo lectura — nombres, tipos, entornos y cómo se
 unen; **nunca direcciones IP, responsables, contactos, notas ni nada fuera
 de la vista**. Los enlaces se listan y revocan en **Settings › Public map
-links**; borrar la vista borra sus enlaces.
+links**; borrar la vista borra sus enlaces. Mientras una vista tenga un
+enlace activo, solo los admins pueden cambiarla (los demás pueden guardar
+sus cambios como una vista nueva). Si se borra el recurso en el que se basa
+una vista de foco o de impacto, el enlace no muestra nada en lugar del mapa
+entero.
 
 El estilo de las líneas sigue la
 [representación de la certeza](/es/docs/manual/relationships#cuanta-certeza-hay):

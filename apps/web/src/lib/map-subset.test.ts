@@ -99,11 +99,20 @@ describe("viewSubset", () => {
     });
   });
 
-  it("ignores focus and impact on resources that are gone", () => {
-    expect(viewSubset(nodes, edges, { ...base, impact: "gone" }).nodes).toHaveLength(6);
+  it("shows nothing, never the whole map, when focus or impact resources are gone", () => {
+    const empty = { nodes: [], edges: [] };
+    expect(ids(viewSubset(nodes, edges, { ...base, impact: "gone" }))).toEqual(empty);
+    expect(ids(viewSubset(nodes, edges, { ...base, impact: null, impacts: ["gone"] }))).toEqual(
+      empty,
+    );
     expect(
-      viewSubset(nodes, edges, { ...base, focus: { id: "gone", depth: 2, direction: "both" } })
-        .nodes,
-    ).toHaveLength(6);
+      ids(
+        viewSubset(nodes, edges, { ...base, focus: { id: "gone", depth: 2, direction: "both" } }),
+      ),
+    ).toEqual(empty);
+    // One of several impact roots gone: the others still narrow the view.
+    expect(
+      ids(viewSubset(nodes, edges, { ...base, impact: null, impacts: ["sql01", "gone"] })).nodes,
+    ).toContain("sql01");
   });
 });

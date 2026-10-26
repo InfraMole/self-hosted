@@ -85,7 +85,10 @@ it is not shown again. Whoever opens it sees that view as it is now, read
 only — names, types, environments and how they are linked; **IP
 addresses, owners, contacts, notes and everything outside the view are
 never shown**. Links are listed and revoked in **Settings › Public map
-links**; deleting the view deletes its links.
+links**; deleting the view deletes its links. While a view has an active
+link, only admins can change it (others can save their changes as a new
+view). If the resource a focus or impact view is built on is deleted, the
+link shows nothing rather than the whole map.
 
 Line styles follow the [certainty encoding](/docs/manual/relationships#how-certain-is-it):
 solid for confirmed, dashed for detected, dotted for inferred.

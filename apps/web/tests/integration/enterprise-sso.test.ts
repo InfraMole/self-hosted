@@ -23,6 +23,7 @@ import {
 } from "@/server/modules/sso/sso";
 import {
   createWorkspace,
+  deleteWorkspace,
   findWorkspaceContextForUser,
 } from "@/server/modules/workspaces/workspaces";
 import { adminDb, createTestUser, resetDatabase } from "./helpers";
@@ -110,6 +111,18 @@ describe("connections", () => {
     await deleteSsoConnection(owner, id);
     expect(await adminDb().workspaceSso.count()).toBe(0);
     expect(await adminDb().ssoProvider.count()).toBe(0);
+  });
+
+  it("go with their workspace, sealed secrets included", async () => {
+    const owner = await ownerContext("Uni");
+    await createSsoConnection(owner, saml("uni.example"));
+    const other = await ownerContext("Other");
+    await createSsoConnection(other, saml("other.example"));
+    expect(await adminDb().ssoProvider.count()).toBe(2);
+
+    await deleteWorkspace(owner, "Uni");
+    const left = await adminDb().ssoProvider.findMany({ select: { domain: true } });
+    expect(left).toEqual([{ domain: "other.example" }]);
   });
 
   it("refuse public mail domains, empty rules, and a domain another workspace holds", async () => {

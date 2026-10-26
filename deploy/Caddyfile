@@ -18,9 +18,16 @@
 		header_up X-Real-IP {remote_host}
 	}
 
+	# Bearer links never reach the logs: public map links, invitations,
+	# password resets, email verification, digest unsubscribe and sign-in
+	# callbacks are logged with the token replaced by REDACTED.
 	log {
 		output stdout
-		format json
+		format filter {
+			request>uri regexp "(/(?:share|invite|reset-password)/)[^/?#]+|([?&](?:token|t|code|state)=)[^&#]*" "${1}${2}REDACTED"
+			request>headers>Referer regexp "(/(?:share|invite|reset-password)/)[^/?#]+|([?&](?:token|t|code|state)=)[^&#]*" "${1}${2}REDACTED"
+			wrap json
+		}
 	}
 }
 

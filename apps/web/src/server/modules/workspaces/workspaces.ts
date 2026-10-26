@@ -167,21 +167,42 @@ export class WorkspaceDeleteError extends Error {
  * invitations, changes, audit events). The only trace left is an
  * account-level audit event with counts (no content).
  */
+/**
+ * Deletes a workspace inside `tx` (owner, account deletion and retention of
+ * paused workspaces). The cascade covers its tables; the SSO plugin's
+ * provider rows (sealed OIDC client secret, SAML key) have no workspace
+ * column, so they are removed here through the connections' providerId.
+ */
+export async function deleteWorkspaceRows(
+  tx: Prisma.TransactionClient,
+  workspaceId: string,
+): Promise<void> {
+  // Lets the cascade remove this workspace's audit rows (append-only trigger).
+  await tx.$executeRaw`SELECT set_config('depmap.allow_audit_delete', 'on', true)`;
+  const sso = await tx.workspaceSso.findMany({
+    where: { workspaceId },
+    select: { providerId: true },
+  });
+  if (sso.length)
+    await tx.ssoProvider.deleteMany({
+      where: { providerId: { in: sso.map((s) => s.providerId) } },
+    });
+  await tx.workspace.delete({ where: { id: workspaceId } });
+}
+
 export async function deleteWorkspace(ctx: WorkspaceContext, confirmName: string): Promise<void> {
   assertRole(ctx, "OWNER");
   if (confirmName.trim() !== ctx.workspaceName)
     throw new WorkspaceDeleteError("Type the exact workspace name to confirm.");
   const where = { workspaceId: ctx.workspaceId };
   await tenantDb(ctx).$transaction(async (tx) => {
-    // Lets the cascade remove this workspace's audit rows (append-only trigger).
-    await tx.$executeRaw`SELECT set_config('depmap.allow_audit_delete', 'on', true)`;
     const [resources, agents, integrations, members] = await Promise.all([
       tx.resource.count({ where }),
       tx.agent.count({ where }),
       tx.integration.count({ where }),
       tx.membership.count({ where }),
     ]);
-    await tx.workspace.delete({ where: { id: ctx.workspaceId } });
+    await deleteWorkspaceRows(tx, ctx.workspaceId);
     await recordAudit(tx, {
       workspaceId: null,
       action: "workspace.deleted",

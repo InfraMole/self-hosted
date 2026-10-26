@@ -98,10 +98,16 @@ export async function listMembers(ctx: WorkspaceContext): Promise<MemberView[]> 
   }));
 }
 
-async function ownerCount(
-  tx: Pick<ReturnType<typeof tenantDb>, "membership">,
+/**
+ * Owners of the workspace, counted under a lock on its row: two concurrent
+ * demotions or removals of different owners must not both see "two owners"
+ * and leave none. Call inside a transaction, right before the change.
+ */
+export async function lockedOwnerCount(
+  tx: Pick<ReturnType<typeof tenantDb>, "membership" | "$executeRaw">,
   workspaceId: string,
 ) {
+  await tx.$executeRaw`SELECT 1 FROM workspace WHERE id = ${workspaceId} FOR UPDATE`;
   return tx.membership.count({ where: { workspaceId, role: "OWNER" } });
 }
 
@@ -122,7 +128,7 @@ export async function changeMemberRole(
     if (target.role === "OWNER") {
       if (ctx.role !== "OWNER")
         throw new ForbiddenError("Only an owner can change another owner's role.");
-      if ((await ownerCount(tx, ctx.workspaceId)) <= 1)
+      if ((await lockedOwnerCount(tx, ctx.workspaceId)) <= 1)
         throw new MemberError(
           "A workspace needs at least one owner. Make someone else owner first.",
         );
@@ -154,7 +160,7 @@ export async function removeMember(ctx: WorkspaceContext, userId: string): Promi
     if (target.role === "OWNER") {
       if (!self && ctx.role !== "OWNER")
         throw new ForbiddenError("Only an owner can remove an owner.");
-      if ((await ownerCount(tx, ctx.workspaceId)) <= 1)
+      if ((await lockedOwnerCount(tx, ctx.workspaceId)) <= 1)
         throw new MemberError(
           "A workspace needs at least one owner. Make someone else owner first.",
         );

@@ -52,6 +52,15 @@ describe("reportSchemaV1", () => {
     expect(reportSchemaV1.safeParse(tooMany).success).toBe(false);
     expect(reportSchemaV1.safeParse({ ...sampleReport(), schemaVersion: 2 }).success).toBe(false);
   });
+
+  it("rejects an oversized collection before validating its items", () => {
+    // A small body of many invalid items must not build one issue per field
+    // per item (zod ≥ 4.6.6 checks the length first).
+    const flood = { ...sampleReport(), connections: Array.from({ length: 30_000 }, () => ({})) };
+    const result = reportSchemaV1.safeParse(flood);
+    expect(result.success).toBe(false);
+    expect(result.error!.issues.length).toBeLessThan(10);
+  });
 });
 
 describe("agentConfig", () => {

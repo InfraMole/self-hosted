@@ -13,7 +13,8 @@ import {
   resolveShare,
   revokeShare,
 } from "@/server/modules/map/shares";
-import { deleteSavedView } from "@/server/modules/map/views";
+import { SavedViewError, deleteSavedView, saveView } from "@/server/modules/map/views";
+import { deleteResource } from "@/server/modules/resources/resources";
 import {
   createWorkspace,
   findWorkspaceContextForUser,
@@ -159,6 +160,50 @@ describe("public map links", () => {
     await expect(createShare(acme, { viewId: view.id, expiresInDays: 30 })).rejects.toThrow(
       ShareError,
     );
+  });
+
+  it("never widens when the view's impact or focus resource is deleted", async () => {
+    const owner = await ownerContext("Acme");
+    const { view, sql01 } = await seed(owner);
+    const { token } = await createShare(owner, { viewId: view.id, expiresInDays: 0 });
+    const member = await memberContext(owner, "MEMBER");
+    await deleteResource(member, sql01.id);
+    const shared = (await resolveShare(token))!;
+    expect(shared.nodes).toEqual([]);
+    expect(shared.edges).toEqual([]);
+
+    const billing = await adminDb().resource.findFirstOrThrow({ where: { name: "Billing" } });
+    await adminDb().savedView.update({
+      where: { id: view.id },
+      data: {
+        state: savedViewStateSchema.parse({
+          focus: { id: billing.id, depth: 1, direction: "both" },
+        }),
+      },
+    });
+    expect((await resolveShare(token))!.nodes.map((n) => n.name).sort()).toEqual([
+      "Billing",
+      "CustomersDB",
+    ]);
+    await deleteResource(member, billing.id);
+    expect((await resolveShare(token))!.nodes).toEqual([]);
+  });
+
+  it("only admins change a view while it has an active link, and it is audited", async () => {
+    const owner = await ownerContext("Acme");
+    const { view } = await seed(owner);
+    const member = await memberContext(owner, "MEMBER");
+    const widened = { name: view.name, state: savedViewStateSchema.parse({}) };
+    // Not shared yet: members save it as before.
+    await saveView(member, { id: view.id, ...widened });
+    const { id } = await createShare(owner, { viewId: view.id, expiresInDays: 0 });
+    await expect(saveView(member, { id: view.id, ...widened })).rejects.toThrow(SavedViewError);
+    await saveView(owner, { id: view.id, ...widened });
+    const audit = await listAuditEvents(owner, { group: "workspace" });
+    expect(audit.events.map((e) => e.action)).toContain("share.view_changed");
+    // Revoked: members may change it again.
+    await revokeShare(owner, id);
+    await saveView(member, { id: view.id, ...widened });
   });
 
   it("retention deletes links revoked long ago", async () => {

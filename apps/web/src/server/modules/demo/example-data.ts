@@ -624,12 +624,19 @@ export const SUGGESTED: [string, string, string][] = [
 ];
 
 // [from, to, port, protocol guess, process, samples] — detected, awaiting review.
+// M42: the IIS worker's connection starts at its site, not at APP01.
 export const DETECTED: [string, string, number, string, string, number][] = [
-  ["APP01", "SQL01", 1433, "MSSQL", "w3wp.exe", 128],
+  ["Portal (APP01)", "SQL01", 1433, "MSSQL", "w3wp.exe", 128],
   ["APP02", "DC01", 389, "LDAP", "java", 42],
   ["APP01", "NAS01", 445, "SMB", "System", 12],
   ["shop/checkout", "db-analytics", 25060, "PostgreSQL", "checkout", 57],
   ["DOCKER01", "SQL01", 1433, "MSSQL", "dockerd", 33],
+];
+
+// [from, database, port, protocol guess, sessions] — seen in the database
+// server's session list (M42), awaiting review.
+export const SESSIONS: [string, string, number, string, number][] = [
+  ["APP02", "Reporting (SQL01\\REPORTING)", 1433, "MSSQL", 3],
 ];
 
 // Example saved views (M26 phase 3): [name, resource the view is about, state].
@@ -742,6 +749,46 @@ export async function populateExampleWorkspace(
       },
     });
   }
+  for (const [fromName, toName, port, guess, sessions] of SESSIONS) {
+    const from = ids.get(fromName);
+    const to = ids.get(toName);
+    if (!from || !to) throw new Error(`Unknown resource in example data: ${fromName} / ${toName}`);
+    const rel = await db.relationship.create({
+      data: {
+        workspaceId,
+        fromResourceId: from,
+        toResourceId: to,
+        type: "USES_DATABASE",
+        origin: "DETECTED",
+        status: "UNCONFIRMED",
+        firstObservedAt: new Date(now - 2 * 86_400_000),
+        lastObservedAt: new Date(now - 180_000),
+        evidence: {
+          create: {
+            workspaceId,
+            kind: "DB_SESSION",
+            port,
+            protocolGuess: guess,
+            sampleCount: sessions,
+            firstSeenAt: new Date(now - 2 * 86_400_000),
+            lastSeenAt: new Date(now - 180_000),
+          },
+        },
+      },
+    });
+    await db.changeEvent.create({
+      data: {
+        workspaceId,
+        actorType: "SYSTEM",
+        subjectType: "RELATIONSHIP",
+        subjectId: rel.id,
+        subjectLabel: `${fromName} → ${toName}`,
+        kind: "DISCOVERED",
+        summary: `Seen in the database server's sessions: ${fromName} uses database ${toName}`,
+        resourceIds: [from, to],
+      },
+    });
+  }
   for (const [fromName, toName, note] of SUGGESTED) {
     const from = ids.get(fromName);
     const to = ids.get(toName);
@@ -785,6 +832,6 @@ export async function populateExampleWorkspace(
   return {
     resources: RESOURCES.length,
     relationships: RELATIONSHIPS.length,
-    suggestions: DETECTED.length + SUGGESTED.length,
+    suggestions: DETECTED.length + SESSIONS.length + SUGGESTED.length,
   };
 }

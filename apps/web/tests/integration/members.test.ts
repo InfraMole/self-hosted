@@ -172,6 +172,22 @@ describe("members", () => {
     expect((await listMembers(owner)).filter((m) => m.role === "OWNER")).toHaveLength(1);
   });
 
+  it("keeps an owner when two owners step down at the same time", async () => {
+    for (let round = 0; round < 5; round++) {
+      await resetDatabase();
+      const a = await ownerContext("Acme");
+      const b = await addMember(a, "OWNER");
+      const results = await Promise.allSettled([
+        changeMemberRole(a, a.userId, "ADMIN"),
+        round % 2 ? removeMember(b, b.userId) : changeMemberRole(b, b.userId, "ADMIN"),
+      ]);
+      expect(results.filter((r) => r.status === "rejected")).toHaveLength(1);
+      expect(
+        await adminDb().membership.count({ where: { workspaceId: a.workspaceId, role: "OWNER" } }),
+      ).toBe(1);
+    }
+  });
+
   it("ADMIN removes members, anyone can leave, nobody touches other workspaces", async () => {
     const owner = await ownerContext("Acme");
     const admin = await addMember(owner, "ADMIN");

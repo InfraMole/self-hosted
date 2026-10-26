@@ -253,6 +253,11 @@ RLS tenant policy (migration `map_shares`); the public page reads it by
 hash through `systemDb`. ≤ 25 active per workspace; ADMIN+ manage.
 Retention: deleted 90 days after revoked / expired.
 
+`sso_provider` rows (Better Auth SSO plugin, no workspace column) are
+deleted with their workspace by `workspaces.ts#deleteWorkspaceRows`;
+migration `20261026150000_delete_orphan_sso_providers` removed the ones
+earlier deletions left (M43).
+
 ### ApiToken ✅ M30 (ADR-044)
 
 `api_token`: `workspaceId`, `name`, `tokenHash` (sha256, unique), `prefix`
@@ -287,7 +292,9 @@ showUnconfirmed, showInformational, focus? {id, depth, direction}, impact?,
 impacts[] (M34: several impact roots, ≤ 50; `impact` = the first), groupMode (auto | expanded | collapsed), groups {resourceId: expanded},
 pinned {resourceId: {x, y, parent}}` — resource ids only, bounded (5,000
 entries each). RLS like every tenant table. Everyone reads; MEMBER+ create,
-overwrite, delete; at most 50 per workspace. Not change-tracked (presentation).
+overwrite, delete — but a view with an active public link is overwritten
+only by ADMIN+, audited `share.view_changed` (M43); at most 50 per
+workspace. Not change-tracked (presentation).
 
 ### RelationshipEvidence ✅ M6 (see §5)
 

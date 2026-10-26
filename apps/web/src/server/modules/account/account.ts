@@ -2,6 +2,7 @@
 import "server-only";
 import { tenantDb, userDb } from "@/server/db";
 import { recordAudit } from "@/server/modules/audit/audit";
+import { lockedOwnerCount } from "@/server/modules/members/members";
 import { deleteWorkspace } from "@/server/modules/workspaces/workspaces";
 
 /**
@@ -111,8 +112,7 @@ export async function removePasskey(userId: string, id: string): Promise<void> {
  * - workspaces where the user is the only member are deleted entirely;
  * - if the user is the only OWNER of a workspace that has other members,
  *   deletion is refused (make someone else owner, or delete it first);
- * - in shared workspaces the departure is audited (the membership row goes
- *   with the user).
+ * - shared workspaces are left (membership removed, departure audited).
  */
 export async function prepareAccountDeletion(user: { id: string; email: string }): Promise<void> {
   const memberships = await userDb(user.id).membership.findMany({
@@ -136,6 +136,23 @@ export async function prepareAccountDeletion(user: { id: string; email: string }
     throw new AccountError(
       `You are the only owner of ${blockers.join(", ")}. Make someone else owner or delete the workspace first.`,
     );
+  // Shared workspaces are left first, under the owner lock: two co-owners
+  // deleting their accounts at once cannot leave a workspace without one.
+  for (const m of shared)
+    await tenantDb({ workspaceId: m.workspace.id, userId: user.id }).$transaction(async (tx) => {
+      if (m.role === "OWNER" && (await lockedOwnerCount(tx, m.workspace.id)) <= 1)
+        throw new AccountError(
+          `You are the only owner of ${m.workspace.name}. Make someone else owner or delete the workspace first.`,
+        );
+      await tx.membership.deleteMany({ where: { workspaceId: m.workspace.id, userId: user.id } });
+      await recordAudit(tx, {
+        workspaceId: m.workspace.id,
+        action: "member.left",
+        actor: { type: "USER", id: user.id, label: user.email },
+        target: { type: "user", id: user.id, label: user.email },
+        metadata: { reason: "account deleted" },
+      });
+    });
   for (const m of solo)
     await deleteWorkspace(
       {
@@ -147,14 +164,6 @@ export async function prepareAccountDeletion(user: { id: string; email: string }
       },
       m.workspace.name,
     );
-  for (const m of shared)
-    await recordAudit(tenantDb({ workspaceId: m.workspace.id, userId: user.id }), {
-      workspaceId: m.workspace.id,
-      action: "member.left",
-      actor: { type: "USER", id: user.id, label: user.email },
-      target: { type: "user", id: user.id, label: user.email },
-      metadata: { reason: "account deleted" },
-    });
   await recordAudit(userDb(user.id), {
     workspaceId: null,
     action: "auth.account_deleted",

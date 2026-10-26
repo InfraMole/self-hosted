@@ -5,6 +5,33 @@ images). The agent has its own changelog in the InfraMole/agent repository.
 To update an installation, see
 [Upgrade guide](https://inframole.com/docs/operations/upgrade).
 
+## 0.33.1 — 2026-10-26
+
+### Security
+
+- **Public map links**: if the resource a focus or impact view is built on
+  is deleted, its public links show nothing instead of the whole map. While
+  a view has an active public link, only admins can change it, and the
+  change appears in the audit log.
+- **Access logs** no longer contain the tokens of public map links,
+  invitations, password resets, email verification, unsubscribe links or
+  sign-in callbacks (replaced by `REDACTED`).
+- **Backups**: a failed database dump is no longer saved, uploaded or
+  reported as a backup, and older backups are not pruned after a failure.
+- **Workspace deletion** also deletes the workspace's single sign-on
+  provider secrets (an upgrade migration removes those left by earlier
+  deletions).
+- A workspace always keeps an owner, also when two owners step down at the
+  same moment.
+- Updated dependencies with security fixes (Next.js 16.4.3, zod, undici,
+  nodemailer).
+
+### Changed
+
+- **Demo**: the example infrastructure shows which IIS site makes a
+  connection (`Portal (APP01) → SQL01`) and a suggestion found in SQL
+  Server's sessions (`APP02 uses database Reporting`).
+
 ## 0.33.0 — 2026-10-26
 
 ### Added
