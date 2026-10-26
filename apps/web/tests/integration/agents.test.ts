@@ -11,6 +11,7 @@ import {
   revokeEnrollmentToken,
 } from "@/server/modules/agents/agents";
 import { sampleReport } from "@/server/modules/agents/fixtures";
+import type { ReportV1 } from "@/server/modules/agents/protocol";
 import { listChangesForResource, listWorkspaceChanges } from "@/server/modules/changes/changes";
 import { getHostDiscovery, listSuggestions } from "@/server/modules/discovery/discovery";
 import {
@@ -148,6 +149,8 @@ describe("agent reports", () => {
         "kubernetes",
         "collection-issues",
         "dns-servers",
+        "connection-sites",
+        "database-clients",
       ],
     });
 
@@ -364,6 +367,144 @@ describe("agent reports", () => {
     expect((await report(secret, sampleReport({ dnsServers: ["dns.corp.local"] }))).status).toBe(
       422,
     );
+  });
+
+  it("attributes IIS connections to their site and turns database sessions into suggestions (M42)", async () => {
+    const ctx = await ownerContext("Acme");
+    const { token } = await createEnrollmentToken(ctx, { name: "t", expiresInHours: 24 });
+    const app = (await enroll(token, "machine-app01")).body.agentSecret as string;
+    const sql = (await enroll(token, "machine-sql01")).body.agentSecret as string;
+    const sqlHost = {
+      ...sampleReport().host,
+      hostname: "SQL01",
+      fqdn: "sql01.corp.local",
+    };
+    const sqlReport = (overrides: Partial<ReportV1> = {}) =>
+      sampleReport({
+        host: sqlHost,
+        interfaces: [{ name: "Ethernet0", addresses: ["10.0.0.40/24"] }],
+        connections: [],
+        workloads: {
+          collectedAt: "2026-09-28T10:05:00Z",
+          sqlDatabases: [
+            { instance: "MSSQLSERVER", name: "Billing" },
+            { instance: "MSSQLSERVER", name: "Customers" },
+          ],
+        },
+        ...overrides,
+      });
+    const res = await report(sql, sqlReport());
+    expect(res.status).toBe(202);
+    expect((await res.json()).features).toEqual(
+      expect.arrayContaining(["connection-sites", "database-clients"]),
+    );
+
+    // Two sites on one host; the worker of Billing's pool talks to SQL01.
+    const conn = sampleReport().connections[0]!;
+    expect(
+      (
+        await report(
+          app,
+          sampleReport({
+            connections: [
+              { ...conn, site: "Billing" },
+              { ...conn, site: "Portal", count: 4 },
+            ],
+            workloads: {
+              collectedAt: "2026-09-28T10:05:00Z",
+              iisSites: [
+                {
+                  name: "Billing",
+                  bindings: [{ protocol: "https", port: 443, host: "billing.corp.local" }],
+                },
+                {
+                  name: "Portal",
+                  bindings: [{ protocol: "https", port: 443, host: "portal.corp.local" }],
+                },
+              ],
+            },
+          }),
+        )
+      ).status,
+    ).toBe(202);
+    const pairs = (await listSuggestions(ctx)).map((s) => `${s.from.name} → ${s.to.name}`);
+    expect(pairs).toEqual(
+      expect.arrayContaining(["Billing (APP01) → SQL01", "Portal (APP01) → SQL01"]),
+    );
+    expect(pairs).not.toContain("APP01 → SQL01");
+    const facts = await adminDb().connectionFact.findMany({
+      where: { workspaceId: ctx.workspaceId, port: 1433 },
+      orderBy: { site: "asc" },
+    });
+    expect(facts.map((f) => [f.site, f.sampleCount])).toEqual([
+      ["Billing", 10],
+      ["Portal", 4],
+    ]);
+
+    // SQL01 lists who has sessions open to which database.
+    const clients = (sessions: number) => [
+      {
+        engine: "mssql" as const,
+        instance: "MSSQLSERVER",
+        database: "Billing",
+        address: "10.0.0.23",
+        port: 1433,
+        sessions,
+      },
+      // No resource owns this client, and this database was never imported.
+      {
+        ...{ engine: "mssql" as const, instance: "MSSQLSERVER", port: 1433, sessions: 1 },
+        database: "Billing",
+        address: "10.0.9.9",
+      },
+      {
+        ...{ engine: "mssql" as const, instance: "MSSQLSERVER", port: 1433, sessions: 1 },
+        database: "Gone",
+        address: "10.0.0.23",
+      },
+    ];
+    expect((await report(sql, sqlReport({ databaseClients: clients(3) }))).status).toBe(202);
+    const dbSuggestions = async () =>
+      (await listSuggestions(ctx)).filter((s) => s.to.name === "Billing (SQL01)");
+    let [s] = await dbSuggestions();
+    expect(s).toMatchObject({ type: "USES_DATABASE", origin: "DETECTED", from: { name: "APP01" } });
+    expect(s!.evidence).toMatchObject({
+      ports: [1433],
+      protocols: ["MSSQL"],
+      sessions: 3,
+      samples: 0,
+      observed: false,
+    });
+    expect((await dbSuggestions()).length).toBe(1);
+    const changes = await listWorkspaceChanges(ctx, {});
+    expect(changes.events.map((c) => c.summary)).toContain(
+      "Seen in the database server's sessions: APP01 uses database Billing (SQL01)",
+    );
+
+    // Refreshed, never duplicated; sessions gone do not remove it.
+    await report(sql, sqlReport({ databaseClients: clients(5) }));
+    [s] = await dbSuggestions();
+    expect(s!.evidence.sessions).toBe(5);
+    await report(sql, sqlReport({ databaseClients: [] }));
+    expect(await dbSuggestions()).toHaveLength(1);
+
+    // The new collector name is accepted; extra fields are not.
+    expect(
+      (
+        await report(
+          sql,
+          sqlReport({ issues: [{ collector: "sqlserver-clients", error: "access-denied" }] }),
+        )
+      ).status,
+    ).toBe(202);
+    expect(
+      (
+        await report(
+          sql,
+          sqlReport({ databaseClients: [{ ...clients(1)[0]!, login: "CORP\svc" }] as never }),
+        )
+      ).status,
+    ).toBe(422);
   });
 
   it("rate limits reports per agent", async () => {

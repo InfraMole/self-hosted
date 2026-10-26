@@ -10,7 +10,7 @@ import { reportGaps } from "@/lib/report-gaps";
 import { listChangesForSubject } from "@/server/modules/changes/changes";
 import type { ResourceRef } from "@/server/modules/relationships/relationships";
 import { resourceMetadataSchema } from "@/server/modules/resources/schemas";
-import { excludedSuggestions, planDiscovery, type FactInput } from "./plan";
+import { excludedSuggestions, planDiscovery, siteKey, type FactInput } from "./plan";
 import { guessProtocol, suggestedTypeForPorts } from "./protocols";
 
 /** Facts not seen for this long are deleted (per agent, on ingest). */
@@ -35,6 +35,7 @@ export async function upsertConnectionFacts(
       ip: string;
       port: number;
       proc: string;
+      site: string;
       count: number;
       first: Date;
       last: Date;
@@ -44,7 +45,8 @@ export async function upsertConnectionFacts(
     const direction = c.direction === "inbound" ? "INBOUND" : "OUTBOUND";
     const port = c.direction === "inbound" ? c.localPort : c.remotePort;
     const proc = c.process?.name ?? "";
-    const key = `${direction}|${c.remoteAddress}|${port}|${proc}`;
+    const site = c.site ?? "";
+    const key = `${direction}|${c.remoteAddress.toLowerCase()}|${port}|${proc}|${site}`;
     const first = new Date(c.firstSeen);
     const last = new Date(c.lastSeen);
     const existing = merged.get(key);
@@ -58,6 +60,7 @@ export async function upsertConnectionFacts(
         ip: c.remoteAddress.toLowerCase(),
         port,
         proc,
+        site,
         count: c.count,
         first,
         last,
@@ -69,20 +72,21 @@ export async function upsertConnectionFacts(
     await tx.$executeRaw`
       INSERT INTO "connection_fact"
         ("id","workspaceId","agentId","sourceResourceId","direction","remoteIp","port","processName",
-         "sampleCount","reportCount","firstSeenAt","lastSeenAt")
+         "site","sampleCount","reportCount","firstSeenAt","lastSeenAt")
       SELECT u.id, ${agent.workspaceId}, ${agent.id}, ${sourceResourceId}, u.direction::"ConnectionDirection",
-             u.ip, u.port, u.proc, u.cnt, 1, u.first, u.last
+             u.ip, u.port, u.proc, u.site, u.cnt, 1, u.first, u.last
       FROM unnest(
         ${rows.map(() => randomUUID())}::text[],
         ${rows.map((r) => r.direction)}::text[],
         ${rows.map((r) => r.ip)}::text[],
         ${rows.map((r) => r.port)}::int[],
         ${rows.map((r) => r.proc)}::text[],
+        ${rows.map((r) => r.site)}::text[],
         ${rows.map((r) => r.count)}::int[],
         ${rows.map((r) => ts(r.first))}::timestamp(3)[],
         ${rows.map((r) => ts(r.last))}::timestamp(3)[]
-      ) AS u(id, direction, ip, port, proc, cnt, first, last)
-      ON CONFLICT ("agentId","direction","remoteIp","port","processName") DO UPDATE SET
+      ) AS u(id, direction, ip, port, proc, site, cnt, first, last)
+      ON CONFLICT ("agentId","direction","remoteIp","port","processName","site") DO UPDATE SET
         "sampleCount" = "connection_fact"."sampleCount" + EXCLUDED."sampleCount",
         "reportCount" = "connection_fact"."reportCount" + 1,
         "lastSeenAt" = GREATEST("connection_fact"."lastSeenAt", EXCLUDED."lastSeenAt"),
@@ -117,7 +121,7 @@ export async function refreshDetectedRelationships(
   const [resources, facts, relationships, rules] = await Promise.all([
     db.resource.findMany({
       where: { workspaceId, status: { not: "ARCHIVED" } },
-      select: { id: true, name: true, metadata: true },
+      select: { id: true, name: true, metadata: true, source: true, externalId: true },
     }),
     db.connectionFact.findMany({
       where: factScope,
@@ -128,6 +132,7 @@ export async function refreshDetectedRelationships(
         remoteIp: true,
         port: true,
         processName: true,
+        site: true,
         sampleCount: true,
         firstSeenAt: true,
         lastSeenAt: true,
@@ -199,7 +204,7 @@ export async function refreshDetectedRelationships(
       to: r.toResourceId,
       status: r.status,
     })),
-    { rules },
+    { rules, sites: iisSites(resources) },
   );
 
   await db.$transaction(
@@ -342,6 +347,25 @@ export async function refreshDetectedRelationships(
   return { created: plan.creates.length, removed: removals.length };
 }
 
+/**
+ * M42: IIS sites imported from an agent's workloads (ADR-028 keys
+ * `workloads:<hostId>/iis/<site>`), by host and site name.
+ */
+export function iisSites(
+  resources: readonly { id: string; source: string; externalId: string | null }[],
+): Map<string, string> {
+  const sites = new Map<string, string>();
+  for (const r of resources) {
+    if (r.source !== "IMPORT" || !r.externalId?.startsWith(WORKLOAD_PREFIX)) continue;
+    const key = r.externalId.slice(WORKLOAD_PREFIX.length);
+    const at = key.indexOf("/iis/");
+    if (at > 0) sites.set(siteKey(key.slice(0, at), key.slice(at + 5)), r.id);
+  }
+  return sites;
+}
+
+const WORKLOAD_PREFIX = "workloads:";
+
 function evidenceData(f: FactInput) {
   return {
     connectionFactId: f.id,
@@ -372,6 +396,8 @@ export interface EvidenceSummary {
   dnsResolver: boolean;
   /** Any evidence comes from observed connections. */
   observed: boolean;
+  /** M42: sessions the database server listed from the source at its last report (0 = none). */
+  sessions: number;
 }
 
 export interface SuggestionView {
@@ -500,7 +526,7 @@ export async function countSuggestions(
 
 function summarise(
   evidence: {
-    kind: "TCP_CONNECTION" | "DNS_RESOLVER";
+    kind: "TCP_CONNECTION" | "DNS_RESOLVER" | "DB_SESSION";
     port: number;
     protocolGuess: string | null;
     processName: string | null;
@@ -514,12 +540,17 @@ function summarise(
     ports,
     protocols: [...new Set(evidence.map((e) => e.protocolGuess).filter((p): p is string => !!p))],
     processes: [...new Set(evidence.map((e) => e.processName).filter((p): p is string => !!p))],
-    samples: evidence.reduce((n, e) => n + e.sampleCount, 0),
+    samples: evidence
+      .filter((e) => e.kind === "TCP_CONNECTION")
+      .reduce((n, e) => n + e.sampleCount, 0),
     firstSeenAt: evidence.length ? minDate(evidence.map((e) => e.firstSeenAt)) : null,
     lastSeenAt: evidence.length ? maxDate(evidence.map((e) => e.lastSeenAt)) : null,
     suggestedType: suggestedTypeForPorts(ports),
     dnsResolver: evidence.some((e) => e.kind === "DNS_RESOLVER"),
     observed: evidence.some((e) => e.kind === "TCP_CONNECTION"),
+    sessions: evidence
+      .filter((e) => e.kind === "DB_SESSION")
+      .reduce((n, e) => n + e.sampleCount, 0),
   };
 }
 

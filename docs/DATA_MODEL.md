@@ -292,7 +292,7 @@ overwrite, delete; at most 50 per workspace. Not change-tracked (presentation).
 ### RelationshipEvidence ✅ M6 (see §5)
 
 Why a suggested relationship exists: `relationshipId, kind (TCP_CONNECTION,
-DNS_RESOLVER since M39), protocolGuess (e.g. MSSQL), port, firstSeenAt,
+DNS_RESOLVER since M39, DB_SESSION since M42), protocolGuess (e.g. MSSQL), port, firstSeenAt,
 lastSeenAt, sampleCount` — columns in §5.
 
 ## 5. Agents & discovery (✅ M5–M6)
@@ -335,15 +335,18 @@ Changes are recorded with `actorType = AGENT`.
 
 `id, workspaceId, agentId (cascade), sourceResourceId (host, cascade),
 direction INBOUND|OUTBOUND, remoteIp, port (server-side), processName ("" if
-unknown), remoteResourceId? (SET NULL), sampleCount, reportCount,
-firstSeenAt, lastSeenAt` — unique `(agentId, direction, remoteIp, port,
-processName)`. Retention 30 days since last seen.
+unknown), site ("" = none; M42: IIS site of the worker process),
+remoteResourceId? (SET NULL), sampleCount, reportCount, firstSeenAt,
+lastSeenAt` — unique `(agentId, direction, remoteIp, port, processName,
+site)`. Retention 30 days since last seen.
 
 ### RelationshipEvidence ✅ M6
 
 `id, workspaceId, relationshipId (cascade), kind (TCP_CONNECTION |
 DNS_RESOLVER — M39: the source is configured to use the target as DNS
-server; no fact, port 53, sampleCount 0), connectionFactId? (SET NULL),
+server; no fact, port 53, sampleCount 0 | DB_SESSION — M42: the target
+database's engine listed sessions from the source; no fact, server port,
+sampleCount = sessions at the last report), connectionFactId? (SET NULL),
 port, protocolGuess?, processName?,
 sampleCount, firstSeenAt, lastSeenAt` — unique `(relationshipId,
 connectionFactId)`; mirrors the fact's counters. The demo seed creates

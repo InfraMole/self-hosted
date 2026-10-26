@@ -591,6 +591,8 @@ model ConnectionFact {
   port             Int
   /// "" when the process could not be resolved.
   processName      String                 @default("")
+  /// IIS site served by the process (M42); "" = none or unknown.
+  site             String                 @default("")
   /// Resource owning remoteIp in the same workspace (null = unknown endpoint).
   remoteResourceId String?
   remote           Resource?              @relation("FactRemote", fields: [remoteResourceId], references: [id], onDelete: SetNull)
@@ -600,7 +602,7 @@ model ConnectionFact {
   lastSeenAt       DateTime
   evidence         RelationshipEvidence[]
 
-  @@unique([agentId, direction, remoteIp, port, processName])
+  @@unique([agentId, direction, remoteIp, port, processName, site])
   @@index([workspaceId, remoteResourceId])
   @@index([sourceResourceId])
   @@map("connection_fact")
@@ -611,6 +613,10 @@ enum EvidenceKind {
   /// The source host is configured to use the target as DNS server (M39):
   /// configuration, not observed traffic; no connection fact, sampleCount 0.
   DNS_RESOLVER
+  /// The target database's server listed sessions from the source (M42):
+  /// observed by the database engine; no connection fact, sampleCount =
+  /// sessions seen at the last report.
+  DB_SESSION
 }
 
 model RelationshipEvidence {

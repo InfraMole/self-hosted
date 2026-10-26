@@ -115,6 +115,18 @@ ports, running software and who talks to whom. For an attacker that is a
   message stays in the agent's local log.
 - DNS servers (M39): addresses only (`z.ipv4() | z.ipv6()`, at most 8) —
   never search domains, resolver options or the contents of resolv.conf.
+- Site of a connection (M42, ADR-058): the agent reads IIS application pool
+  names (`appcmd list wp`, applicationHost.config) only to map a worker
+  process to its site; pool names, identities and command lines never
+  leave the host — only the site name (≤ 256) goes on the connection.
+- Database clients (M42, ADR-058): opt-in; needs `VIEW SERVER STATE` (or
+  `VIEW SERVER PERFORMANCE STATE`) granted by the customer — read-only, the
+  agent never grants itself anything and never writes server
+  configuration. Per row only engine, instance, database name, client IP,
+  server port and a session count (strict schema). Never logins,
+  `host_name` / `program_name` (client-supplied, can carry personal data)
+  or statements. Loopback and local-transport clients are dropped on the
+  agent.
 
 ## 5c. Import controls (M8)
 

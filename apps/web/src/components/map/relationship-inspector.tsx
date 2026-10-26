@@ -159,7 +159,7 @@ export function RelationshipInspector({
 function Evidence({ detail: d }: { detail: RelationshipDetail }) {
   const e = d.evidence;
   const rows: [string, React.ReactNode][] = [];
-  if (e.observed) {
+  if (e.observed || e.sessions > 0) {
     if (e.ports.length)
       rows.push([
         "Ports",
@@ -183,6 +183,11 @@ function Evidence({ detail: d }: { detail: RelationshipDetail }) {
         </span>,
       ]);
   }
+  if (e.sessions > 0)
+    rows.push([
+      "Sessions",
+      `Seen in the database server's sessions (${e.sessions} at its last report)`,
+    ]);
   if (e.dnsResolver)
     rows.push(["DNS", `Configured as its DNS server${e.observed ? "" : " — no traffic observed"}`]);
   if (e.firstSeenAt)
@@ -194,7 +199,7 @@ function Evidence({ detail: d }: { detail: RelationshipDetail }) {
     ]);
   if (e.lastSeenAt)
     rows.push([
-      e.observed ? "Last seen" : "Last reported",
+      e.observed || e.sessions > 0 ? "Last seen" : "Last reported",
       <span key="v5" title={formatDateTime(e.lastSeenAt)}>
         {formatRelative(e.lastSeenAt)}
       </span>,
@@ -233,7 +238,7 @@ function Evidence({ detail: d }: { detail: RelationshipDetail }) {
           </div>
         ))}
       </dl>
-      {!e.observed && !e.dnsResolver && d.origin !== "MANUAL" && (
+      {!e.observed && !e.dnsResolver && e.sessions === 0 && d.origin !== "MANUAL" && (
         <p className="text-subtle mt-2 text-xs">No observed traffic recorded for it.</p>
       )}
       {d.note && <p className="text-muted mt-2 text-xs whitespace-pre-wrap">{d.note}</p>}

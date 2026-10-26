@@ -33,7 +33,9 @@ Nothing else.
 
 Optional collectors read **names only**: IIS sites and bindings, SQL Server
 databases (off by default), Docker containers, reverse-proxy targets (nginx,
-Apache, HAProxy, Traefik), Kubernetes and hypervisor inventories.
+Apache, HAProxy, Traefik), Kubernetes and hypervisor inventories. SQL
+Server database clients (off by default) add, per database, the client IP
+addresses, the server port and a session count — never logins or queries.
 
 :::tip Never collected
 Passwords, credentials, tokens, file contents, database content, packet

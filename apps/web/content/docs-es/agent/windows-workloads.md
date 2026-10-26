@@ -12,10 +12,10 @@ Ambos necesitan el agente **0.2.0** o posterior y un servidor InfraMole
 
 ## Qué se envía
 
-| Carga de trabajo | Se envía                                                                                                                        | Nunca se lee                                                                       |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| Sitios de IIS    | Nombre del sitio; enlaces: protocolo (http/https), puerto, nombre de host; destinos de proxy de ARR / URL Rewrite (host:puerto) | Rutas físicas, grupos de aplicaciones, identidades, contraseñas o claves guardadas |
-| SQL Server       | Nombres de las bases de datos de cada instancia local (sin las de sistema)                                                      | Tablas, datos, inicios de sesión, tamaños ni nada más                              |
+| Carga de trabajo | Se envía                                                                                                                        | Nunca se lee                                               |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| Sitios de IIS    | Nombre del sitio; enlaces: protocolo (http/https), puerto, nombre de host; destinos de proxy de ARR / URL Rewrite (host:puerto) | Rutas físicas, identidades, contraseñas o claves guardadas |
+| SQL Server       | Nombres de las bases de datos de cada instancia local (sin las de sistema)                                                      | Tablas, datos, inicios de sesión, tamaños ni nada más      |
 
 El agente los recoge una vez por hora. Ejecuta `inframole-agent dry-run`
 para ver exactamente qué se enviaría.
@@ -35,9 +35,74 @@ cambiar su criticidad como con cualquier otro recurso.
 **Conexiones**: cuando una conexión llega a un puerto en el que escucha
 exactamente un sitio de IIS de ese servidor (por ejemplo, un sitio con su
 propio puerto 8443), la sugerencia apunta a ese sitio en lugar de al
-servidor. Las conexiones a SQL Server siguen apuntando al servidor: una
-conexión TCP no dice qué base de datos usa. Añade tú la relación _uses
-database_ con la base de datos correcta.
+servidor. Una conexión TCP no dice qué base de datos usa: para eso, activa
+los [clientes de base de datos](#quien-usa-cada-base-de-datos).
+
+## Qué sitio hace una conexión
+
+IIS ejecuta el código de cada sitio en un proceso de trabajo (`w3wp.exe`)
+del **grupo de aplicaciones** del sitio. Cuando un grupo sirve a un solo
+sitio, el agente sabe a qué sitio pertenece cada proceso, y sus conexiones
+— a SQL Server, a una API, a un servidor de ficheros — salen de ese sitio:
+`Billing (WEB01) → SQL01` en lugar de `WEB01 → SQL01`.
+
+El agente pregunta a IIS qué grupo ejecuta cada proceso (`appcmd list wp`,
+solo lectura) y lee los grupos de cada sitio en `applicationHost.config`.
+**Los nombres de los grupos no salen del servidor**: solo se envía el nombre
+del sitio. Los procesos de un grupo compartido por varios sitios siguen
+apuntando al servidor. Si ya tienes una relación entre los dos servidores,
+se queda como está.
+
+Activado por defecto con IIS; necesita el agente **0.8.0** y el servidor
+**0.33.0**.
+
+## Quién usa cada base de datos
+
+Desactivado por defecto. En un servidor con SQL Server, el agente puede
+listar qué equipos tienen **sesiones abiertas contra qué base de datos**, a
+partir de la propia lista de sesiones de SQL Server. InfraMole sugiere
+entonces `APP01 uses database Billing (SQL01)` — el cliente se identifica
+por su dirección IP, como en una conexión.
+
+| Se envía                                                                            | Nunca se lee                                                                                 |
+| ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Nombre de la base de datos, IP del cliente, puerto del servidor, número de sesiones | Inicios de sesión, nombres de equipo o de programa del cliente, consultas, datos ni nada más |
+
+Se recoge con cada informe (cada 5 minutos por defecto). Las sesiones van y
+vienen, así que un cliente que se desconecta conserva su sugerencia. Los
+clientes del propio SQL Server se dejan fuera. Necesita el agente **0.8.0**
+y el servidor **0.33.0**.
+
+:::steps
+
+### Permite al agente ver las otras sesiones
+
+Sin este permiso SQL Server solo le muestra al agente su propia sesión.
+Concédeselo al inicio de sesión del agente en cada instancia:
+
+```sql
+GRANT VIEW SERVER STATE TO [NT AUTHORITY\SYSTEM];
+```
+
+En SQL Server 2022 basta con `VIEW SERVER PERFORMANCE STATE`. Sin ninguno
+de los dos, la página del equipo dice **«SQL Server database clients:
+access denied»** en lugar de mostrar una lista vacía.
+
+### Actívalo en la configuración del agente
+
+```json
+{
+  "collectors": {
+    "workloads": { "sqlServerClients": true }
+  }
+}
+```
+
+Esto activa también los nombres de las bases de datos (`sqlServer`): los
+clientes se asocian a ellas. Compruébalo con `dry-run` (la sección
+`databaseClients`) y reinicia el servicio como se explica abajo.
+
+:::
 
 ## Reglas de proxy inverso (ARR)
 

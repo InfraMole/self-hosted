@@ -14,6 +14,7 @@ import {
   diffObserved,
   observedState,
 } from "@/server/modules/discovery/host-changes";
+import { refreshDatabaseClients } from "@/server/modules/discovery/db-clients";
 import { refreshDnsSuggestions } from "@/server/modules/discovery/dns";
 import { markStaleHosts, restoreFromStale } from "@/server/modules/discovery/staleness";
 import { runImport } from "@/server/modules/importers/importers";
@@ -211,6 +212,9 @@ export async function ingestReport(
   // M39: configured DNS servers → INFERRED suggestions (absent = not collected).
   if (report.dnsServers && hostId)
     await refreshDnsSuggestions(agent.workspaceId, agent.id, hostId, report.dnsServers, now);
+  // M42: sessions the database engine listed → "uses database" suggestions.
+  if (report.databaseClients && hostId)
+    await refreshDatabaseClients(agent.workspaceId, agent.id, hostId, report.databaseClients, now);
   // Other hosts of the workspace may have gone quiet (throttled, ADR-016).
   await markStaleHosts(agent.workspaceId);
 

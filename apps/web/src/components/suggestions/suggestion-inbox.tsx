@@ -336,6 +336,11 @@ export function SuggestionInbox({
                   )}
                   {e.processes.length > 0 && <span>{e.processes.slice(0, 3).join(", ")}</span>}
                   {e.samples > 0 && <span>{e.samples} samples</span>}
+                  {e.sessions > 0 && (
+                    <span className="font-sans">
+                      seen in the database server&apos;s sessions ({e.sessions})
+                    </span>
+                  )}
                   {e.dnsResolver && (
                     <span className="font-sans">
                       configured as its DNS server{e.observed ? "" : " — no traffic observed"}
@@ -347,7 +352,8 @@ export function SuggestionInbox({
                       title={formatDateTime(e.lastSeenAt)}
                       suppressHydrationWarning // relative to now (server vs browser)
                     >
-                      {e.observed ? "last seen" : "last reported"} {formatRelative(e.lastSeenAt)}
+                      {e.observed || e.sessions > 0 ? "last seen" : "last reported"}{" "}
+                      {formatRelative(e.lastSeenAt)}
                     </span>
                   )}
                 </p>

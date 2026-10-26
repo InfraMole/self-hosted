@@ -23,6 +23,7 @@ export const AGENT_LIMITS = {
   iisSites: 200,
   bindingsPerSite: 20,
   sqlDatabases: 500,
+  databaseClients: 2000,
 } as const;
 
 /**
@@ -39,6 +40,8 @@ export const AGENT_FEATURES = [
   "kubernetes",
   "collection-issues",
   "dns-servers",
+  "connection-sites",
+  "database-clients",
 ] as const;
 
 /** Resolvers per host the server accepts (M39, feature "dns-servers"). */
@@ -67,6 +70,7 @@ export const AGENT_COLLECTORS = [
   "xenorchestra",
   "kubernetes",
   "dns",
+  "sqlserver-clients",
 ] as const;
 export type AgentCollector = (typeof AGENT_COLLECTORS)[number];
 
@@ -273,6 +277,11 @@ export const reportSchemaV1 = z
             /** Remote port for outbound; 0 for inbound (ephemeral). */
             remotePort: port,
             process: processRef.optional(),
+            /**
+             * IIS site served by the process (M42, feature "connection-sites"):
+             * set only when its application pool serves exactly one site.
+             */
+            site: text(256).min(1).optional(),
             /** Number of samples in which the connection was seen. */
             count: z.number().int().min(1).max(1_000_000),
             firstSeen: datetime,
@@ -298,6 +307,30 @@ export const reportSchemaV1 = z
     dnsServers: z
       .array(z.union([z.ipv4(), z.ipv6()]))
       .max(MAX_DNS_SERVERS)
+      .optional(),
+    /**
+     * Who uses which database (M42, feature "database-clients"): on a database
+     * host, the client addresses with sessions open to each user database,
+     * read from the engine's own session list. Database name, client IP,
+     * server port and a count only — never logins, client host or program
+     * names, or statements. Absent = not collected; [] = no remote clients.
+     */
+    databaseClients: z
+      .array(
+        z
+          .object({
+            engine: z.enum(["mssql"]),
+            /** SQL Server instance ("MSSQLSERVER" = default). */
+            instance: text(128).min(1),
+            database: text(128).min(1),
+            address: z.union([z.ipv4(), z.ipv6()]),
+            /** Server-side TCP port the sessions use. */
+            port: port.min(1),
+            sessions: z.number().int().min(1).max(100_000),
+          })
+          .strict(),
+      )
+      .max(AGENT_LIMITS.databaseClients)
       .optional(),
     /**
      * Optional platform inventory from an agent-side collector (ADR-018 C),

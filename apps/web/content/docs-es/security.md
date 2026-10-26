@@ -34,7 +34,10 @@ ve. Nada más.
 Los recolectores opcionales leen **solo nombres**: sitios y enlaces de IIS,
 bases de datos de SQL Server (desactivado por defecto), contenedores de
 Docker, destinos de proxies inversos (nginx, Apache, HAProxy, Traefik) e
-inventarios de Kubernetes y de hipervisores.
+inventarios de Kubernetes y de hipervisores. Los clientes de base de datos
+de SQL Server (desactivado por defecto) añaden, por base de datos, las IP de
+los clientes, el puerto del servidor y un número de sesiones — nunca
+inicios de sesión ni consultas.
 
 :::tip Nunca se recoge
 Contraseñas, credenciales, tokens, contenido de ficheros, contenido de bases

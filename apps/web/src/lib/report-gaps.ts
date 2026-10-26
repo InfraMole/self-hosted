@@ -28,6 +28,7 @@ const COLLECTOR_LABEL: Record<AgentCollector, string> = {
   xenorchestra: "Xen Orchestra inventory",
   kubernetes: "Kubernetes inventory",
   dns: "DNS servers",
+  "sqlserver-clients": "SQL Server database clients",
 };
 
 const ERROR_LABEL: Record<CollectionError, string> = {

@@ -6,6 +6,7 @@ import {
   isExcluded,
   planDiscovery,
   resolveRemote,
+  siteKey,
   type FactInput,
   type RelationshipInput,
   type ResourceIps,
@@ -238,5 +239,55 @@ describe("workload attribution (M16)", () => {
     expect(planDiscovery([inbound], web, []).creates.map((c) => [c.from, c.to])).toEqual([
       ["app01", "portal"],
     ]);
+  });
+});
+
+describe("site of a connection (M42)", () => {
+  const withSites: ResourceIps[] = [
+    ...resources,
+    { id: "billing", ipAddresses: [], ports: [443], runsOn: "app01" },
+    { id: "portal", ipAddresses: [], ports: [443], runsOn: "app01" },
+    { id: "client", ipAddresses: ["10.0.1.5"] },
+  ];
+  const sites = new Map([
+    [siteKey("app01", "Billing"), "billing"],
+    [siteKey("app01", "Portal"), "portal"],
+  ]);
+
+  it("an outbound connection of a site's worker starts at the site", () => {
+    const f = fact({ site: "BILLING" });
+    const plan = planDiscovery([f, fact({ site: "Portal" })], withSites, [], { sites });
+    expect(plan.creates.map((c) => `${c.from}→${c.to}`)).toEqual(["billing→sql01", "portal→sql01"]);
+  });
+
+  it("an inbound connection to a shared port reaches the right site", () => {
+    // Two sites bind 443: attribution by port cannot decide, the site can.
+    const inbound = { direction: "INBOUND" as const, remoteIp: "10.0.1.5", port: 443 };
+    expect(planDiscovery([fact(inbound)], withSites, []).creates[0]).toMatchObject({
+      from: "client",
+      to: "app01",
+    });
+    expect(
+      planDiscovery([fact({ ...inbound, site: "Portal" })], withSites, [], { sites }).creates[0],
+    ).toMatchObject({ from: "client", to: "portal" });
+  });
+
+  it("an unknown site, or a host pair already described, stays at host level", () => {
+    const known: RelationshipInput[] = [
+      { id: "r1", from: "app01", to: "sql01", status: "CONFIRMED" },
+    ];
+    expect(
+      planDiscovery([fact({ site: "Gone" })], withSites, [], { sites }).creates[0],
+    ).toMatchObject({ from: "app01", to: "sql01" });
+    const plan = planDiscovery([fact({ site: "Billing" })], withSites, known, { sites });
+    expect(plan.creates).toEqual([]);
+    expect(plan.evidence.map((e) => e.relationshipId)).toEqual(["r1"]);
+  });
+
+  it("a site on another host is never used", () => {
+    const other = new Map([[siteKey("web02", "Billing"), "billing"]]);
+    expect(
+      planDiscovery([fact({ site: "Billing" })], withSites, [], { sites: other }).creates[0],
+    ).toMatchObject({ from: "app01", to: "sql01" });
   });
 });

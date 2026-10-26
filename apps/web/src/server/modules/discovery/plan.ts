@@ -17,6 +17,8 @@ export interface FactInput {
   /** Server-side port (local listening port for INBOUND, remote port for OUTBOUND). */
   port: number;
   processName: string;
+  /** IIS site the process serves on the source host (M42); "" = none. */
+  site?: string;
   sampleCount: number;
   firstSeenAt: Date;
   lastSeenAt: Date;
@@ -58,7 +60,12 @@ export interface SuggestionEvidenceInput {
 export interface PlanOptions {
   minSamples?: number;
   rules?: readonly RuleInput[];
+  /** M42: `siteKey(hostId, site)` → the site's application resource. */
+  sites?: ReadonlyMap<string, string>;
 }
+
+/** Key of an IIS site on a host, as agents name it on connections (M42). */
+export const siteKey = (hostId: string, site: string) => `${hostId}|${site.toLowerCase()}`;
 
 export interface DiscoveryPlan {
   /** Facts whose resolved remote resource changed (including to null). */
@@ -169,13 +176,33 @@ export function attributeToWorkload(
   return owners[0]!;
 }
 
+/**
+ * M42: a connection made or served by an IIS worker whose pool serves one
+ * site belongs to that site's application on the source host — exact even
+ * when several sites share a port. The host pair already described by a
+ * relationship keeps winning, as for attribution by port.
+ */
+export function attributeToSite(
+  fact: FactInput,
+  ends: { from: string; to: string },
+  sites: ReadonlyMap<string, string>,
+  relsByPair: ReadonlyMap<string, readonly RelationshipInput[]>,
+): { from: string; to: string } | null {
+  const site = fact.site ? sites.get(siteKey(fact.sourceResourceId, fact.site)) : undefined;
+  if (!site) return null;
+  if ((relsByPair.get(`${ends.from}|${ends.to}`) ?? []).length > 0) return ends;
+  return fact.direction === "OUTBOUND"
+    ? { from: site, to: ends.to }
+    : { from: ends.from, to: site };
+}
+
 export function planDiscovery(
   facts: readonly FactInput[],
   resources: readonly ResourceIps[],
   relationships: readonly RelationshipInput[],
   options: PlanOptions = {},
 ): DiscoveryPlan {
-  const { minSamples = MIN_SAMPLES, rules = [] } = options;
+  const { minSamples = MIN_SAMPLES, rules = [], sites = new Map<string, string>() } = options;
   const index = buildIpIndex(resources);
   const known = new Set(resources.map((r) => r.id));
   const plan: DiscoveryPlan = { resolutions: [], creates: [], evidence: [] };
@@ -206,8 +233,10 @@ export function planDiscovery(
     if (rules.length > 0 && isExcluded(fact, remote, rules)) continue;
     if (!remote || fact.sampleCount < minSamples) continue;
     const ends = factEndpoints(fact, remote);
-    const { from } = ends;
-    const to = attributeToWorkload(ends, fact.port, portOwners, relsByPair);
+    const { from, to } = attributeToSite(fact, ends, sites, relsByPair) ?? {
+      from: ends.from,
+      to: attributeToWorkload(ends, fact.port, portOwners, relsByPair),
+    };
     const key = `${from}|${to}`;
     const entry = byPair.get(key) ?? { from, to, facts: [] };
     entry.facts.push(fact);

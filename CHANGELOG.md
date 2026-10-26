@@ -5,6 +5,21 @@ images). The agent has its own changelog in the InfraMole/agent repository.
 To update an installation, see
 [Upgrade guide](https://inframole.com/docs/operations/upgrade).
 
+## 0.33.0 — 2026-10-26
+
+### Added
+
+- **Which IIS site makes a connection**: with agent 0.8.0 on a Windows
+  server, connections made by an IIS site start at that site on the map
+  (`Billing (WEB01) → SQL01` instead of `WEB01 → SQL01`), also when several
+  sites share port 443.
+- **Who uses each database**: with agent 0.8.0 and database clients turned
+  on, a SQL Server host reports which machines have sessions open to which
+  database, and InfraMole suggests "APP01 uses database Billing (SQL01)".
+  The suggestion and the map line say "seen in the database server's
+  sessions". Off by default; needs one `GRANT` on SQL Server (see "IIS and
+  SQL Server" in the docs).
+
 ## 0.32.0 — 2026-10-25
 
 ### Changed

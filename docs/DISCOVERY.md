@@ -31,6 +31,8 @@ The map shows confirmed edges by default, with a toggle for unconfirmed
 | Local sources (M27)                         | M27 ✅    | Proxmox API (format `proxmox` + IPs), TrueNAS / Synology (`storage`): NAS → STORAGE, shares → STORAGE RUNS_ON the NAS                              | Connected machines → STORES_DATA_IN the share / NAS as **suggestions**                                                                                                                                                                                                    |
 | Linux workloads (agent, M20)                | M20 ✅    | nginx / Apache sites → APPLICATION (ports), PostgreSQL / MySQL databases → DATABASE; same model as M16                                             | RUNS_ON the host → CONFIRMED (origin DETECTED); site attribution by port as in M16                                                                                                                                                                                        |
 | Windows workloads (agent, M16)              | M16 ✅    | IIS sites → APPLICATION (with ports), SQL Server databases → DATABASE; per-kind snapshots, reconciled                                              | RUNS_ON the host → CONFIRMED (origin DETECTED); connections to a port only one site binds are suggested to that site                                                                                                                                                      |
+| Site of a connection (agent, M42)           | M42 ✅    | `connections[].site` from IIS workers whose pool serves one site                                                                                   | the host end of the connection becomes that site (outbound: site → remote; inbound: client → site), before attribution by port; a host pair already related keeps winning                                                                                                 |
+| Database clients (agent, M42)               | M42 ✅    | `databaseClients[]`: sessions per database, client IP and port (SQL Server)                                                                        | client (resolved by IP, exactly one other resource) USES_DATABASE the database resource → suggestion, origin DETECTED, evidence `DB_SESSION`; never removed when sessions end                                                                                             |
 | Docker containers (agent, M25)              | M25 ✅    | Containers → DATABASE / CONTAINER by image, ports, Compose; Traefik / Caddy host names → DOMAIN (ADR-036)                                          | RUNS_ON host CONFIRMED; Compose depends_on → suggestion; domain DEPENDS_ON container + container EXPOSED_THROUGH proxy CONFIRMED                                                                                                                                          |
 | Reverse-proxy targets (agent, M25)          | M25 ✅    | nginx / Apache / HAProxy / IIS ARR upstreams (host:port); HAProxy frontends → APPLICATION                                                          | site DEPENDS_ON resolved target → suggestion (`endpoint:` refs; unknown → warning)                                                                                                                                                                                        |
 | Kubernetes (agent collector, M25)           | M25 ✅    | Nodes → SERVER, workloads → APPLICATION / DATABASE, Ingress hosts → DOMAIN                                                                         | workload RUNS_ON nodes CONFIRMED; domain DEPENDS_ON workload CONFIRMED                                                                                                                                                                                                    |
@@ -123,6 +125,27 @@ UNCONFIRMED)` + evidence (port, protocol guess, process, samples) and a
    DNS evidence. The inbox says "configured as its DNS server — no traffic
    observed" and "last reported", never "seen". Not expired by the 30-day
    job (that one is DETECTED only).
+   6c. **Site of a connection** ✅ M42 (`plan.ts#attributeToSite`): a fact
+   with `site` (IIS worker whose pool serves one site) moves its host end
+   to that host's site resource — found by its workloads key
+   `workloads:<hostId>/iis/<site>` (`discovery.ts#iisSites`). Applied
+   before attribution by port; a relationship of the host pair keeps
+   winning, so nothing a person has seen is duplicated. The fact's identity
+   includes `site`.
+   6d. **Database clients** ✅ M42 (`discovery/db-clients-plan.ts` pure,
+   `db-clients.ts`): every report with `databaseClients` from a database
+   host. A client whose IP belongs to exactly one other resource, on a
+   database imported for that host (`workloads:<hostId>/mssql/<instance>/
+<db>`), becomes `client USES_DATABASE database`, origin **DETECTED**
+   (the engine listed the sessions), UNCONFIRMED, with one `DB_SESSION`
+   evidence row (server port, protocolGuess from it, no fact, sampleCount =
+   sessions at the last report). Exclusion rules on the port, the client,
+   the database or its host apply. An existing relationship of the pair is
+   reused (IGNORED and reversed ones are left alone). Nothing is removed
+   when sessions end; the 30-day expiry applies (lastObservedAt). Host-level
+   suggestions (`APP01 → SQL01`) stay: both are true at their level. The
+   inbox and the line inspector say "seen in the database server's
+   sessions (N)".
 7. **Unknown endpoints** (unresolved facts) are listed on the host's Overview
    ("Observed on this host"); adding a resource with that IP turns them into
    suggestions immediately.
