@@ -42,6 +42,12 @@ en el mapa. Los filtros acotan por tipo,
 entorno, estado y **origen** — quién creó el recurso: una persona, un
 agente, una integración o una importación de fichero.
 
+**Could affect** es cuántos otros recursos podrían verse afectados si ese
+deja de funcionar — el número de su página de impacto. Ordena por esa
+columna para ver primero aquello en lo que se apoya todo lo demás; el
+[informe de resiliencia](/es/docs/manual/map-and-impact#informe-de-resiliencia)
+lo explica a fondo.
+
 **Ordena** pulsando la cabecera de una columna (otra vez para invertir).
 Los inventarios grandes se dividen en páginas de 100; el total y **Next** /
 **Previous** están bajo la tabla. Filtros, orden y página van en la

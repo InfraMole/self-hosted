@@ -45,6 +45,8 @@ export interface ResourceRow {
   sourceLabel: string | null;
   owner?: string | null;
   tech?: ResourceTech;
+  /** Resources that could be affected if it goes down (M44); undefined = not computed. */
+  couldAffect?: number;
 }
 
 /** Server-side sort of the Library (M31): the column and direction in the URL. */
@@ -186,6 +188,7 @@ export function ResourceTable({
               <SortHeader column="type" label="Type" sort={sort} />
               <SortHeader column="environment" label="Environment" sort={sort} />
               <SortHeader column="criticality" label="Criticality" sort={sort} />
+              <SortHeader column="impact" label="Could affect" sort={sort} align="right" />
               <th className="px-3 py-2 font-medium">IP addresses</th>
               <SortHeader column="owner" label="Owner" sort={sort} />
               <SortHeader column="status" label="Status" sort={sort} />
@@ -229,6 +232,19 @@ export function ResourceTable({
                 </td>
                 <td className="px-3 whitespace-nowrap">
                   <CriticalityLabel criticality={r.criticality} />
+                </td>
+                <td className="px-3 text-right font-mono text-xs whitespace-nowrap">
+                  {r.couldAffect ? (
+                    <Link
+                      href={`/w/${slug}/resources/${r.id}/impact`}
+                      className="hover:text-accent"
+                      title={`${r.couldAffect} resource${r.couldAffect === 1 ? "" : "s"} could be affected if ${r.name} goes down`}
+                    >
+                      {r.couldAffect}
+                    </Link>
+                  ) : (
+                    <span className="text-subtle">—</span>
+                  )}
                 </td>
                 <td className="text-muted max-w-56 truncate px-3 font-mono text-xs">
                   {r.ips.join(", ") || <span className="text-subtle">—</span>}

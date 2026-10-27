@@ -235,3 +235,62 @@ How two resources are linked. `kind` is:
 `data` is `null` when they are not linked. The path uses the strongest
 confidence available, then the fewest hops — the same rule as impact.
 `text` is ready to paste into a change request.
+
+### GET /api/v1/resilience
+
+The [resilience report](/docs/manual/map-and-impact#resilience-report):
+what each resource could affect, single points of failure and the recovery
+order. Optional parameters:
+
+- `environment` — e.g. `PRODUCTION`: only resources of that environment;
+- `view` — a saved view's id: only the resources it shows (404 if it is not
+  in the token's workspace);
+- `confidence` — which relationships count: `confirmed`, `detected`
+  (confirmed and detected, the default) or `all`.
+
+```json
+{
+  "data": {
+    "scope": { "environment": null, "view": null, "confidence": "detected" },
+    "resources": 4,
+    "relationships": 3,
+    "unreviewed": 1,
+    "tooLarge": false,
+    "ranking": [
+      {
+        "resource": { "id": "…", "name": "SQL01", "type": "SERVER" },
+        "couldAffect": 3,
+        "byConfidence": { "confirmed": 2, "detected": 1, "inferred": 0 },
+        "coveredByRedundancy": 0,
+        "dependsOn": 0,
+        "singlePointOfFailure": true,
+        "criticality": "CRITICAL",
+        "redundancyGroup": null,
+        "owner": "DBA",
+        "ownerContact": "dba@example.com"
+      }
+    ],
+    "recovery": {
+      "waves": [
+        [
+          {
+            "resources": [{ "id": "…", "name": "SQL01", "type": "SERVER" }],
+            "circular": false,
+            "redundancyGroup": null
+          }
+        ]
+      ],
+      "unconnected": [{ "id": "…", "name": "NAS01", "type": "STORAGE" }]
+    }
+  }
+}
+```
+
+`ranking` lists every resource in scope, most impact first; `couldAffect`
+is the number its impact page shows (with redundancy), `byConfidence` splits
+it by the weakest link on the way, and `dependsOn` counts the resources that
+could affect it. `unreviewed` relationships are still waiting in
+Suggestions: the numbers can change when they are reviewed. Each wave of
+`recovery.waves` depends only on earlier waves; a step is `circular` when
+its resources depend on each other in a circle. Above 5,000 resources in
+scope, `tooLarge` is `true` and the lists are empty — narrow the scope.

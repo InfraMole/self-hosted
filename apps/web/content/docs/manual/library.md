@@ -40,6 +40,11 @@ Alt+Enter shows it on the map. Filters narrow by type, environment, status and *
 who created the resource: a person, an agent, an integration or a file
 import.
 
+**Could affect** is how many other resources could be affected if that one
+stops working — the number on its impact page. Sort by it to see first what
+everything else leans on; the [resilience report](/docs/manual/map-and-impact#resilience-report)
+explains it in depth.
+
 **Sort** by clicking a column header (click again to reverse it). Large
 inventories are split into pages of 100; the count and **Next** /
 **Previous** are under the table. Filters, sorting and the page are in the

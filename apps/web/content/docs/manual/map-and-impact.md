@@ -219,6 +219,47 @@ resources in an old link are left out, and the page says so. The same
 calculation is available in the [read-only API](/docs/reference/api)
 (`/api/v1/impact`).
 
+## Resilience report
+
+**Resilience** (in the sidebar) looks at the whole map, an environment or a
+saved view at once and answers three questions: _which resources could
+affect the most?_, _which of them have no redundancy?_ and _in what order
+would we bring everything back?_
+
+- **Single points of failure** — resources that could affect others and are
+  not in a [redundancy group](#redundancy), with their owner. Declaring a
+  redundancy group on a resource takes it off this list once the group has
+  two members.
+- **Could affect the most** — for every resource, how many others could be
+  affected if it stops working (the number its impact page shows), how many
+  of those only through confirmed links, and how many redundancy would
+  cover. Click a column to sort by it.
+- **Depend on the most** — the same calculation read the other way: how many
+  resources could affect each one.
+- **Recovery order** — if everything in scope went down, the waves to bring
+  it back in: each wave depends only on earlier ones. Members of a
+  redundancy group come back together; resources that depend on each other
+  in a circle are shown together and flagged _circular_ (their order is
+  unknown). Resources linked to nothing that propagates failure can come
+  back in any order.
+
+By default the report counts confirmed and detected relationships; choose
+**Confirmed relationships only** for what people have checked, or include
+inferred ones. When relationships are still waiting in Suggestions, the
+report says so: the numbers can change once they are reviewed. The
+**criticality** you set is shown beside the numbers and never mixed into
+them.
+
+**Print / Save as PDF** gives a clean report for an audit, a continuity plan
+or a meeting; to add a picture of the map, use the
+[map export](#export-a-map-or-an-impact). The report is computed when you
+open it, nothing is stored, and the scope is in the address so a link opens
+the same report. Every member, including viewers, can read it. The Library
+has the same **Could affect** number as a column you can sort by, and the
+[read-only API](/docs/reference/api) has the whole report
+(`/api/v1/resilience`). A scope with more than 5,000 resources asks you to
+pick an environment or a saved view.
+
 ## Export a map or an impact
 
 **Export PNG**, **SVG** or **PDF** in the map toolbar saves exactly what is

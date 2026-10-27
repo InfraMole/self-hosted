@@ -403,6 +403,11 @@ last IP, expired sessions and tokens) is deleted, not kept "just in case".
   every write). Another workspace's ids → 404.
 - `/api/v1/impact?ids=` (M34): ids are matched only against the token's
   workspace graph; others are counted (`notFound`), never looked up.
+- `/api/v1/resilience` and the Resilience page (M44): read-only, every role
+  (VIEWER included); computed from the caller's workspace graph through
+  `tenantDb`; a `view` id is looked up with `workspaceId` (another
+  workspace's view → 404). Bounded work: above 5,000 resources in scope
+  nothing is computed (`tooLarge`); the API's per-token rate limit applies.
 - Rate limits: 300/min per token, 600/min per client IP (`clientIp`), 429
   with `Retry-After`. `lastUsedAt` written at most every 5 minutes.
 - Responses `Cache-Control: no-store`; no CORS (server-to-server use).

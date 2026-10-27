@@ -3,3 +3,4 @@ export * from "./relationship-types";
 export * from "./graph";
 export * from "./impact";
 export * from "./path";
+export * from "./recovery";

@@ -12,6 +12,7 @@ import {
   CircleArrowUp,
   History,
   Inbox,
+  LifeBuoy,
   LogOut,
   Menu,
   Moon,
@@ -49,6 +50,7 @@ const PRIMARY_NAV = [
   { segment: "library", label: "Library", icon: Boxes },
   { segment: "map", label: "Map", icon: Network },
   { segment: "plan", label: "Plan a change", icon: ClipboardList },
+  { segment: "resilience", label: "Resilience", icon: LifeBuoy },
   { segment: "suggestions", label: "Suggestions", icon: Inbox },
   { segment: "changes", label: "Changes", icon: History },
 ] as const;

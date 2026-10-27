@@ -27,11 +27,17 @@ export default defineConfig({
     viewport,
   },
   projects: [
+    // Public pages: no account or data needed.
+    {
+      name: "public",
+      testMatch: /docs\.spec\.ts/,
+      use: { ...devices["Desktop Chrome"], viewport },
+    },
     { name: "setup", testMatch: /setup\.spec\.ts/ },
     {
       // Library, map and impact on the imported infrastructure only.
       name: "core",
-      testMatch: /(library|map|impact|first-steps|daily|teams|sso|plan)\.spec\.ts/,
+      testMatch: /(library|map|impact|first-steps|daily|teams|sso|plan|resilience)\.spec\.ts/,
       dependencies: ["setup"],
       use: { ...devices["Desktop Chrome"], viewport, storageState: "e2e/.auth/owner.json" },
     },

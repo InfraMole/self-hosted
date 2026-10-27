@@ -237,3 +237,63 @@ Cómo están unidos dos recursos. `kind` vale:
 `data` es `null` si no están unidos. El camino usa la mayor certeza
 disponible y después el menor número de saltos, como el impacto. `text` está
 listo para pegar en una petición de cambio.
+
+### GET /api/v1/resilience
+
+El [informe de resiliencia](/es/docs/manual/map-and-impact#informe-de-resiliencia):
+a qué podría afectar cada recurso, puntos únicos de fallo y orden de
+recuperación. Parámetros opcionales:
+
+- `environment` — p. ej. `PRODUCTION`: solo los recursos de ese entorno;
+- `view` — el id de una vista guardada: solo los recursos que muestra (404
+  si no es del espacio de trabajo del token);
+- `confidence` — qué relaciones cuentan: `confirmed`, `detected`
+  (confirmadas y detectadas, por defecto) o `all`.
+
+```json
+{
+  "data": {
+    "scope": { "environment": null, "view": null, "confidence": "detected" },
+    "resources": 4,
+    "relationships": 3,
+    "unreviewed": 1,
+    "tooLarge": false,
+    "ranking": [
+      {
+        "resource": { "id": "…", "name": "SQL01", "type": "SERVER" },
+        "couldAffect": 3,
+        "byConfidence": { "confirmed": 2, "detected": 1, "inferred": 0 },
+        "coveredByRedundancy": 0,
+        "dependsOn": 0,
+        "singlePointOfFailure": true,
+        "criticality": "CRITICAL",
+        "redundancyGroup": null,
+        "owner": "DBA",
+        "ownerContact": "dba@example.com"
+      }
+    ],
+    "recovery": {
+      "waves": [
+        [
+          {
+            "resources": [{ "id": "…", "name": "SQL01", "type": "SERVER" }],
+            "circular": false,
+            "redundancyGroup": null
+          }
+        ]
+      ],
+      "unconnected": [{ "id": "…", "name": "NAS01", "type": "STORAGE" }]
+    }
+  }
+}
+```
+
+`ranking` incluye todos los recursos del alcance, de más a menos impacto;
+`couldAffect` es el número que muestra su página de impacto (con
+redundancia), `byConfidence` lo reparte según el enlace más débil del camino
+y `dependsOn` cuenta los recursos que podrían afectarle. Las relaciones
+`unreviewed` siguen esperando en Suggestions: los números pueden cambiar
+cuando se revisen. Cada oleada de `recovery.waves` depende solo de las
+anteriores; un paso es `circular` cuando sus recursos dependen unos de otros
+en círculo. Con más de 5.000 recursos en el alcance, `tooLarge` es `true` y
+las listas van vacías: acota el alcance.

@@ -5,6 +5,29 @@ images). The agent has its own changelog in the InfraMole/agent repository.
 To update an installation, see
 [Upgrade guide](https://inframole.com/docs/operations/upgrade).
 
+## 0.34.0 — 2026-10-27
+
+### Added
+
+- **Resilience report**: a new page, _Resilience_, shows for the whole map,
+  an environment or a saved view which resources could affect the most and
+  which depend on the most, the single points of failure (could affect
+  others, no redundancy group) with who to talk to, and the order to bring
+  everything back after an outage, in waves. Choose which relationships
+  count (confirmed only, confirmed and detected, or all); the hand-set
+  criticality is shown beside the numbers, never mixed in. Print or save it
+  as PDF. Available in every edition.
+- **Library**: a sortable _Could affect_ column — how many resources could
+  be affected if that one stops working.
+- **API**: `GET /api/v1/resilience` returns the same report.
+- **Example data**: the two domain controllers form a redundancy group.
+
+### Fixed
+
+- **Docs**: long commands in tabbed code blocks (Linux / macOS · Windows)
+  no longer stretch past the page column; they scroll inside the block like
+  the others.
+
 ## 0.33.1 — 2026-10-26
 
 ### Security

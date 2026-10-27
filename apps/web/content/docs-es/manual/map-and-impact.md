@@ -235,6 +235,47 @@ enlace antiguo incluye recursos archivados o borrados, se dejan fuera y la
 página lo indica. El mismo cálculo está en la
 [API de solo lectura](/es/docs/reference/api) (`/api/v1/impact`).
 
+## Informe de resiliencia
+
+**Resilience** (en la barra lateral) mira todo el mapa, un entorno o una
+vista guardada de una vez y responde tres preguntas: _¿qué recursos podrían
+afectar a más cosas?_, _¿cuáles no tienen redundancia?_ y _¿en qué orden lo
+levantaríamos todo?_
+
+- **Single points of failure** — recursos que podrían afectar a otros y no
+  están en un [grupo de redundancia](#redundancia), con su responsable. Al
+  declarar un grupo de redundancia en un recurso, sale de la lista en cuanto
+  el grupo tiene dos miembros.
+- **Could affect the most** — para cada recurso, cuántos otros podrían verse
+  afectados si deja de funcionar (el número de su página de impacto),
+  cuántos de ellos solo por enlaces confirmados y cuántos cubriría la
+  redundancia. Pulsa una columna para ordenar por ella.
+- **Depend on the most** — el mismo cálculo leído al revés: cuántos recursos
+  podrían afectar a cada uno.
+- **Recovery order** — si todo lo del alcance cayera, las oleadas para
+  levantarlo: cada oleada depende solo de las anteriores. Los miembros de un
+  grupo de redundancia vuelven juntos; los recursos que dependen unos de
+  otros en círculo aparecen juntos y marcados como _circular_ (su orden no
+  se conoce). Los recursos sin ningún enlace que propague fallos pueden
+  volver en cualquier orden.
+
+Por defecto el informe cuenta relaciones confirmadas y detectadas; elige
+**Confirmed relationships only** para quedarte con lo que alguien ha
+comprobado, o incluye también las inferidas. Si hay relaciones esperando en
+Suggestions, el informe lo indica: los números pueden cambiar cuando se
+revisen. La **criticidad** que pones se muestra junto a los números y nunca
+se mezcla con ellos.
+
+**Print / Save as PDF** da un informe limpio para una auditoría, un plan de
+continuidad o una reunión; para añadir una imagen del mapa, usa la
+[exportación del mapa](#exportar-un-mapa-o-un-impacto). El informe se
+calcula al abrirlo, no se guarda nada, y el alcance va en la dirección, así
+que un enlace abre el mismo informe. Cualquier miembro, también los de solo
+lectura, puede verlo. La Library tiene el mismo número **Could affect** como
+columna por la que ordenar, y la [API de solo lectura](/es/docs/reference/api)
+tiene el informe completo (`/api/v1/resilience`). Un alcance de más de 5.000
+recursos te pide elegir un entorno o una vista guardada.
+
 ## Exportar un mapa o un impacto
 
 **Export PNG**, **SVG** o **PDF** en la barra del mapa guarda exactamente lo

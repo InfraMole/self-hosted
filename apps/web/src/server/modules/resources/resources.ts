@@ -7,6 +7,7 @@ import { Prisma, type Resource } from "@/generated/prisma/client";
 import { assertRole, type WorkspaceContext } from "@/server/authz";
 import { tenantDb } from "@/server/db";
 import { recordUserChange } from "@/server/modules/changes/changes";
+import { couldAffectOf } from "@/server/modules/resilience/resilience";
 import { diffResource, updateSummary, type ResourceSnapshot } from "./diff";
 import {
   resourceFiltersSchema,
@@ -147,6 +148,8 @@ export const LIBRARY_SORTS = [
   "type",
   "environment",
   "criticality",
+  /** Could affect (M44): computed from the graph, not a column. */
+  "impact",
   "status",
   "owner",
   "updated",
@@ -160,9 +163,9 @@ export const libraryQuerySchema = resourceFiltersSchema.extend({
   page: z.coerce.number().int().min(1).max(1_000_000).optional().catch(undefined),
 });
 
-/** Most useful first when a column is clicked: newest, most critical. */
+/** Most useful first when a column is clicked: newest, most critical, most impact. */
 export const defaultDirection = (sort: LibrarySort): "asc" | "desc" =>
-  sort === "updated" || sort === "criticality" ? "desc" : "asc";
+  sort === "updated" || sort === "criticality" || sort === "impact" ? "desc" : "asc";
 
 export interface LibraryPage {
   rows: ResourceView[];
@@ -172,6 +175,8 @@ export interface LibraryPage {
   pageSize: number;
   sort: LibrarySort;
   dir: "asc" | "desc";
+  /** Could affect (M44) of each row; archived resources are not on the map (0). */
+  couldAffect: Map<string, number>;
 }
 
 /**
@@ -191,6 +196,32 @@ export async function listResourcesPage(
   const total = await db.resource.count({ where });
   const pages = Math.max(1, Math.ceil(total / LIBRARY_PAGE_SIZE));
   const page = Math.min(query.page ?? 1, pages);
+  if (sort === "impact") {
+    // Computed, not stored: rank every match, then cut the page (one impact
+    // per match — the whole workspace only when nothing is filtered).
+    const all = await db.resource.findMany({ where, select: { id: true, name: true } });
+    const couldAffect = await couldAffectOf(
+      ctx,
+      all.map((r) => r.id),
+    );
+    const sign = dir === "asc" ? 1 : -1;
+    const ids = all
+      .sort(
+        (a, b) =>
+          sign * ((couldAffect.get(a.id) ?? 0) - (couldAffect.get(b.id) ?? 0)) ||
+          a.name.localeCompare(b.name) ||
+          a.id.localeCompare(b.id),
+      )
+      .slice((page - 1) * LIBRARY_PAGE_SIZE, page * LIBRARY_PAGE_SIZE)
+      .map((r) => r.id);
+    const byId = new Map(
+      (
+        await db.resource.findMany({ where: { workspaceId: ctx.workspaceId, id: { in: ids } } })
+      ).map((r) => [r.id, r]),
+    );
+    const rows = ids.flatMap((id) => (byId.has(id) ? [toView(byId.get(id)!)] : []));
+    return { rows, total, page, pages, pageSize: LIBRARY_PAGE_SIZE, sort, dir, couldAffect };
+  }
   const nullable = (field: "environment" | "criticality" | "owner") =>
     ({ [field]: { sort: dir, nulls: "last" } }) as Prisma.ResourceOrderByWithRelationInput;
   const primary: Prisma.ResourceOrderByWithRelationInput =
@@ -205,7 +236,20 @@ export async function listResourcesPage(
     skip: (page - 1) * LIBRARY_PAGE_SIZE,
     take: LIBRARY_PAGE_SIZE,
   });
-  return { rows: rows.map(toView), total, page, pages, pageSize: LIBRARY_PAGE_SIZE, sort, dir };
+  const couldAffect = await couldAffectOf(
+    ctx,
+    rows.map((r) => r.id),
+  );
+  return {
+    rows: rows.map(toView),
+    total,
+    page,
+    pages,
+    pageSize: LIBRARY_PAGE_SIZE,
+    sort,
+    dir,
+    couldAffect,
+  };
 }
 
 /**

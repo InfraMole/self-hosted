@@ -24,6 +24,7 @@ import {
   toImpactEdges,
 } from "@/server/modules/impact/impact";
 import { getWorkspaceGraph } from "@/server/modules/map/map";
+import { ResilienceViewError, getResilience } from "@/server/modules/resilience/resilience";
 import { resourceMetadataSchema } from "@/server/modules/resources/schemas";
 
 /**
@@ -385,5 +386,59 @@ export async function apiPath(ctx: WorkspaceContext, raw: unknown) {
       confidence: s.confidence,
     })),
     text: describePath(result, edges, name),
+  };
+}
+
+/**
+ * Resilience report (M44, ADR-060): what each resource could affect and what
+ * could affect it, single points of failure, recovery order. Query:
+ * `?environment=PRODUCTION`, `?view=<saved view id>`,
+ * `?confidence=confirmed|detected|all` (default detected).
+ */
+export async function apiResilience(ctx: WorkspaceContext, raw: unknown) {
+  let result;
+  try {
+    result = await getResilience(ctx, raw);
+  } catch (error) {
+    if (error instanceof ResilienceViewError) throw new ApiNotFoundError(error.message);
+    throw error;
+  }
+  const ref = (n: { id: string; name: string; type: ResourceType }) => ({
+    id: n.id,
+    name: n.name,
+    type: n.type,
+  });
+  const single = new Set(result.singlePoints.map((r) => r.resource.id));
+  return {
+    scope: result.scope,
+    resources: result.resources,
+    relationships: result.relationships,
+    /** Not reviewed yet: the numbers can change when they are. */
+    unreviewed: result.unreviewed,
+    /** Too many resources in scope: narrow it with environment or view. */
+    tooLarge: result.tooLarge,
+    /** Most impact first. "Could affect", never "will break". */
+    ranking: result.ranking.map((r) => ({
+      resource: ref(r.resource),
+      couldAffect: r.couldAffect,
+      byConfidence: r.byConfidence,
+      coveredByRedundancy: r.covered,
+      dependsOn: r.dependsOn,
+      singlePointOfFailure: single.has(r.resource.id),
+      criticality: r.resource.criticality,
+      redundancyGroup: r.resource.redundancyGroup,
+      owner: r.resource.owner,
+      ownerContact: r.resource.ownerContact,
+    })),
+    recovery: {
+      waves: result.recovery.waves.map((wave) =>
+        wave.map((step) => ({
+          resources: step.resources.map(ref),
+          circular: step.circular,
+          redundancyGroup: step.groupName,
+        })),
+      ),
+      unconnected: result.recovery.unconnected.map(ref),
+    },
   };
 }

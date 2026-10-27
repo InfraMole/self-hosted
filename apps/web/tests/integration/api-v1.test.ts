@@ -4,12 +4,14 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { GET as changeImpactRoute } from "@/app/api/v1/impact/route";
 import { GET as pathRoute } from "@/app/api/v1/path/route";
 import { GET as relationshipsRoute } from "@/app/api/v1/relationships/route";
+import { GET as resilienceRoute } from "@/app/api/v1/resilience/route";
 import { GET as impactRoute } from "@/app/api/v1/resources/[id]/impact/route";
 import { GET as resourceRoute } from "@/app/api/v1/resources/[id]/route";
 import { GET as resourcesRoute } from "@/app/api/v1/resources/route";
 import { GET as workspaceRoute } from "@/app/api/v1/workspace/route";
 import { ForbiddenError, type Role, type WorkspaceContext } from "@/server/authz";
 import { listAuditEvents } from "@/server/modules/audit/audit";
+import { saveView } from "@/server/modules/map/views";
 import {
   ApiTokenError,
   API_TOKENS_LIMIT,
@@ -397,5 +399,51 @@ describe("API v1 endpoints", () => {
       (await changeImpactRoute(get(`/api/v1/impact?ids=${foreign.sql01}`, token))).status,
     ).toBe(404);
     expect((await changeImpactRoute(get(`/api/v1/impact`, token))).status).toBe(400);
+  });
+
+  it("returns the resilience report of the token's workspace", async () => {
+    const owner = await ownerContext("Acme");
+    await seed(owner);
+    const other = await ownerContext("Other");
+    await seed(other);
+    const { id: foreignView } = await saveView(other, { name: "Theirs", state: {} });
+    const { token } = await createApiToken(owner, { name: "t", expiresInDays: 30 });
+
+    const res = await body(await resilienceRoute(get("/api/v1/resilience", token)));
+    expect(res.data).toMatchObject({
+      scope: { environment: null, view: null, confidence: "detected" },
+      resources: 4,
+      relationships: 3,
+      unreviewed: 1,
+      tooLarge: false,
+    });
+    expect(res.data.ranking[0]).toMatchObject({
+      resource: { name: "SQL01", type: "SERVER" },
+      couldAffect: 3,
+      byConfidence: { confirmed: 2, detected: 1, inferred: 0 },
+      coveredByRedundancy: 0,
+      dependsOn: 0,
+      singlePointOfFailure: true,
+      owner: "DBA",
+    });
+    expect(
+      res.data.recovery.waves.map((w: { resources: { name: string }[] }[]) =>
+        w.map((s) => s.resources[0]!.name),
+      ),
+    ).toEqual([["SQL01"], ["CustomersDB"], ["Billing"], ["IT Portal"]]);
+
+    const confirmed = await body(
+      await resilienceRoute(get("/api/v1/resilience?confidence=confirmed", token)),
+    );
+    expect(confirmed.data.recovery.unconnected).toEqual([
+      expect.objectContaining({ name: "IT Portal" }),
+    ]);
+    // Another workspace's saved view is simply not found.
+    expect(
+      (await resilienceRoute(get(`/api/v1/resilience?view=${foreignView}`, token))).status,
+    ).toBe(404);
+    expect((await resilienceRoute(get("/api/v1/resilience?confidence=maybe", token))).status).toBe(
+      400,
+    );
   });
 });

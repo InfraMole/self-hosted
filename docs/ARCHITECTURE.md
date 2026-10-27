@@ -115,6 +115,7 @@ tested; DB-backed lookups are integration tested).
 | `/w/[slug]/resources/[id]`                                                                 | Resource Overview (layout holds header, Edit/Delete, tabs)                                                                                                                                                                                                                                                                                                          |
 | `/w/[slug]/resources/[id]/activity`                                                        | Resource Activity (ChangeEvents)                                                                                                                                                                                                                                                                                                                                    |
 | `/w/[slug]/map`                                                                            | Map (M3); `?impact=a,b` shows the impact of several resources (M34)                                                                                                                                                                                                                                                                                                 |
+| `/w/[slug]/resilience`                                                                     | Resilience report (M44, ADR-060): `?environment=&view=&confidence=`, ranking, single points of failure, recovery order, printable — computed on request, not stored                                                                                                                                                                                                 |
 | `/w/[slug]/plan`                                                                           | Plan a change (M34, ADR-050): `?ids=&title=&when=`, combined impact, who to warn, printable report — not stored                                                                                                                                                                                                                                                     |
 | `/w/[slug]/changes`                                                                        | Changes (M7)                                                                                                                                                                                                                                                                                                                                                        |
 | `/w/[slug]/settings`                                                                       | Workspace settings                                                                                                                                                                                                                                                                                                                                                  |
@@ -146,7 +147,7 @@ relationship id).
 | `/api/stripe/webhook` | POST, Stripe-signed; checkout completed and subscription created/updated/deleted — M9 |
 | `/api/agent/v1/enroll` | Agent enrollment (token → per-agent secret) — M5 |
 | `/api/agent/v1/report` | Agent reports (bearer secret) — M5 |
-| `/api/v1/workspace`, `/api/v1/resources`, `/api/v1/resources/{id}`, `/api/v1/resources/{id}/impact`, `/api/v1/impact?ids=` (M34), `/api/v1/relationships`, `/api/v1/path` | Read-only API (GET, bearer `dmp_api_` token → VIEWER context of its workspace; 300/min per token) — M30 |
+| `/api/v1/workspace`, `/api/v1/resources`, `/api/v1/resources/{id}`, `/api/v1/resources/{id}/impact`, `/api/v1/impact?ids=` (M34), `/api/v1/relationships`, `/api/v1/path`, `/api/v1/resilience` (M44) | Read-only API (GET, bearer `dmp_api_` token → VIEWER context of its workspace; 300/min per token) — M30 |
 | `/share/[token]` | Public read-only map of one saved view (no session; `resolveShare` → subset without IPs / owners / notes; noindex, no-referrer, 120/min per IP) — M31 |
 | `/api/cron/integrations` | POST, `Authorization: Bearer $CRON_SECRET`; syncs due integrations (404 when unset) — M8b |
 | `/api/cron/maintenance` | POST, same bearer guard (`server/cron.ts`); enforces the retention policy — M8c |
@@ -516,6 +517,23 @@ takes `?impact=a,b`; saved view state `impacts[]`
 workspace layout and a `@media print` block in `globals.css` (dark tokens →
 light). Map export: `lib/map-export/draw.ts` (one drawing program),
 `svg.ts`, `pdf.ts` (vector), painters in `components/map/export-map.ts`.
+
+## Resilience report (M44, ADR-060)
+
+`@depmap/graph`: `impactRanking(nodeIds, edges, {include, groups, maxDepth,
+roots})` (one adjacency, one `layered` impact per root with redundancy plus
+one without for `covered`; `dependsOn` from the same pass),
+`singlePointsOfFailure(ranking, groups)` and `recovery.ts#recoveryOrder`
+(redundancy groups contracted to one unit, iterative Tarjan SCCs →
+`circular` steps, waves = 1 + max over dependencies; `unconnected`). Server
+`modules/resilience/resilience.ts`: `getResilience(ctx, query)` scopes
+`getWorkspaceGraph` by saved view (`viewSubset`) and environment,
+`RESILIENCE_CONFIDENCE` presets, `RESILIENCE_LIMIT` = 5,000 resources
+(`tooLarge`, nothing computed); `couldAffectOf(ctx, ids)` for the Library
+column (sort `impact` ranks every match, then cuts the page). Page
+`app/w/[slug]/resilience/page.tsx` + `components/resilience/` (URL filters,
+client-sortable `RankingTable`); API `apiResilience` →
+`/api/v1/resilience`. No schema, no cache (~1 s at 5,000 resources).
 
 ## Enterprise single sign-on (M33, ADR-048)
 

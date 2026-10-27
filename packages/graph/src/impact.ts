@@ -320,6 +320,95 @@ export function changeImpact(
   };
 }
 
+/** One resource in a workspace-wide impact ranking (M44, ADR-060). */
+export interface ImpactRank {
+  resourceId: string;
+  /** Resources that could be affected if this one goes down (with redundancy). */
+  couldAffect: number;
+  /** `couldAffect` split by the strongest confidence that reaches each one. */
+  byConfidence: Record<Confidence, number>;
+  /** Would be affected without redundancy, but another group member covers them. */
+  covered: number;
+  /**
+   * Resources whose failure could affect this one (the same computation read
+   * backwards). Counts only the ranked roots: complete without `roots`.
+   */
+  dependsOn: number;
+}
+
+export interface RankingOptions extends ImpactOptions {
+  /** Rank only these resources (still over the whole subgraph). Default: all. */
+  roots?: readonly string[];
+}
+
+/**
+ * `impact` of every resource in `nodeIds`, on the subgraph they form (edges
+ * with an end outside are ignored): what matters most (`couldAffect`) and
+ * what is most fragile (`dependsOn`). Same rules as the impact page —
+ * confidences, propagating types, redundancy groups, `maxDepth`. Sorted by
+ * `couldAffect`, then confirmed count, then id. O(V · (V + E)) per level.
+ */
+export function impactRanking(
+  nodeIds: readonly string[],
+  edges: readonly ImpactEdge[],
+  options: RankingOptions = {},
+): ImpactRank[] {
+  const ids = [...new Set(nodeIds)];
+  const inScope = new Set(ids);
+  const maxDepth = options.maxDepth ?? 10;
+  const include = new Set(options.include ?? LEVELS);
+  const levels = LEVELS.filter((l) => include.has(l));
+  const adjacency = buildAdjacency(
+    edges.filter((e) => inScope.has(e.from) && inScope.has(e.to)),
+    include,
+  );
+  const members = groupMembers(options.groups);
+  const dependsOn = new Map<string, number>();
+  const roots = options.roots ? [...new Set(options.roots)].filter((id) => inScope.has(id)) : ids;
+  const ranks = roots.map((id): ImpactRank => {
+    const { affected } = layered(adjacency, [id], levels, maxDepth, options.groups, members);
+    const byConfidence: Record<Confidence, number> = { confirmed: 0, detected: 0, inferred: 0 };
+    for (const a of affected) {
+      byConfidence[a.confidence]++;
+      dependsOn.set(a.resourceId, (dependsOn.get(a.resourceId) ?? 0) + 1);
+    }
+    const plain =
+      members.size === 0
+        ? affected.length
+        : layered(adjacency, [id], levels, maxDepth, undefined, new Map()).affected.length;
+    return {
+      resourceId: id,
+      couldAffect: affected.length,
+      byConfidence,
+      covered: plain - affected.length,
+      dependsOn: 0,
+    };
+  });
+  for (const r of ranks) r.dependsOn = dependsOn.get(r.resourceId) ?? 0;
+  return ranks.sort(
+    (a, b) =>
+      b.couldAffect - a.couldAffect ||
+      b.byConfidence.confirmed - a.byConfidence.confirmed ||
+      a.resourceId.localeCompare(b.resourceId),
+  );
+}
+
+/**
+ * Single points of failure (M44): resources that could affect at least one
+ * other and have no redundancy group with another member. "No redundancy
+ * known" — only declared groups count (ADR-057). Keeps the ranking's order.
+ */
+export function singlePointsOfFailure(
+  ranking: readonly ImpactRank[],
+  groups?: ReadonlyMap<string, string>,
+): ImpactRank[] {
+  const members = groupMembers(groups);
+  return ranking.filter((r) => {
+    const group = groups?.get(r.resourceId);
+    return r.couldAffect > 0 && !(group !== undefined && members.has(group));
+  });
+}
+
 export interface ImpactSummary {
   total: number;
   byConfidence: Record<Confidence, number>;

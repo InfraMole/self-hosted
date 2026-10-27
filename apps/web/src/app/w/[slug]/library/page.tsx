@@ -166,6 +166,7 @@ export default async function LibraryPage({
                   sourceLabel: r.sourceLabel,
                   owner: r.owner,
                   tech: resolveTech(r.tags, r.metadata.os),
+                  couldAffect: library.couldAffect.get(r.id) ?? 0,
                 }))}
               />
             )}
